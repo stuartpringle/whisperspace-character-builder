@@ -257,6 +257,17 @@ button:disabled {
   padding-top: 16px;
 }
 
+.cloud-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cloud-search input {
+  flex: 1;
+}
+
 .cloud-list ul {
   list-style: none;
   padding: 0;

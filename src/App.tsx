@@ -45,6 +45,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [storageTarget, setStorageTarget] = useState<StorageTarget>("draft");
   const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
+  const [cloudQuery, setCloudQuery] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>(
     localStorage.getItem("ws_character_api_key") || ""
   );
@@ -118,6 +119,15 @@ export default function App() {
   useEffect(() => {
     void refreshCloudList();
   }, [cloudEnabled]);
+
+  const filteredCloudList = useMemo(() => {
+    const q = cloudQuery.trim().toLowerCase();
+    if (!q) return cloudList;
+    return cloudList.filter((item) => {
+      const hay = `${item.name ?? ""} ${item.id ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [cloudList, cloudQuery]);
 
   const handleSave = async () => {
     setSaveStatus("saving...");
@@ -548,11 +558,21 @@ export default function App() {
         </div>
         <div className="cloud-list">
           <h3>Cloud Characters</h3>
-          {cloudList.length === 0 ? (
+          <div className="cloud-search">
+            <input
+              value={cloudQuery}
+              onChange={(e) => setCloudQuery(e.target.value)}
+              placeholder="Search by name or id"
+            />
+            <span className="muted">
+              {filteredCloudList.length} of {cloudList.length}
+            </span>
+          </div>
+          {filteredCloudList.length === 0 ? (
             <p className="muted">No cloud characters found.</p>
           ) : (
             <ul>
-              {cloudList.map((item) => (
+              {filteredCloudList.map((item) => (
                 <li key={item.id}>
                   <div>
                     <strong>{item.name || "Unnamed"}</strong>
