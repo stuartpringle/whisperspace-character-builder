@@ -122,6 +122,10 @@ header p {
   box-shadow: 0 24px 60px rgba(15, 10, 5, 0.1);
 }
 
+.card.cloud {
+  background: #f7f1e7;
+}
+
 .grid {
   display: grid;
   gap: 16px;
@@ -214,6 +218,22 @@ button:disabled {
 
 .muted {
   color: #6b5f52;
+}
+
+.inline {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.inline input {
+  flex: 1;
+}
+
+.toggle {
+  display: grid;
+  gap: 8px;
+  align-items: start;
 }
 
 .summary {

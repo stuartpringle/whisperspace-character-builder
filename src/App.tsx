@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { RULES_API_BASE } from "@whisperspace/sdk";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CHARACTER_API_BASE, RULES_API_BASE } from "@whisperspace/sdk";
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
 import { clearDraft, loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
+import { fetchCharacter } from "./storage/remote";
+import { getLastSync, syncToCloud } from "./storage/sync";
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "basics", label: "Basics", hint: "Who are they?" },
@@ -24,9 +26,23 @@ const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState<string>("checking...");
+  const apiBase = useMemo(
+    () => (import.meta as any).env?.VITE_CHARACTER_API_BASE || CHARACTER_API_BASE,
+    []
+  );
   const [sheet, setSheet] = useState<CharacterSheet>(() => loadDraft() ?? createBlankCharacter());
   const [step, setStep] = useState<BuilderStep>("basics");
   const [importError, setImportError] = useState<string>("");
+  const [cloudEnabled, setCloudEnabled] = useState<boolean>(
+    localStorage.getItem("ws_character_cloud_enabled") === "true"
+  );
+  const [cloudStatus, setCloudStatus] = useState<string>(getLastSync() || "not synced");
+  const [cloudError, setCloudError] = useState<string>("");
+  const [cloudId, setCloudId] = useState<string>("");
+  const [apiKey, setApiKey] = useState<string>(
+    localStorage.getItem("ws_character_api_key") || ""
+  );
+  const syncTimer = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +64,33 @@ export default function App() {
   useEffect(() => {
     saveDraft(sheet);
   }, [sheet]);
+
+  useEffect(() => {
+    localStorage.setItem("ws_character_cloud_enabled", String(cloudEnabled));
+  }, [cloudEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("ws_character_api_key", apiKey);
+  }, [apiKey]);
+
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(async () => {
+      setCloudError("");
+      setCloudStatus("syncing...");
+      const result = await syncToCloud(sheet);
+      if (result.ok) {
+        setCloudStatus(`synced ${new Date(result.at || "").toLocaleTimeString()}`);
+      } else {
+        setCloudStatus("sync failed");
+        setCloudError(result.error || "Sync failed");
+      }
+    }, 800);
+    return () => {
+      if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    };
+  }, [sheet, cloudEnabled]);
 
   const currentStepIndex = useMemo(
     () => STEPS.findIndex((s) => s.id === step),
@@ -114,6 +157,7 @@ export default function App() {
           </div>
         </div>
         {importError ? <p className="error">{importError}</p> : null}
+        {cloudError ? <p className="error">{cloudError}</p> : null}
       </header>
 
       <nav className="steps">
@@ -326,6 +370,78 @@ export default function App() {
             />
           </div>
         )}
+      </section>
+
+      <section className="card cloud">
+        <h2>Cloud Sync</h2>
+        <p className="muted">
+          Base URL: {apiBase}. Override with{" "}
+          <code>VITE_CHARACTER_API_BASE</code>.
+        </p>
+        <div className="grid two">
+          <div>
+            <label>API Key (optional)</label>
+            <input
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Optional shared key"
+            />
+          </div>
+          <div className="toggle">
+            <label>Enable Cloud Sync</label>
+            <button className={cloudEnabled ? "primary" : "ghost"} onClick={() => setCloudEnabled(!cloudEnabled)}>
+              {cloudEnabled ? "Enabled" : "Disabled"}
+            </button>
+            <span className="muted">Status: {cloudStatus}</span>
+          </div>
+        </div>
+        <div className="grid two">
+          <div>
+            <label>Load Character by ID</label>
+            <div className="inline">
+              <input
+                value={cloudId}
+                onChange={(e) => setCloudId(e.target.value)}
+                placeholder="UUID"
+              />
+              <button
+                className="ghost"
+                onClick={async () => {
+                  if (!cloudId) return;
+                  setCloudError("");
+                  try {
+                    const data = await fetchCharacter(cloudId);
+                    updateSheet(data);
+                    setStep("review");
+                  } catch {
+                    setCloudError("Could not load that character.");
+                  }
+                }}
+              >
+                Load
+              </button>
+            </div>
+          </div>
+          <div className="stack">
+            <label>Manual Sync</label>
+            <button
+              className="ghost"
+              onClick={async () => {
+                setCloudError("");
+                setCloudStatus("syncing...");
+                const result = await syncToCloud(sheet);
+                if (result.ok) {
+                  setCloudStatus(`synced ${new Date(result.at || "").toLocaleTimeString()}`);
+                } else {
+                  setCloudStatus("sync failed");
+                  setCloudError(result.error || "Sync failed");
+                }
+              }}
+            >
+              Sync Now
+            </button>
+          </div>
+        </div>
       </section>
 
       <footer className="footer">
