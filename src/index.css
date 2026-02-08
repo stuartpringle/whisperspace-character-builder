@@ -68,6 +68,15 @@ header p {
   color: #9d1c1c;
 }
 
+.conflict {
+  background: #fff4e5;
+  border: 1px solid rgba(157, 28, 28, 0.25);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: grid;
+  gap: 8px;
+}
+
 .header-actions {
   display: flex;
   gap: 12px;
@@ -240,6 +249,36 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
+}
+
+.cloud-list {
+  margin-top: 20px;
+  border-top: 1px solid rgba(90, 76, 64, 0.2);
+  padding-top: 16px;
+}
+
+.cloud-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.cloud-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #fffdf9;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 76, 64, 0.15);
+}
+
+.cloud-list li span {
+  display: block;
+  font-size: 0.85rem;
 }
 
 .summary ul {

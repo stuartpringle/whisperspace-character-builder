@@ -15,6 +15,10 @@ function authHeaders() {
 
 export type CharacterSummary = Pick<CharacterSheet, "id" | "name" | "updatedAt">;
 
+export type SaveResponse =
+  | { ok: true; sheet: CharacterSheet }
+  | { ok: false; error: string; conflict?: CharacterSheet };
+
 export async function listCharacters(): Promise<CharacterSummary[]> {
   const res = await fetch(`${API_BASE}/characters`, {
     headers: authHeaders(),
@@ -31,14 +35,21 @@ export async function fetchCharacter(id: string): Promise<CharacterSheet> {
   return (await res.json()) as CharacterSheet;
 }
 
-export async function saveCharacter(sheet: CharacterSheet): Promise<CharacterSheet> {
-  const res = await fetch(`${API_BASE}/characters/${sheet.id}`, {
+export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: boolean }): Promise<SaveResponse> {
+  const res = await fetch(`${API_BASE}/characters/${sheet.id}${opts?.force ? "?force=1" : ""}`, {
     method: "PUT",
-    headers: authHeaders(),
+    headers: {
+      ...authHeaders(),
+      "If-Unmodified-Since": sheet.updatedAt,
+    },
     body: JSON.stringify(sheet),
   });
+  if (res.status === 409) {
+    const payload = await res.json();
+    return { ok: false, error: "conflict", conflict: payload?.current as CharacterSheet };
+  }
   if (!res.ok) throw new Error("Failed to save character");
-  return (await res.json()) as CharacterSheet;
+  return { ok: true, sheet: (await res.json()) as CharacterSheet };
 }
 
 export async function deleteCharacter(id: string): Promise<void> {

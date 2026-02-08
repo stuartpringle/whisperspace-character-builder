@@ -11,7 +11,10 @@ export type SyncResult = {
 
 export async function syncToCloud(sheet: CharacterSheet): Promise<SyncResult> {
   try {
-    await saveCharacter(sheet);
+    const result = await saveCharacter(sheet);
+    if (!result.ok) {
+      return { ok: false, error: "Conflict: remote has a newer version" };
+    }
     const at = new Date().toISOString();
     localStorage.setItem(LAST_SYNC_KEY, at);
     return { ok: true, at };

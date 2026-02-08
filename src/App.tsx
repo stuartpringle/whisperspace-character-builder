@@ -3,9 +3,10 @@ import { CHARACTER_API_BASE, RULES_API_BASE } from "@whisperspace/sdk";
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
 import { clearDraft, loadDraft, saveDraft } from "./storage/local";
-import { downloadCharacter, readCharacterFile } from "./storage/transfer";
-import { fetchCharacter } from "./storage/remote";
+import { readCharacterFile } from "./storage/transfer";
 import { getLastSync, syncToCloud } from "./storage/sync";
+import { getProviders, type StorageTarget } from "./storage/providers";
+import { saveCharacter } from "./storage/remote";
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "basics", label: "Basics", hint: "Who are they?" },
@@ -39,6 +40,11 @@ export default function App() {
   const [cloudStatus, setCloudStatus] = useState<string>(getLastSync() || "not synced");
   const [cloudError, setCloudError] = useState<string>("");
   const [cloudId, setCloudId] = useState<string>("");
+  const [cloudList, setCloudList] = useState<Array<{ id: string; name: string; updatedAt: string }>>([]);
+  const [cloudLoading, setCloudLoading] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string>("");
+  const [storageTarget, setStorageTarget] = useState<StorageTarget>("draft");
+  const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
   const [apiKey, setApiKey] = useState<string>(
     localStorage.getItem("ws_character_api_key") || ""
   );
@@ -91,6 +97,47 @@ export default function App() {
       if (syncTimer.current) window.clearTimeout(syncTimer.current);
     };
   }, [sheet, cloudEnabled]);
+
+  const providers = useMemo(() => getProviders(), []);
+  const activeProvider = providers.find((p) => p.id === storageTarget) || providers[0];
+  const cloudProvider = providers.find((p) => p.id === "cloud");
+
+  const refreshCloudList = async () => {
+    if (!cloudEnabled) return;
+    setCloudLoading(true);
+    try {
+      const list = await cloudProvider?.list?.();
+      if (list) setCloudList(list);
+    } catch {
+      setCloudError("Could not load cloud list.");
+    } finally {
+      setCloudLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshCloudList();
+  }, [cloudEnabled]);
+
+  const handleSave = async () => {
+    setSaveStatus("saving...");
+    setCloudError("");
+    setConflictSheet(null);
+    const result = await activeProvider.save(sheet);
+    if (result.ok) {
+      setSaveStatus(result.message || "saved");
+      if (storageTarget === "cloud") {
+        await refreshCloudList();
+      }
+    } else if (result.conflict) {
+      setSaveStatus("conflict");
+      setCloudError("Conflict: remote has a newer version.");
+      setConflictSheet(result.conflict);
+    } else {
+      setSaveStatus("failed");
+      setCloudError(result.message || "Save failed");
+    }
+  };
 
   const currentStepIndex = useMemo(
     () => STEPS.findIndex((s) => s.id === step),
@@ -158,6 +205,39 @@ export default function App() {
         </div>
         {importError ? <p className="error">{importError}</p> : null}
         {cloudError ? <p className="error">{cloudError}</p> : null}
+        {saveStatus ? <p className="muted">Save: {saveStatus}</p> : null}
+        {conflictSheet ? (
+          <div className="conflict">
+            <p className="error">Conflict detected. Remote version is newer.</p>
+            <div className="inline">
+              <button
+                className="ghost"
+                onClick={() => {
+                  updateSheet(conflictSheet);
+                  setConflictSheet(null);
+                  setStep("review");
+                }}
+              >
+                Load Remote
+              </button>
+              <button
+                className="ghost danger"
+                onClick={async () => {
+                  const result = await saveCharacter(sheet, { force: true });
+                  if (result.ok) {
+                    setConflictSheet(null);
+                    setSaveStatus("overwrote remote");
+                    await refreshCloudList();
+                  } else {
+                    setCloudError("Force save failed");
+                  }
+                }}
+              >
+                Overwrite Remote
+              </button>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <nav className="steps">
@@ -395,6 +475,30 @@ export default function App() {
             <span className="muted">Status: {cloudStatus}</span>
           </div>
         </div>
+        <div className="grid three">
+          <div>
+            <label>Save Target</label>
+            <select value={storageTarget} onChange={(e) => setStorageTarget(e.target.value as StorageTarget)}>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="stack">
+            <label>Save</label>
+            <button className="ghost" onClick={handleSave}>
+              Save Now
+            </button>
+          </div>
+          <div className="stack">
+            <label>Cloud List</label>
+            <button className="ghost" onClick={refreshCloudList} disabled={!cloudEnabled || cloudLoading}>
+              {cloudLoading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+        </div>
         <div className="grid two">
           <div>
             <label>Load Character by ID</label>
@@ -410,8 +514,8 @@ export default function App() {
                   if (!cloudId) return;
                   setCloudError("");
                   try {
-                    const data = await fetchCharacter(cloudId);
-                    updateSheet(data);
+                    const data = await cloudProvider?.load?.(cloudId);
+                    if (data) updateSheet(data);
                     setStep("review");
                   } catch {
                     setCloudError("Could not load that character.");
@@ -441,6 +545,54 @@ export default function App() {
               Sync Now
             </button>
           </div>
+        </div>
+        <div className="cloud-list">
+          <h3>Cloud Characters</h3>
+          {cloudList.length === 0 ? (
+            <p className="muted">No cloud characters found.</p>
+          ) : (
+            <ul>
+              {cloudList.map((item) => (
+                <li key={item.id}>
+                  <div>
+                    <strong>{item.name || "Unnamed"}</strong>
+                    <span className="muted">{new Date(item.updatedAt).toLocaleString()}</span>
+                  </div>
+                  <div className="inline">
+                    <button
+                      className="ghost"
+                      onClick={async () => {
+                        setCloudError("");
+                        try {
+                          const data = await cloudProvider?.load?.(item.id);
+                          if (data) updateSheet(data);
+                          setStep("review");
+                        } catch {
+                          setCloudError("Could not load that character.");
+                        }
+                      }}
+                    >
+                      Load
+                    </button>
+                    <button
+                      className="ghost danger"
+                      onClick={async () => {
+                        if (!cloudProvider?.remove) return;
+                        try {
+                          await cloudProvider.remove(item.id);
+                          await refreshCloudList();
+                        } catch {
+                          setCloudError("Could not delete that character.");
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
