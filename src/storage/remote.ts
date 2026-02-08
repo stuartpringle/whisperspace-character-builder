@@ -19,6 +19,16 @@ export type SaveResponse =
   | { ok: true; sheet: CharacterSheet }
   | { ok: false; error: string; conflict?: CharacterSheet };
 
+export type AdminListResponse = {
+  count: number;
+  items: Array<{
+    id: string;
+    name: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+};
+
 export async function listCharacters(): Promise<CharacterSummary[]> {
   const res = await fetch(`${API_BASE}/characters`, {
     headers: authHeaders(),
@@ -58,4 +68,21 @@ export async function deleteCharacter(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete character");
+}
+
+export async function adminListCharacters(): Promise<AdminListResponse> {
+  const res = await fetch(`${API_BASE}/admin/characters`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to load admin list");
+  return (await res.json()) as AdminListResponse;
+}
+
+export async function adminDeleteAll(): Promise<{ ok: boolean; deleted: number }> {
+  const res = await fetch(`${API_BASE}/admin/characters?confirm=1`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error("Failed to delete all characters");
+  return (await res.json()) as { ok: boolean; deleted: number };
 }

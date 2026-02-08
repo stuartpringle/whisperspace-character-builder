@@ -6,7 +6,7 @@ import { clearDraft, loadDraft, saveDraft } from "./storage/local";
 import { readCharacterFile } from "./storage/transfer";
 import { getLastSync, syncToCloud } from "./storage/sync";
 import { getProviders, type StorageTarget } from "./storage/providers";
-import { saveCharacter } from "./storage/remote";
+import { adminDeleteAll, adminListCharacters, saveCharacter } from "./storage/remote";
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "basics", label: "Basics", hint: "Who are they?" },
@@ -46,6 +46,10 @@ export default function App() {
   const [storageTarget, setStorageTarget] = useState<StorageTarget>("draft");
   const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
   const [cloudQuery, setCloudQuery] = useState<string>("");
+  const [adminLoading, setAdminLoading] = useState<boolean>(false);
+  const [adminCount, setAdminCount] = useState<number>(0);
+  const [adminItems, setAdminItems] = useState<Array<{ id: string; name: string; created_at: string; updated_at: string }>>([]);
+  const [adminError, setAdminError] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>(
     localStorage.getItem("ws_character_api_key") || ""
   );
@@ -119,6 +123,20 @@ export default function App() {
   useEffect(() => {
     void refreshCloudList();
   }, [cloudEnabled]);
+
+  const refreshAdminList = async () => {
+    setAdminLoading(true);
+    setAdminError("");
+    try {
+      const data = await adminListCharacters();
+      setAdminCount(data.count);
+      setAdminItems(data.items || []);
+    } catch {
+      setAdminError("Failed to load admin list.");
+    } finally {
+      setAdminLoading(false);
+    }
+  };
 
   const filteredCloudList = useMemo(() => {
     const q = cloudQuery.trim().toLowerCase();
@@ -614,6 +632,54 @@ export default function App() {
             </ul>
           )}
         </div>
+      </section>
+
+      <section className="card admin">
+        <h2>Admin</h2>
+        <p className="muted">Admin endpoints require the shared API key.</p>
+        {adminError ? <p className="error">{adminError}</p> : null}
+        <div className="inline">
+          <button className="ghost" onClick={refreshAdminList} disabled={adminLoading}>
+            {adminLoading ? "Loading..." : "Load Admin List"}
+          </button>
+          <button
+            className="ghost danger"
+            onClick={async () => {
+              const ok = window.confirm("Delete ALL characters from the server?");
+              if (!ok) return;
+              setAdminError("");
+              try {
+                const result = await adminDeleteAll();
+                setAdminCount(0);
+                setAdminItems([]);
+                setSaveStatus(`deleted ${result.deleted}`);
+              } catch {
+                setAdminError("Failed to delete all characters.");
+              }
+            }}
+          >
+            Delete All
+          </button>
+          <span className="muted">Count: {adminCount}</span>
+        </div>
+        {adminItems.length > 0 ? (
+          <div className="cloud-list">
+            <ul>
+              {adminItems.map((item) => (
+                <li key={item.id}>
+                  <div>
+                    <strong>{item.name || "Unnamed"}</strong>
+                    <span className="muted">Created: {new Date(item.created_at).toLocaleString()}</span>
+                    <span className="muted">Updated: {new Date(item.updated_at).toLocaleString()}</span>
+                  </div>
+                  <div className="inline">
+                    <code>{item.id}</code>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       <footer className="footer">

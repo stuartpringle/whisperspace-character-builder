@@ -135,6 +135,10 @@ header p {
   background: #f7f1e7;
 }
 
+.card.admin {
+  background: #f3f6fb;
+}
+
 .grid {
   display: grid;
   gap: 16px;
