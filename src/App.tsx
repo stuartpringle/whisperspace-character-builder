@@ -444,6 +444,7 @@ export default function App() {
                   <option value="item">Item</option>
                   <option value="cyberware">Cyberware</option>
                   <option value="narcotics">Narcotics</option>
+                  <option value="hacker_gear">Hacker Gear</option>
                 </select>
               </div>
             ))}
