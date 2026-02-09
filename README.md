@@ -32,6 +32,7 @@ npm run dev
 ## Hosting
 - Target: `https://builder.whisperspace.com/`
 - Build output: `dist/`
+- Deploy model: build from this project directory and serve the `dist/` folder directly.
 
 ## Notes
 
