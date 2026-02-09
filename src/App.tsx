@@ -46,6 +46,7 @@ export default function App() {
   const [storageTarget, setStorageTarget] = useState<StorageTarget>("draft");
   const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
   const [cloudQuery, setCloudQuery] = useState<string>("");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [adminLoading, setAdminLoading] = useState<boolean>(false);
   const [adminCount, setAdminCount] = useState<number>(0);
   const [adminItems, setAdminItems] = useState<Array<{ id: string; name: string; created_at: string; updated_at: string }>>([]);
@@ -151,10 +152,12 @@ export default function App() {
     setSaveStatus("saving...");
     setCloudError("");
     setConflictSheet(null);
+    setValidationErrors([]);
     const validation = validateCharacterRecordV1(sheet);
     if (!validation.ok) {
       setSaveStatus("invalid");
-      setCloudError(`Validation failed: ${validation.errors[0]}`);
+      setCloudError("Validation failed. See details below.");
+      setValidationErrors(validation.errors);
       return;
     }
     const result = await activeProvider.save(sheet);
@@ -240,6 +243,16 @@ export default function App() {
         {importError ? <p className="error">{importError}</p> : null}
         {cloudError ? <p className="error">{cloudError}</p> : null}
         {saveStatus ? <p className="muted">Save: {saveStatus}</p> : null}
+        {validationErrors.length > 0 ? (
+          <div className="validation">
+            <p className="error">Validation errors:</p>
+            <ul>
+              {validationErrors.map((err, idx) => (
+                <li key={`${err}-${idx}`}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         {conflictSheet ? (
           <div className="conflict">
             <p className="error">Conflict detected. Remote version is newer.</p>
