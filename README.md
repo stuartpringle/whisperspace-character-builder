@@ -2,6 +2,10 @@
 
 Web-based character builder powered by the Whisperspace rules API.
 
+## Canonical Schema
+Uses the authoritative storage schema from the SDK:
+- `CharacterRecordV1` / `CharacterRecordV1Schema` (from `@whisperspace/sdk`)
+
 ## Flow
 
 1. Basics
