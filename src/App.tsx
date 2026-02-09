@@ -12,7 +12,7 @@ const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "basics", label: "Basics", hint: "Who are they?" },
   { id: "attributes", label: "Attributes", hint: "Core stats" },
   { id: "skills", label: "Skills", hint: "Focus and ranks" },
-  { id: "gear", label: "Gear", hint: "Loadout" },
+  { id: "gear", label: "Inventory", hint: "Loadout" },
   { id: "review", label: "Review", hint: "Summary" },
 ];
 
@@ -310,12 +310,12 @@ export default function App() {
                 placeholder="Nyx"
               />
             </div>
-            <div>
-              <label>Concept</label>
+            <div className="span-2">
+              <label>Motivation</label>
               <input
-                value={sheet.concept}
-                onChange={(e) => updateSheet({ ...sheet, concept: e.target.value })}
-                placeholder="Street doc with a debt"
+                value={sheet.motivation ?? ""}
+                onChange={(e) => updateSheet({ ...sheet, motivation: e.target.value })}
+                placeholder="Keep the crew alive"
               />
             </div>
             <div className="span-2">
@@ -362,33 +362,37 @@ export default function App() {
               onClick={() =>
                 updateSheet({
                   ...sheet,
-                  skills: [
+                  skills: {
                     ...sheet.skills,
-                    { key: crypto.randomUUID(), label: "", rank: 0 },
-                  ],
+                    [`skill_${Date.now()}`]: 0,
+                  },
                 })
               }
             >
               Add Skill
             </button>
-            {sheet.skills.map((skill, idx) => (
-              <div className="grid two" key={skill.key}>
+            {Object.entries(sheet.skills ?? {}).map(([key, rank]) => (
+              <div className="grid two" key={key}>
                 <input
-                  value={skill.label}
-                  placeholder="Athletics"
+                  value={key}
+                  placeholder="athletics"
                   onChange={(e) => {
-                    const next = [...sheet.skills];
-                    next[idx] = { ...skill, label: e.target.value };
-                    updateSheet({ ...sheet, skills: next });
+                    const nextKey = e.target.value.trim();
+                    const nextSkills = { ...(sheet.skills ?? {}) };
+                    delete nextSkills[key];
+                    if (nextKey !== "") {
+                      nextSkills[nextKey] = Number(rank) || 0;
+                    }
+                    updateSheet({ ...sheet, skills: nextSkills });
                   }}
                 />
                 <input
                   type="number"
-                  value={skill.rank}
+                  value={rank}
                   onChange={(e) => {
-                    const next = [...sheet.skills];
-                    next[idx] = { ...skill, rank: Number(e.target.value) || 0 };
-                    updateSheet({ ...sheet, skills: next });
+                    const nextSkills = { ...(sheet.skills ?? {}) };
+                    nextSkills[key] = Number(e.target.value) || 0;
+                    updateSheet({ ...sheet, skills: nextSkills });
                   }}
                 />
               </div>
@@ -398,50 +402,48 @@ export default function App() {
 
         {step === "gear" && (
           <div className="stack">
-            <p className="muted">Add gear manually for now.</p>
+            <p className="muted">Add inventory manually for now.</p>
             <button
               className="ghost"
               onClick={() =>
                 updateSheet({
                   ...sheet,
-                  gear: [
-                    ...sheet.gear,
+                  inventory: [
+                    ...(sheet.inventory ?? []),
                     {
                       id: crypto.randomUUID(),
-                      name: "",
                       type: "item",
+                      name: "",
+                      quantity: 1,
                     },
                   ],
                 })
               }
             >
-              Add Gear
+              Add Inventory Item
             </button>
-            {sheet.gear.map((gear, idx) => (
-              <div className="grid two" key={gear.id}>
+            {(sheet.inventory ?? []).map((gear, idx) => (
+              <div className="grid two" key={gear.id ?? String(idx)}>
                 <input
                   value={gear.name}
                   placeholder="Shotgun"
                   onChange={(e) => {
-                    const next = [...sheet.gear];
+                    const next = [...(sheet.inventory ?? [])];
                     next[idx] = { ...gear, name: e.target.value };
-                    updateSheet({ ...sheet, gear: next });
+                    updateSheet({ ...sheet, inventory: next });
                   }}
                 />
                 <select
                   value={gear.type}
                   onChange={(e) => {
-                    const next = [...sheet.gear];
-                    next[idx] = { ...gear, type: e.target.value as CharacterSheet["gear"][0]["type"] };
-                    updateSheet({ ...sheet, gear: next });
+                    const next = [...(sheet.inventory ?? [])];
+                    next[idx] = { ...gear, type: e.target.value as CharacterSheet["inventory"][0]["type"] };
+                    updateSheet({ ...sheet, inventory: next });
                   }}
                 >
-                  <option value="weapon">Weapon</option>
-                  <option value="armour">Armour</option>
                   <option value="item">Item</option>
                   <option value="cyberware">Cyberware</option>
-                  <option value="narcotic">Narcotic</option>
-                  <option value="hacker_gear">Hacker Gear</option>
+                  <option value="narcotics">Narcotics</option>
                 </select>
               </div>
             ))}
@@ -451,7 +453,7 @@ export default function App() {
         {step === "review" && (
           <div className="stack">
             <h2>{sheet.name || "Unnamed Character"}</h2>
-            <p className="muted">{sheet.concept || "Concept missing"}</p>
+            <p className="muted">{sheet.motivation || "Motivation missing"}</p>
             <div className="summary">
               <div>
                 <h3>Attributes</h3>
@@ -466,21 +468,21 @@ export default function App() {
               <div>
                 <h3>Skills</h3>
                 <ul>
-                  {sheet.skills.length
-                    ? sheet.skills.map((skill) => (
-                        <li key={skill.key}>
-                          {skill.label || "Unnamed"} ({skill.rank})
+                  {Object.keys(sheet.skills ?? {}).length
+                    ? Object.entries(sheet.skills ?? {}).map(([key, rank]) => (
+                        <li key={key}>
+                          {key} ({rank})
                         </li>
                       ))
                     : "None"}
                 </ul>
               </div>
               <div>
-                <h3>Gear</h3>
+                <h3>Inventory</h3>
                 <ul>
-                  {sheet.gear.length
-                    ? sheet.gear.map((gear) => (
-                        <li key={gear.id}>
+                  {(sheet.inventory ?? []).length
+                    ? (sheet.inventory ?? []).map((gear, idx) => (
+                        <li key={gear.id ?? String(idx)}>
                           {gear.name || "Unnamed"} ({gear.type})
                         </li>
                       ))
