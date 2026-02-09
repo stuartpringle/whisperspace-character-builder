@@ -14,8 +14,7 @@ Web-based character builder powered by the Whisperspace rules API.
 
 - Auto-saves to localStorage as a draft.
 - Export/Import JSON for manual backups.
-- Cloud sync via `https://whisperspace.com/character-api` (override with `VITE_CHARACTER_API_BASE`).
-- Planned: server-side storage with auth and revision history.
+- Cloud sync via `https://rules-api.whisperspace.com/character-api`.
 
 ## Build
 
@@ -30,7 +29,10 @@ npm run build
 npm run dev
 ```
 
+## Hosting
+- Target: `https://builder.whisperspace.com/`
+- Build output: `dist/`
+
 ## Notes
 
 - Uses `@whisperspace/sdk` for API access.
-- Intended to be hosted at `https://whisperspace.com/character-builder`.
