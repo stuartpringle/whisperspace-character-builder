@@ -1,5 +1,6 @@
 import { CHARACTER_API_BASE } from "@whisperspace/sdk";
 import type { CharacterSheet } from "../model/character";
+import { validateCharacterRecordV1 } from "@whisperspace/sdk";
 
 const API_BASE =
   (import.meta as any).env?.VITE_CHARACTER_API_BASE || CHARACTER_API_BASE;
@@ -46,6 +47,10 @@ export async function fetchCharacter(id: string): Promise<CharacterSheet> {
 }
 
 export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: boolean }): Promise<SaveResponse> {
+  const validation = validateCharacterRecordV1(sheet);
+  if (!validation.ok) {
+    return { ok: false, error: `validation_failed: ${validation.errors[0]}` };
+  }
   const res = await fetch(`${API_BASE}/characters/${sheet.id}${opts?.force ? "?force=1" : ""}`, {
     method: "PUT",
     headers: {

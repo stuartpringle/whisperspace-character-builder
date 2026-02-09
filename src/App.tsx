@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CHARACTER_API_BASE, RULES_API_BASE } from "@whisperspace/sdk";
+import { CHARACTER_API_BASE, RULES_API_BASE, validateCharacterRecordV1 } from "@whisperspace/sdk";
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
 import { clearDraft, loadDraft, saveDraft } from "./storage/local";
@@ -151,6 +151,12 @@ export default function App() {
     setSaveStatus("saving...");
     setCloudError("");
     setConflictSheet(null);
+    const validation = validateCharacterRecordV1(sheet);
+    if (!validation.ok) {
+      setSaveStatus("invalid");
+      setCloudError(`Validation failed: ${validation.errors[0]}`);
+      return;
+    }
     const result = await activeProvider.save(sheet);
     if (result.ok) {
       setSaveStatus(result.message || "saved");
