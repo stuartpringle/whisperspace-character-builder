@@ -18,11 +18,9 @@ const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
 
 const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
   phys: "Phys",
-  dex: "Dex",
-  int: "Int",
-  will: "Will",
-  cha: "Cha",
-  emp: "Emp",
+  ref: "Ref",
+  soc: "Soc",
+  ment: "Ment",
 };
 
 export default function App() {
