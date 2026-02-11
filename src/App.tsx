@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
  
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
@@ -250,6 +251,8 @@ export default function App() {
   const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
   const [importDragActive, setImportDragActive] = useState<boolean>(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const accountMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const accountMenuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [characterLimit, setCharacterLimit] = useState<number>(20);
   const [characterSummaries, setCharacterSummaries] = useState<
     Array<{ id: string; name: string; updatedAt: string }>
@@ -1459,6 +1462,44 @@ export default function App() {
     setCharacterSortDirection("asc");
   };
 
+  const sortHeaderLabel = (label: string, key: CharacterSortKey) => {
+    if (characterSortKey !== key) return label;
+    return `${label} ${characterSortDirection === "asc" ? "▲" : "▼"}`;
+  };
+
+  const onAccountMenuButtonKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setAccountMenuOpen(true);
+      window.setTimeout(() => accountMenuItemRefs.current[0]?.focus(), 0);
+    }
+    if (event.key === "Escape") {
+      setAccountMenuOpen(false);
+    }
+  };
+
+  const onAccountMenuItemKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) => {
+    const itemCount = accountMenuItemRefs.current.length;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      accountMenuItemRefs.current[(index + 1) % itemCount]?.focus();
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      accountMenuItemRefs.current[(index - 1 + itemCount) % itemCount]?.focus();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setAccountMenuOpen(false);
+      accountMenuButtonRef.current?.focus();
+    }
+  };
+
   const saveSettings = () => {
     localStorage.setItem("ws_pref_visibility", settingsVisibilityDefault);
     localStorage.setItem("ws_pref_landing", settingsLandingPage);
@@ -1969,15 +2010,15 @@ export default function App() {
           {characterListLoading ? <p className="muted">Loading characters...</p> : null}
           <div className="character-table">
             <div className="character-table-head">
-              <button className="ghost" onClick={() => toggleSort("name")}>Name</button>
-              <button className="ghost" onClick={() => toggleSort("updatedAt")}>Last Saved</button>
-              <button className="ghost" onClick={() => toggleSort("skillPoints")}>Skill Points</button>
-              <button className="ghost" onClick={() => toggleSort("phys")}>Phys</button>
-              <button className="ghost" onClick={() => toggleSort("ref")}>Ref</button>
-              <button className="ghost" onClick={() => toggleSort("soc")}>Soc</button>
-              <button className="ghost" onClick={() => toggleSort("ment")}>Ment</button>
-              <button className="ghost" onClick={() => toggleSort("weapon")}>Weapon</button>
-              <button className="ghost" onClick={() => toggleSort("armour")}>Armour</button>
+              <button className="ghost" onClick={() => toggleSort("name")}>{sortHeaderLabel("Name", "name")}</button>
+              <button className="ghost" onClick={() => toggleSort("updatedAt")}>{sortHeaderLabel("Last Saved", "updatedAt")}</button>
+              <button className="ghost" onClick={() => toggleSort("skillPoints")}>{sortHeaderLabel("Skill Points", "skillPoints")}</button>
+              <button className="ghost" onClick={() => toggleSort("phys")}>{sortHeaderLabel("Phys", "phys")}</button>
+              <button className="ghost" onClick={() => toggleSort("ref")}>{sortHeaderLabel("Ref", "ref")}</button>
+              <button className="ghost" onClick={() => toggleSort("soc")}>{sortHeaderLabel("Soc", "soc")}</button>
+              <button className="ghost" onClick={() => toggleSort("ment")}>{sortHeaderLabel("Ment", "ment")}</button>
+              <button className="ghost" onClick={() => toggleSort("weapon")}>{sortHeaderLabel("Weapon", "weapon")}</button>
+              <button className="ghost" onClick={() => toggleSort("armour")}>{sortHeaderLabel("Armour", "armour")}</button>
               <span>Actions</span>
             </div>
             {sortedFilteredCharacters.map((entry) => {
@@ -2084,37 +2125,56 @@ export default function App() {
             {user ? (
               <div className="account-menu-wrap" onClick={(event) => event.stopPropagation()}>
                 <button
+                  ref={accountMenuButtonRef}
                   className="ghost"
+                  aria-haspopup="menu"
+                  aria-expanded={accountMenuOpen}
                   onClick={() => setAccountMenuOpen((prev) => !prev)}
+                  onKeyDown={onAccountMenuButtonKeyDown}
                 >
                   {accountName} ▾
                 </button>
                 {accountMenuOpen ? (
-                  <div className="account-menu">
+                  <div className="account-menu" role="menu" aria-label="Account menu">
                     <button
+                      ref={(node) => {
+                        accountMenuItemRefs.current[0] = node;
+                      }}
                       className="ghost"
+                      role="menuitem"
                       onClick={() => {
                         setAccountMenuOpen(false);
                         navigate("/characters");
                       }}
+                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 0)}
                     >
                       Character List
                     </button>
                     <button
+                      ref={(node) => {
+                        accountMenuItemRefs.current[1] = node;
+                      }}
                       className="ghost"
+                      role="menuitem"
                       onClick={() => {
                         setAccountMenuOpen(false);
                         navigate("/settings");
                       }}
+                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 1)}
                     >
                       Settings
                     </button>
                     <button
+                      ref={(node) => {
+                        accountMenuItemRefs.current[2] = node;
+                      }}
                       className="ghost"
+                      role="menuitem"
                       onClick={() => {
                         setAccountMenuOpen(false);
                         void handleLogout();
                       }}
+                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 2)}
                     >
                       Log out
                     </button>

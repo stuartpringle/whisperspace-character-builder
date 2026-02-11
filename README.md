@@ -69,11 +69,13 @@ npm run dev
 - [done] Current tab persists across refresh; Back/Next controls moved next to step tabs.
 - [done] Authenticated account menu now shows username with dropdown actions (Character List, Settings, Log out).
 - [done] Character List page supports search, sortable columns, slot-capacity display, name-as-view-link, copy-link/edit actions, and right-aligned numeric columns.
+- [done] Character List sort headers now show direction indicators (ascending/descending).
 - [done] Edit/Add from Character List now checks for unsaved builder changes and prompts save-or-discard.
 - [done] New cloud/local copy saves are blocked when character limit is reached.
 - [done] Empty character slots are hidden while search filtering is active.
 - [done] Settings page now includes account summary plus saved preferences (default visibility, default landing page).
 - [done] Account dropdown clipping fixed in header.
+- [done] Account dropdown supports keyboard navigation (Enter/Space open, Arrow Up/Down navigation, Escape close) with ARIA menu semantics.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
