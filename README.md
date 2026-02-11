@@ -58,8 +58,14 @@ npm run dev
 - [done] Display Rules API version and cache timestamp in the footer.
 - [done] Background/motivation pick + roll wired to Rules API tables.
 - [done] Login/signup modal copy and layout polish (readable errors, reset flow toggle, permission guidance).
-- [done] Save modal closes on outside click and supports auto-save after login/signup when save was requested while logged out.
+- [done] Save modal closes on outside click and now uses staged save/auth dialogs.
 - [done] Visual refresh aligned to `whisperspace.com` contact/footer direction (dark slate + blue accents, starfield treatment on key panels, newsletter-style modal feel).
+- [done] Save UX split into staged dialogs: Save menu, auth modal, and save-options modal by target (`cloud` vs `localStorage`).
+- [done] Save options are conditional: `New copy` only appears when an existing record exists for that save target.
+- [done] Reset flow now confirms and restores last saved local/cloud copy when available, else resets to blank.
+- [done] Skills UX refresh: grouped/collapsible trees, search-by-name, inline tooltips, +/- controls, compact rank input, and no slug display.
+- [done] Learning Focus skills no longer show attribute labels; they are grouped by focus domain.
+- [done] Current tab persists across refresh; Back/Next controls moved next to step tabs.
 - [planned] Add “My Characters” list for authenticated users.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
@@ -86,7 +92,11 @@ npm run dev
 - CSRF token is read from `ws_csrf` cookie and sent as `X-CSRF-Token` on sensitive requests.
 - Some storage helpers also support bearer token usage from `localStorage.ws_character_api_key` for API-style calls.
 - OAuth entrypoint used by UI: `${VITE_CHARACTER_API_BASE}/auth/oauth/google`.
-- If unauthenticated users click Save from Review, the auth modal opens and cloud save proceeds automatically after successful login/signup.
+- If unauthenticated users click `Save`, the auth modal opens first, then returns to save options/menu after successful login/signup.
+- Save now follows staged flow:
+  - Save menu (`Save`, `Save (LocalStorage)`, `Export (JSON)`).
+  - If `Save` is clicked while logged out, auth modal opens first.
+  - Save options open in a dedicated modal per target.
 
 ## Integration Gotchas
 - Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.

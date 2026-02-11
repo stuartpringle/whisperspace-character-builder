@@ -4,7 +4,7 @@ import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/characte
 import { createBlankCharacter, updateTimestamp } from "./model/character";
 import { CHARACTER_API_BASE } from "./model/api";
 import { validateCharacterRecordV1 } from "./model/validate";
-import { clearDraft, loadDraft, saveDraft } from "./storage/local";
+import { loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
 import { saveCharacter } from "./storage/remote";
  
@@ -22,6 +22,22 @@ const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
   ref: "Ref",
   soc: "Soc",
   ment: "Ment",
+};
+
+const ATTRIBUTE_GROUP_META: Record<
+  AttributeKey,
+  { title: string; icon: string; short: string }
+> = {
+  phys: { title: "Physique Skills", icon: "P", short: "Physique" },
+  ref: { title: "Reflex Skills", icon: "R", short: "Reflex" },
+  soc: { title: "Social Skills", icon: "S", short: "Social" },
+  ment: { title: "Mental Skills", icon: "M", short: "Mental" },
+};
+
+const FOCUS_META: Record<LearningFocus, { title: string; icon: string }> = {
+  combat: { title: "Combat Focus Skills", icon: "C" },
+  education: { title: "Education Focus Skills", icon: "E" },
+  vehicles: { title: "Vehicle Focus Skills", icon: "V" },
 };
 
 type LearningFocus = "combat" | "education" | "vehicles";
@@ -52,10 +68,14 @@ type MotivationOption = {
 };
 
 type AuthUser = { id: string; email: string };
+type SaveTarget = "cloud" | "local";
 
 const MAX_RANK_INHERENT = 5;
 const MAX_RANK_ON_FOCUS = 5;
 const MAX_RANK_OFF_FOCUS = 2;
+const STEP_KEY = "ws_builder_step";
+const LOCAL_SAVED_KEY = "ws_character_saved_local_v1";
+const LAST_SAVED_KEY = "ws_character_last_saved_v1";
 
 type GearType = "item" | "cyberware" | "narcotics" | "hacker_gear";
 
@@ -190,11 +210,25 @@ export default function App() {
   const [resetEmail, setResetEmail] = useState<string>("");
   const [resetPassword, setResetPassword] = useState<string>("");
   const [resetToken, setResetToken] = useState<string>("");
-  const [pendingSaveAfterAuth, setPendingSaveAfterAuth] = useState<boolean>(false);
-  const [saveDialogOpen, setSaveDialogOpen] = useState<boolean>(false);
+  const [saveMenuOpen, setSaveMenuOpen] = useState<boolean>(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
+  const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
   const [saveVisibility, setSaveVisibility] = useState<"private" | "public">("private");
   const [saveNew, setSaveNew] = useState<boolean>(false);
+  const [saveNewAvailable, setSaveNewAvailable] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string>("");
+  const [skillGroupsCollapsed, setSkillGroupsCollapsed] = useState<Record<string, boolean>>({
+    "inherent-phys": false,
+    "inherent-ref": false,
+    "inherent-soc": false,
+    "inherent-ment": false,
+    "focus-combat": false,
+    "focus-education": false,
+    "focus-vehicles": false,
+  });
+  const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
+  const [importDragActive, setImportDragActive] = useState<boolean>(false);
   const [viewId, setViewId] = useState<string>("");
   const [viewSheet, setViewSheet] = useState<CharacterSheet | null>(null);
   const [viewError, setViewError] = useState<string>("");
@@ -255,12 +289,30 @@ export default function App() {
     const token = url.searchParams.get("token") || "";
     if (token) {
       setResetToken(token);
-      setSaveDialogOpen(true);
+      setAuthDialogOpen(true);
     }
     if (url.pathname.startsWith("/character/")) {
       setViewId(url.pathname.replace("/character/", ""));
     }
   }, []);
+
+  useEffect(() => {
+    const savedStep = localStorage.getItem(STEP_KEY) as BuilderStep | null;
+    if (
+      savedStep &&
+      savedStep !== "review" &&
+      (savedStep === "basics" ||
+        savedStep === "attributes" ||
+        savedStep === "skills" ||
+        savedStep === "gear")
+    ) {
+      setStep(savedStep);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STEP_KEY, step);
+  }, [step]);
 
   const fetchSession = async (force = false) => {
     const cached = localStorage.getItem("ws_auth_session");
@@ -633,6 +685,18 @@ export default function App() {
     () => STEPS.findIndex((s) => s.id === step),
     [step]
   );
+  const inherentSkillGroups = useMemo(() => {
+    const grouped: Record<AttributeKey, SkillEntry[]> = {
+      phys: [],
+      ref: [],
+      soc: [],
+      ment: [],
+    };
+    (skillsData?.inherent ?? []).forEach((skill) => {
+      grouped[skill.attribute].push(skill);
+    });
+    return grouped;
+  }, [skillsData]);
 
   const goNext = () => {
     if (currentStepIndex < STEPS.length - 1) {
@@ -736,6 +800,15 @@ export default function App() {
       nextSkills[id] = clamped;
     }
     updateSheet({ ...sheet, skills: nextSkills });
+  };
+
+  const nudgeSkillRank = (id: string, delta: number, max: number) => {
+    const current = sheet.skills?.[id] ?? 0;
+    updateSkillRank(id, current + delta, max);
+  };
+
+  const toggleSkillGroup = (key: string) => {
+    setSkillGroupsCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const addInventoryItem = (item: CharacterSheet["inventory"][number]) => {
@@ -1075,6 +1148,47 @@ export default function App() {
     return token ? { "X-CSRF-Token": token } : {};
   };
 
+  const readLocalSaves = (): Record<string, CharacterSheet> => {
+    try {
+      const raw = localStorage.getItem(LOCAL_SAVED_KEY);
+      if (!raw) return {};
+      return JSON.parse(raw) as Record<string, CharacterSheet>;
+    } catch {
+      return {};
+    }
+  };
+
+  const writeLocalSaves = (next: Record<string, CharacterSheet>) => {
+    localStorage.setItem(LOCAL_SAVED_KEY, JSON.stringify(next));
+  };
+
+  const saveToLocalStorage = (targetSheet: CharacterSheet) => {
+    const saves = readLocalSaves();
+    saves[targetSheet.id] = targetSheet;
+    writeLocalSaves(saves);
+    localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(targetSheet));
+    saveDraft(targetSheet);
+    setSaveStatus("saved locally");
+    updateSheet(targetSheet);
+  };
+
+  const localSaveExists = (id: string) => {
+    const saves = readLocalSaves();
+    return Boolean(saves[id]);
+  };
+
+  const checkCloudExists = async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${apiBase}/characters/${id}`, {
+        credentials: "include",
+        headers: { ...csrfHeader() },
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   const handleAuth = async () => {
     setAuthError("");
     setAuthLoading(true);
@@ -1094,10 +1208,8 @@ export default function App() {
         setAuthPassword("");
         localStorage.setItem("ws_auth_session", JSON.stringify({ user: payload.user ?? null }));
         localStorage.setItem("ws_auth_session_at", String(Date.now()));
-        if (pendingSaveAfterAuth) {
-          setPendingSaveAfterAuth(false);
-          await handleCloudSave();
-        }
+        setAuthDialogOpen(false);
+        setSaveMenuOpen(true);
       }
     } catch {
       setAuthError("auth_failed");
@@ -1232,6 +1344,7 @@ export default function App() {
       }
       const saved = (await res.json()) as CharacterSheet;
       updateSheet(saved);
+      localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(saved));
       setSaveStatus("saved");
       window.location.href = `${window.location.origin}/character/${saved.id}`;
       return true;
@@ -1240,6 +1353,94 @@ export default function App() {
       setSaveError(err instanceof Error ? err.message : "Save failed");
       return false;
     }
+  };
+
+  const openSaveMenu = async () => {
+    await fetchSession(true);
+    setSaveError("");
+    setAuthError("");
+    setSaveMenuOpen(true);
+  };
+
+  const openSaveOptions = async (target: SaveTarget) => {
+    setSaveTarget(target);
+    setSaveNew(false);
+    if (target === "cloud") {
+      const exists = await checkCloudExists(sheet.id);
+      setSaveNewAvailable(exists);
+    } else {
+      setSaveNewAvailable(localSaveExists(sheet.id));
+    }
+    setSaveMenuOpen(false);
+    setSaveOptionsOpen(true);
+  };
+
+  const executeSave = async () => {
+    if (saveTarget === "cloud") {
+      await handleCloudSave();
+      return;
+    }
+    const targetSheet = saveNew
+      ? {
+          ...sheet,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      : { ...sheet };
+    saveToLocalStorage(targetSheet);
+    setSaveOptionsOpen(false);
+    setSaveMenuOpen(false);
+  };
+
+  const resetToLastSaved = async () => {
+    const ok = window.confirm("Are you sure? All unsaved changes will be lost.");
+    if (!ok) return;
+    try {
+      const saves = readLocalSaves();
+      const localMatch = saves[sheet.id];
+      if (localMatch) {
+        updateSheet(localMatch);
+        setSaveStatus("reset to local saved copy");
+        setStep("basics");
+        return;
+      }
+      const lastSavedRaw = localStorage.getItem(LAST_SAVED_KEY);
+      if (lastSavedRaw) {
+        const lastSaved = JSON.parse(lastSavedRaw) as CharacterSheet;
+        updateSheet(lastSaved);
+        setSaveStatus("reset to last saved copy");
+        setStep("basics");
+        return;
+      }
+      if (user) {
+        const res = await fetch(`${apiBase}/characters/${sheet.id}`, {
+          credentials: "include",
+          headers: { ...csrfHeader() },
+        });
+        if (res.ok) {
+          const remote = (await res.json()) as CharacterSheet;
+          updateSheet(remote);
+          localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(remote));
+          setSaveStatus("reset to cloud saved copy");
+          setStep("basics");
+          return;
+        }
+      }
+    } catch {
+      // ignore parse errors and reset to blank
+    }
+    const blank = createBlankCharacter();
+    updateSheet(blank);
+    setSaveStatus("reset to blank sheet");
+    setStep("basics");
+  };
+
+  const handleImportDrop = async (file: File | null) => {
+    if (!file) return;
+    await handleImport(file);
+    setImportDialogOpen(false);
+    setImportDragActive(false);
   };
 
   const handleViewLoad = async (id: string) => {
@@ -1340,37 +1541,11 @@ export default function App() {
         <div className="header-row">
           <div>
             <h1>Character Builder</h1>
-            <p className="status">Rules API: {apiStatus}</p>
           </div>
-          <div className="header-actions">
-            <button className="ghost" onClick={() => downloadCharacter(sheet)}>
-              Export JSON
-            </button>
-            <label className="ghost">
-              Import JSON
-              <input
-                type="file"
-                accept="application/json"
-                onChange={(event) => handleImport(event.target.files?.[0] ?? null)}
-              />
-            </label>
-            <button
-              className="ghost danger"
-              onClick={() => {
-                clearDraft();
-                setSheet(createBlankCharacter());
-                setStep("basics");
-              }}
-            >
-              Reset Draft
-            </button>
-          </div>
-        </div>
-        <div className="header-row">
-          <div className="inline">
+          <div className="inline auth-chip">
             {user ? (
               <>
-                <span className="muted">Signed in as {user.email}</span>
+                <span className="muted">Signed in</span>
                 <button className="ghost" onClick={handleLogout}>
                   Log out
                 </button>
@@ -1378,17 +1553,27 @@ export default function App() {
             ) : (
               <>
                 <span className="muted">Not signed in</span>
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    void fetchSession(true);
-                    setSaveDialogOpen(true);
-                  }}
-                >
+                <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
                   Log in / Sign up
                 </button>
               </>
             )}
+          </div>
+        </div>
+        <div className="header-row">
+          <div className="header-actions">
+            <button className="primary" onClick={() => void openSaveMenu()}>
+              Save
+            </button>
+            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+              Import
+            </button>
+            <button
+              className="ghost danger"
+              onClick={() => void resetToLastSaved()}
+            >
+              Reset
+            </button>
           </div>
         </div>
         {importError ? <p className="error">{importError}</p> : null}
@@ -1449,6 +1634,14 @@ export default function App() {
           </button>
         ))}
       </nav>
+      <div className="steps-nav">
+        <button className="ghost" onClick={goPrev} disabled={currentStepIndex === 0}>
+          Back
+        </button>
+        <button className="primary" onClick={goNext} disabled={currentStepIndex === STEPS.length - 1}>
+          Next
+        </button>
+      </div>
 
       <section className="card">
         {step === "basics" && (
@@ -1616,7 +1809,7 @@ export default function App() {
                     <input
                       value={skillSearch}
                       onChange={(e) => setSkillSearch(e.target.value)}
-                      placeholder="Search by name or id"
+                      placeholder="Search by name"
                     />
                   </div>
                 </div>
@@ -1645,103 +1838,130 @@ export default function App() {
 
                 <div className="skills-section">
                   <h3>Inherent Skills</h3>
-                  <div className="skills-table">
-                    {skillsData.inherent
-                      .filter((skill) => {
-                        const q = skillSearch.trim().toLowerCase();
-                        if (!q) return true;
-                        return (
-                          skill.label.toLowerCase().includes(q) ||
-                          skill.id.toLowerCase().includes(q)
-                        );
-                      })
-                      .map((skill) => (
-                      <div className="skill-row" key={skill.id}>
-                        <div className="skill-meta">
-                          <strong title={skillTooltips?.skills?.[skill.label] ?? ""}>
-                            {skill.label}
-                          </strong>
-                          <span className="muted">{skill.id}</span>
-                        </div>
-                        <div className="skill-attr">
-                          <span title={skillTooltips?.attributes?.[ATTRIBUTE_LABELS[skill.attribute].toUpperCase()] ?? ""}>
-                            {ATTRIBUTE_LABELS[skill.attribute]}
+                  {(Object.keys(inherentSkillGroups) as AttributeKey[]).map((attrKey) => {
+                    const groupKey = `inherent-${attrKey}`;
+                    const filtered = inherentSkillGroups[attrKey].filter((skill) => {
+                      const q = skillSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return skill.label.toLowerCase().includes(q);
+                    });
+                    if (!filtered.length) return null;
+                    return (
+                      <div key={groupKey} className="skills-subsection">
+                        <button className="skill-group-header" onClick={() => toggleSkillGroup(groupKey)}>
+                          <span className="skill-group-title">
+                            <span className={`skill-icon skill-icon-${attrKey}`}>
+                              {ATTRIBUTE_GROUP_META[attrKey].icon}
+                            </span>
+                            {ATTRIBUTE_GROUP_META[attrKey].title}
                           </span>
-                        </div>
-                        <div className="skill-rank">
-                          <input
-                            type="number"
-                            min={0}
-                            max={MAX_RANK_INHERENT}
-                            value={sheet.skills?.[skill.id] ?? 0}
-                            onChange={(e) =>
-                              updateSkillRank(
-                                skill.id,
-                                Number(e.target.value) || 0,
-                                MAX_RANK_INHERENT
-                              )
-                            }
-                          />
-                          <span className="muted">max {MAX_RANK_INHERENT}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="skills-section">
-                  <h3>Learned Skills</h3>
-                  {(Object.entries(skillsData.learned) as Array<[LearningFocus, SkillEntry[]]>).map(
-                    ([focus, list]) => {
-                      const maxRank =
-                        focus === learningFocus ? MAX_RANK_ON_FOCUS : MAX_RANK_OFF_FOCUS;
-                      const filtered = list.filter((skill) => {
-                        const q = skillSearch.trim().toLowerCase();
-                        if (!q) return true;
-                        return (
-                          skill.label.toLowerCase().includes(q) ||
-                          skill.id.toLowerCase().includes(q)
-                        );
-                      });
-                      return (
-                        <div key={focus} className="skills-subsection">
-                          <h4>
-                            {focus.charAt(0).toUpperCase() + focus.slice(1)}
-                            {focus === learningFocus ? " (Focus)" : ""}
-                          </h4>
+                          <span className="muted">{skillGroupsCollapsed[groupKey] ? "▸" : "▾"}</span>
+                        </button>
+                        {skillGroupsCollapsed[groupKey] ? null : (
                           <div className="skills-table">
                             {filtered.map((skill) => (
                               <div className="skill-row" key={skill.id}>
                                 <div className="skill-meta">
-                                  <strong title={skillTooltips?.skills?.[skill.label] ?? ""}>
-                                    {skill.label}
-                                  </strong>
-                                  <span className="muted">{skill.id}</span>
+                                  <strong>{skill.label}</strong>
+                                  <span className="skill-hint">{ATTRIBUTE_GROUP_META[attrKey].short}</span>
+                                  <button
+                                    className="skill-info"
+                                    title={skillTooltips?.skills?.[skill.label] ?? "No description available."}
+                                    aria-label={`${skill.label} info`}
+                                  >
+                                    i
+                                  </button>
                                 </div>
-                                <div className="skill-attr">
-                                  <span title={skillTooltips?.attributes?.[ATTRIBUTE_LABELS[skill.attribute].toUpperCase()] ?? ""}>
-                                    {ATTRIBUTE_LABELS[skill.attribute]}
-                                  </span>
-                                </div>
-                                <div className="skill-rank">
+                                <div className="skill-rank-controls">
+                                  <button
+                                    className="ghost"
+                                    onClick={() => nudgeSkillRank(skill.id, -1, MAX_RANK_INHERENT)}
+                                  >
+                                    -
+                                  </button>
                                   <input
                                     type="number"
                                     min={0}
-                                    max={maxRank}
+                                    max={MAX_RANK_INHERENT}
                                     value={sheet.skills?.[skill.id] ?? 0}
                                     onChange={(e) =>
-                                      updateSkillRank(
-                                        skill.id,
-                                        Number(e.target.value) || 0,
-                                        maxRank
-                                      )
+                                      updateSkillRank(skill.id, Number(e.target.value) || 0, MAX_RANK_INHERENT)
                                     }
                                   />
-                                  <span className="muted">max {maxRank}</span>
+                                  <button
+                                    className="ghost"
+                                    onClick={() => nudgeSkillRank(skill.id, 1, MAX_RANK_INHERENT)}
+                                  >
+                                    +
+                                  </button>
                                 </div>
                               </div>
                             ))}
                           </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="skills-section">
+                  <h3>Learning Focus Skills</h3>
+                  {(Object.entries(skillsData.learned) as Array<[LearningFocus, SkillEntry[]]>).map(
+                    ([focus, list]) => {
+                      const maxRank = focus === learningFocus ? MAX_RANK_ON_FOCUS : MAX_RANK_OFF_FOCUS;
+                      const groupKey = `focus-${focus}`;
+                      const filtered = list.filter((skill) => {
+                        const q = skillSearch.trim().toLowerCase();
+                        if (!q) return true;
+                        return skill.label.toLowerCase().includes(q);
+                      });
+                      if (!filtered.length) return null;
+                      return (
+                        <div key={focus} className="skills-subsection">
+                          <button className="skill-group-header" onClick={() => toggleSkillGroup(groupKey)}>
+                            <span className="skill-group-title">
+                              <span className={`skill-icon skill-icon-${focus}`}>{FOCUS_META[focus].icon}</span>
+                              {FOCUS_META[focus].title}
+                              {focus === learningFocus ? " (Selected Focus)" : ""}
+                            </span>
+                            <span className="muted">{skillGroupsCollapsed[groupKey] ? "▸" : "▾"}</span>
+                          </button>
+                          {skillGroupsCollapsed[groupKey] ? null : (
+                            <div className="skills-table">
+                              {filtered.map((skill) => (
+                                <div className="skill-row" key={skill.id}>
+                                  <div className="skill-meta">
+                                    <strong>{skill.label}</strong>
+                                    <span className="skill-hint">
+                                      {focus.charAt(0).toUpperCase() + focus.slice(1)}
+                                    </span>
+                                    <button
+                                      className="skill-info"
+                                      title={skillTooltips?.skills?.[skill.label] ?? "No description available."}
+                                      aria-label={`${skill.label} info`}
+                                    >
+                                      i
+                                    </button>
+                                  </div>
+                                  <div className="skill-rank-controls">
+                                    <button className="ghost" onClick={() => nudgeSkillRank(skill.id, -1, maxRank)}>
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={maxRank}
+                                      value={sheet.skills?.[skill.id] ?? 0}
+                                      onChange={(e) => updateSkillRank(skill.id, Number(e.target.value) || 0, maxRank)}
+                                    />
+                                    <button className="ghost" onClick={() => nudgeSkillRank(skill.id, 1, maxRank)}>
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     }
@@ -2491,47 +2711,48 @@ export default function App() {
             </span>
           ) : null}
         </div>
-        <button className="ghost" onClick={goPrev} disabled={currentStepIndex === 0}>
-          Back
-        </button>
-        {step === "review" ? (
-          <button
-            className="primary"
-            onClick={() => {
-              void fetchSession(true);
-              if (!user) {
-                setPendingSaveAfterAuth(true);
-              }
-              setSaveDialogOpen(true);
-            }}
-          >
-            Save
-          </button>
-        ) : (
-          <button className="primary" onClick={goNext} disabled={currentStepIndex === STEPS.length - 1}>
-            Next
-          </button>
-        )}
       </footer>
 
-      {saveDialogOpen ? (
-        <div
-          className="modal"
-          onClick={() => {
-            setSaveDialogOpen(false);
-            setPendingSaveAfterAuth(false);
-          }}
-        >
+      {saveMenuOpen ? (
+        <div className="modal" onClick={() => setSaveMenuOpen(false)}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Save Character</h2>
+              <button className="ghost" onClick={() => setSaveMenuOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="stack">
               <button
-                className="ghost"
+                className="primary"
                 onClick={() => {
-                  setSaveDialogOpen(false);
-                  setPendingSaveAfterAuth(false);
+                  if (!user) {
+                    setSaveMenuOpen(false);
+                    setAuthDialogOpen(true);
+                    return;
+                  }
+                  void openSaveOptions("cloud");
                 }}
               >
+                Save
+              </button>
+              <button className="ghost" onClick={() => void openSaveOptions("local")}>
+                Save (LocalStorage)
+              </button>
+              <button className="ghost" onClick={() => downloadCharacter(sheet)}>
+                Export (JSON)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {authDialogOpen ? (
+        <div className="modal" onClick={() => setAuthDialogOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Log In / Sign Up</h2>
+              <button className="ghost" onClick={() => setAuthDialogOpen(false)}>
                 Close
               </button>
             </div>
@@ -2548,12 +2769,8 @@ export default function App() {
                   Set New Password
                 </button>
               </div>
-            ) : null}
-            {!user ? (
+            ) : (
               <div className="stack">
-                <p className="muted">
-                  Sign in to save to your account and manage who can open the character link.
-                </p>
                 <div className="inline">
                   <button
                     className={authMode === "login" ? "primary" : "ghost"}
@@ -2626,78 +2843,101 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="stack">
-                <div className="grid two">
-                  <div>
-                    <label>Visibility</label>
-                    <select
-                      value={saveVisibility}
-                      onChange={(e) => setSaveVisibility(e.target.value as "private" | "public")}
-                    >
-                      <option value="private">Private (just you)</option>
-                      <option value="public">Public</option>
-                    </select>
-                    <p className="muted">
-                      {saveVisibility === "private"
-                        ? "Private characters can be viewed only by you."
-                        : "Public characters can be viewed by anyone."}
-                    </p>
-                  </div>
-                  <div className="toggle">
-                    <label>Save As New</label>
-                    <button
-                      className={saveNew ? "primary" : "ghost"}
-                      onClick={() => setSaveNew(!saveNew)}
-                    >
-                      {saveNew ? "Enabled" : "Disabled"}
-                    </button>
-                    <p className="muted">
-                      {saveNew
-                        ? "A new character ID will be created, leaving the current sheet untouched."
-                        : "Saves updates to this existing character ID."}
-                    </p>
-                  </div>
-                </div>
-                <button className="primary" onClick={handleCloudSave}>
-                  Save
-                </button>
-                <button className="ghost" onClick={() => downloadCharacter(sheet)}>
-                  Export JSON
-                </button>
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    saveDraft(sheet);
-                    setSaveStatus("saved locally");
-                  }}
-                >
-                  Save to Local Storage
-                </button>
-              </div>
             )}
-            {!user ? (
-              <div className="stack">
-                <button className="ghost" onClick={() => downloadCharacter(sheet)}>
-                  Export JSON
-                </button>
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    saveDraft(sheet);
-                    setSaveStatus("saved locally");
-                  }}
-                >
-                  Save to Local Storage
-                </button>
-              </div>
-            ) : null}
-            {saveError ? <p className="error">{saveError}</p> : null}
             {authFeedback ? (
               <p className={authFeedback.tone === "success" ? "success" : "error"}>
                 {authFeedback.text}
               </p>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {saveOptionsOpen ? (
+        <div className="modal" onClick={() => setSaveOptionsOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{saveTarget === "cloud" ? "Save" : "Save (LocalStorage)"}</h2>
+              <button className="ghost" onClick={() => setSaveOptionsOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="stack">
+              {saveTarget === "cloud" ? (
+                <div>
+                  <label>Visibility</label>
+                  <select
+                    value={saveVisibility}
+                    onChange={(e) => setSaveVisibility(e.target.value as "private" | "public")}
+                  >
+                    <option value="private">Private (just you)</option>
+                    <option value="public">Public</option>
+                  </select>
+                  <p className="muted">
+                    {saveVisibility === "private"
+                      ? "Private characters can be viewed only by you."
+                      : "Public characters can be viewed by anyone."}
+                  </p>
+                </div>
+              ) : null}
+              {saveNewAvailable ? (
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={saveNew}
+                    onChange={(e) => setSaveNew(e.target.checked)}
+                  />
+                  <span>New copy</span>
+                  <span className="muted" title="Creates a new character instead of overwriting the existing one.">
+                    i
+                  </span>
+                </label>
+              ) : null}
+              <button className="primary" onClick={() => void executeSave()}>
+                Save
+              </button>
+            </div>
+            {saveError ? <p className="error">{saveError}</p> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {importDialogOpen ? (
+        <div className="modal" onClick={() => setImportDialogOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Import Character</h2>
+              <button className="ghost" onClick={() => setImportDialogOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div
+              className={`dropzone ${importDragActive ? "active" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setImportDragActive(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                setImportDragActive(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setImportDragActive(false);
+                const file = event.dataTransfer.files?.[0] ?? null;
+                void handleImportDrop(file);
+              }}
+            >
+              <p>Drag and drop a character JSON file here</p>
+              <label className="ghost">
+                Choose File
+                <input
+                  type="file"
+                  accept="application/json"
+                  onChange={(event) => void handleImportDrop(event.target.files?.[0] ?? null)}
+                />
+              </label>
+            </div>
           </div>
         </div>
       ) : null}
