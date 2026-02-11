@@ -78,6 +78,7 @@ npm run dev
 - [done] Back-to-builder action now appears under page title on all non-builder pages.
 - [done] Character builder now uses the same favicon assets as `whisperspace.com`.
 - [done] Account menu hit-area was expanded/tuned for reliable hover/click interaction.
+- [prototype] Added `augmented-ui` treatment to cards, step tabs, modal cards, gear cards, and primary buttons using the current Whisperspace palette.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
