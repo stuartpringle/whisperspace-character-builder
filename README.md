@@ -64,9 +64,13 @@ npm run dev
 - [done] Save options are conditional: `New copy` only appears when an existing record exists for that save target.
 - [done] Reset flow now confirms and restores last saved local/cloud copy when available, else resets to blank.
 - [done] Skills UX refresh: grouped/collapsible trees, search-by-name, inline tooltips, +/- controls, compact rank input, and no slug display.
+- [done] Skills section headers now use inline SVG icons per attribute/focus domain.
 - [done] Learning Focus skills no longer show attribute labels; they are grouped by focus domain.
 - [done] Current tab persists across refresh; Back/Next controls moved next to step tabs.
-- [planned] Add “My Characters” list for authenticated users.
+- [done] Authenticated account menu now shows username with dropdown actions (Character List, Settings, Log out).
+- [done] Character List page supports search, sortable columns, slot-capacity display, and view/copy-link/edit actions.
+- [done] Edit/Add from Character List now checks for unsaved builder changes and prompts save-or-discard.
+- [done] New cloud/local copy saves are blocked when character limit is reached.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 

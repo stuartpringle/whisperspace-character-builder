@@ -6,7 +6,7 @@ import { CHARACTER_API_BASE } from "./model/api";
 import { validateCharacterRecordV1 } from "./model/validate";
 import { loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
-import { saveCharacter } from "./storage/remote";
+import { fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
  
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
@@ -24,20 +24,17 @@ const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
   ment: "Ment",
 };
 
-const ATTRIBUTE_GROUP_META: Record<
-  AttributeKey,
-  { title: string; icon: string; short: string }
-> = {
-  phys: { title: "Physique Skills", icon: "P", short: "Physique" },
-  ref: { title: "Reflex Skills", icon: "R", short: "Reflex" },
-  soc: { title: "Social Skills", icon: "S", short: "Social" },
-  ment: { title: "Mental Skills", icon: "M", short: "Mental" },
+const ATTRIBUTE_GROUP_META: Record<AttributeKey, { title: string; short: string }> = {
+  phys: { title: "Physique Skills", short: "Physique" },
+  ref: { title: "Reflex Skills", short: "Reflex" },
+  soc: { title: "Social Skills", short: "Social" },
+  ment: { title: "Mental Skills", short: "Mental" },
 };
 
-const FOCUS_META: Record<LearningFocus, { title: string; icon: string }> = {
-  combat: { title: "Combat Focus Skills", icon: "C" },
-  education: { title: "Education Focus Skills", icon: "E" },
-  vehicles: { title: "Vehicle Focus Skills", icon: "V" },
+const FOCUS_META: Record<LearningFocus, { title: string }> = {
+  combat: { title: "Combat Focus Skills" },
+  education: { title: "Education Focus Skills" },
+  vehicles: { title: "Vehicle Focus Skills" },
 };
 
 type LearningFocus = "combat" | "education" | "vehicles";
@@ -69,6 +66,18 @@ type MotivationOption = {
 
 type AuthUser = { id: string; email: string };
 type SaveTarget = "cloud" | "local";
+type AppPage = "builder" | "view" | "characters" | "settings";
+type SortDirection = "asc" | "desc";
+type CharacterSortKey =
+  | "name"
+  | "updatedAt"
+  | "skillPoints"
+  | "phys"
+  | "ref"
+  | "soc"
+  | "ment"
+  | "weapon"
+  | "armour";
 
 const MAX_RANK_INHERENT = 5;
 const MAX_RANK_ON_FOCUS = 5;
@@ -159,6 +168,14 @@ type GearData = {
 };
 
 export default function App() {
+  const detectPage = (): AppPage => {
+    const path = window.location.pathname;
+    if (path.startsWith("/character/")) return "view";
+    if (path.startsWith("/characters")) return "characters";
+    if (path.startsWith("/settings")) return "settings";
+    return "builder";
+  };
+  const [page, setPage] = useState<AppPage>(() => detectPage());
   const [apiStatus, setApiStatus] = useState<string>("checking...");
   const [rulesVersion, setRulesVersion] = useState<string>("");
   const [rulesFetchedAt, setRulesFetchedAt] = useState<string>("");
@@ -218,6 +235,7 @@ export default function App() {
   const [saveNew, setSaveNew] = useState<boolean>(false);
   const [saveNewAvailable, setSaveNewAvailable] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string>("");
+  const [saveExistingRecord, setSaveExistingRecord] = useState<boolean>(false);
   const [skillGroupsCollapsed, setSkillGroupsCollapsed] = useState<Record<string, boolean>>({
     "inherent-phys": false,
     "inherent-ref": false,
@@ -229,6 +247,22 @@ export default function App() {
   });
   const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
   const [importDragActive, setImportDragActive] = useState<boolean>(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const [characterLimit, setCharacterLimit] = useState<number>(20);
+  const [characterSummaries, setCharacterSummaries] = useState<
+    Array<{ id: string; name: string; updatedAt: string }>
+  >([]);
+  const [characterSheetsById, setCharacterSheetsById] = useState<Record<string, CharacterSheet>>({});
+  const [characterListLoading, setCharacterListLoading] = useState<boolean>(false);
+  const [characterListError, setCharacterListError] = useState<string>("");
+  const [characterSearch, setCharacterSearch] = useState<string>("");
+  const [characterSortKey, setCharacterSortKey] = useState<CharacterSortKey>("name");
+  const [characterSortDirection, setCharacterSortDirection] = useState<SortDirection>("asc");
+  const [unsavedPromptOpen, setUnsavedPromptOpen] = useState<boolean>(false);
+  const [pendingEditorAction, setPendingEditorAction] = useState<
+    null | { type: "add" } | { type: "edit"; id: string; name: string }
+  >(null);
+  const [baselineSheetJson, setBaselineSheetJson] = useState<string>("");
   const [viewId, setViewId] = useState<string>("");
   const [viewSheet, setViewSheet] = useState<CharacterSheet | null>(null);
   const [viewError, setViewError] = useState<string>("");
@@ -314,6 +348,23 @@ export default function App() {
     localStorage.setItem(STEP_KEY, step);
   }, [step]);
 
+  useEffect(() => {
+    const onPop = () => {
+      setPage(detectPage());
+      if (window.location.pathname.startsWith("/character/")) {
+        setViewId(window.location.pathname.replace("/character/", ""));
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    if (!baselineSheetJson) {
+      setBaselineSheetJson(JSON.stringify(sheet));
+    }
+  }, [baselineSheetJson, sheet]);
+
   const fetchSession = async (force = false) => {
     const cached = localStorage.getItem("ws_auth_session");
     const cachedAt = localStorage.getItem("ws_auth_session_at");
@@ -321,8 +372,18 @@ export default function App() {
       const ageMs = Date.now() - Number(cachedAt);
       if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
         try {
-          const payload = JSON.parse(cached) as { user: AuthUser | null };
+          const payload = JSON.parse(cached) as {
+            user: AuthUser | null;
+            characterLimit?: number;
+            limits?: { characterLimit?: number; maxCharacters?: number; characters?: number };
+          };
           setUser(payload.user ?? null);
+          const limit =
+            payload.characterLimit ??
+            payload.limits?.characterLimit ??
+            payload.limits?.maxCharacters ??
+            payload.limits?.characters;
+          if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
           return;
         } catch {
           // ignore cache errors
@@ -332,8 +393,18 @@ export default function App() {
     try {
       const res = await fetch(`${apiBase}/auth/session`, { credentials: "include" });
       if (!res.ok) return;
-      const payload = (await res.json()) as { user: AuthUser | null };
+      const payload = (await res.json()) as {
+        user: AuthUser | null;
+        characterLimit?: number;
+        limits?: { characterLimit?: number; maxCharacters?: number; characters?: number };
+      };
       setUser(payload.user ?? null);
+      const limit =
+        payload.characterLimit ??
+        payload.limits?.characterLimit ??
+        payload.limits?.maxCharacters ??
+        payload.limits?.characters;
+      if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
       localStorage.setItem("ws_auth_session", JSON.stringify(payload));
       localStorage.setItem("ws_auth_session_at", String(Date.now()));
     } catch {
@@ -685,6 +756,73 @@ export default function App() {
     () => STEPS.findIndex((s) => s.id === step),
     [step]
   );
+  const accountName = useMemo(() => {
+    if (!user?.email) return "";
+    return user.email.split("@")[0] || user.email;
+  }, [user]);
+  const isDirty = useMemo(() => {
+    if (!baselineSheetJson) return false;
+    return JSON.stringify(sheet) !== baselineSheetJson;
+  }, [sheet, baselineSheetJson]);
+  const renderSkillIcon = (key: string) => {
+    if (key === "phys") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 15c1-2 3-3 5-3h3v3a5 5 0 0 1-5 5H7v-5Z" fill="currentColor" />
+          <path d="M17 5h-2a3 3 0 0 0-3 3v2h3a4 4 0 0 0 4-4V5h-2Z" fill="currentColor" />
+        </svg>
+      );
+    }
+    if (key === "ref") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
+          <circle cx="12" cy="12" r="3" fill="currentColor" />
+        </svg>
+      );
+    }
+    if (key === "soc") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="9" cy="9" r="3" fill="currentColor" />
+          <circle cx="16" cy="10" r="2.5" fill="currentColor" opacity="0.85" />
+          <path d="M4 18a5 5 0 0 1 10 0H4Z" fill="currentColor" />
+          <path d="M13.5 18a4 4 0 0 1 6.5-2.8V18h-6.5Z" fill="currentColor" opacity="0.85" />
+        </svg>
+      );
+    }
+    if (key === "ment") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3a7 7 0 0 0-7 7c0 3 2 4.5 3 5.5V19h8v-3.5c1-1 3-2.5 3-5.5a7 7 0 0 0-7-7Z" fill="currentColor" />
+          <rect x="9" y="20" width="6" height="2" rx="1" fill="currentColor" />
+        </svg>
+      );
+    }
+    if (key === "combat") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 18 8-8 4 4-8 8H6v-4Z" fill="currentColor" />
+          <path d="m13 7 2-2 4 4-2 2-4-4Z" fill="currentColor" opacity="0.85" />
+        </svg>
+      );
+    }
+    if (key === "education") {
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 9 12 4l9 5-9 5-9-5Z" fill="currentColor" />
+          <path d="M6 12v4l6 3 6-3v-4l-6 3-6-3Z" fill="currentColor" opacity="0.85" />
+        </svg>
+      );
+    }
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4" y="10" width="16" height="8" rx="2" fill="currentColor" />
+        <rect x="7" y="6" width="4" height="4" rx="1" fill="currentColor" opacity="0.85" />
+        <rect x="13" y="6" width="4" height="4" rx="1" fill="currentColor" opacity="0.85" />
+      </svg>
+    );
+  };
   const inherentSkillGroups = useMemo(() => {
     const grouped: Record<AttributeKey, SkillEntry[]> = {
       phys: [],
@@ -697,6 +835,43 @@ export default function App() {
     });
     return grouped;
   }, [skillsData]);
+
+  const sortedFilteredCharacters = useMemo(() => {
+    const filtered = characterSummaries.filter((entry) =>
+      (entry.name || "Unnamed Character")
+        .toLowerCase()
+        .includes(characterSearch.trim().toLowerCase())
+    );
+    const getValue = (entry: { id: string; name: string; updatedAt: string }) => {
+      const full = characterSheetsById[entry.id];
+      if (characterSortKey === "name") return (entry.name || "").toLowerCase();
+      if (characterSortKey === "updatedAt") return entry.updatedAt || "";
+      if (characterSortKey === "skillPoints") return full?.skillPoints ?? 0;
+      if (characterSortKey === "phys") return full?.attributes?.phys ?? 0;
+      if (characterSortKey === "ref") return full?.attributes?.ref ?? 0;
+      if (characterSortKey === "soc") return full?.attributes?.soc ?? 0;
+      if (characterSortKey === "ment") return full?.attributes?.ment ?? 0;
+      if (characterSortKey === "weapon") return full?.weapons?.[0]?.name ?? "";
+      if (characterSortKey === "armour") return full?.armour?.name ?? "";
+      return "";
+    };
+    filtered.sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      if (typeof av === "number" && typeof bv === "number") {
+        return characterSortDirection === "asc" ? av - bv : bv - av;
+      }
+      const result = String(av).localeCompare(String(bv));
+      return characterSortDirection === "asc" ? result : -result;
+    });
+    return filtered;
+  }, [
+    characterSummaries,
+    characterSheetsById,
+    characterSearch,
+    characterSortKey,
+    characterSortDirection,
+  ]);
 
   const goNext = () => {
     if (currentStepIndex < STEPS.length - 1) {
@@ -717,7 +892,9 @@ export default function App() {
     if (!file) return;
     try {
       const imported = await readCharacterFile(file);
-      updateSheet({ ...imported, id: imported.id || crypto.randomUUID() });
+      const next = { ...imported, id: imported.id || crypto.randomUUID() };
+      setSheet(next);
+      setBaselineSheetJson(JSON.stringify(next));
       setStep("review");
     } catch {
       setImportError("Could not read that file.");
@@ -1170,6 +1347,7 @@ export default function App() {
     saveDraft(targetSheet);
     setSaveStatus("saved locally");
     updateSheet(targetSheet);
+    setBaselineSheetJson(JSON.stringify(targetSheet));
   };
 
   const localSaveExists = (id: string) => {
@@ -1187,6 +1365,82 @@ export default function App() {
     } catch {
       return false;
     }
+  };
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setPage(detectPage());
+    if (path.startsWith("/character/")) {
+      setViewId(path.replace("/character/", ""));
+    }
+  };
+
+  const refreshCharacterList = async () => {
+    if (!user) return;
+    setCharacterListLoading(true);
+    setCharacterListError("");
+    try {
+      const summaries = await listCharacters();
+      setCharacterSummaries(summaries);
+      const details = await Promise.all(
+        summaries.map(async (entry) => {
+          try {
+            const full = await fetchCharacter(entry.id);
+            return [entry.id, full] as const;
+          } catch {
+            return null;
+          }
+        })
+      );
+      const map: Record<string, CharacterSheet> = {};
+      details.forEach((pair) => {
+        if (!pair) return;
+        map[pair[0]] = pair[1];
+      });
+      setCharacterSheetsById(map);
+    } catch (err) {
+      setCharacterListError(err instanceof Error ? err.message : "Failed to load characters");
+    } finally {
+      setCharacterListLoading(false);
+    }
+  };
+
+  const applyEditorAction = async (action: { type: "add" } | { type: "edit"; id: string; name: string }) => {
+    if (action.type === "add") {
+      const blank = createBlankCharacter();
+      setSheet(blank);
+      setBaselineSheetJson(JSON.stringify(blank));
+      setStep("basics");
+      navigate("/");
+      return;
+    }
+    try {
+      const loaded = await fetchCharacter(action.id);
+      setSheet(loaded);
+      setBaselineSheetJson(JSON.stringify(loaded));
+      setStep("basics");
+      navigate("/");
+    } catch {
+      setSaveError("Failed to load character for edit.");
+    }
+  };
+
+  const beginEditorAction = (action: { type: "add" } | { type: "edit"; id: string; name: string }) => {
+    if (isDirty) {
+      setPendingEditorAction(action);
+      setUnsavedPromptOpen(true);
+      return;
+    }
+    void applyEditorAction(action);
+  };
+
+  const toggleSort = (key: CharacterSortKey) => {
+    if (characterSortKey === key) {
+      setCharacterSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setCharacterSortKey(key);
+    setCharacterSortDirection("asc");
   };
 
   const handleAuth = async () => {
@@ -1285,7 +1539,7 @@ export default function App() {
     }
   };
 
-  const handleCloudSave = async (): Promise<boolean> => {
+  const handleCloudSave = async (opts?: { redirect?: boolean }): Promise<boolean> => {
     setSaveStatus("saving...");
     setSaveError("");
     setConflictSheet(null);
@@ -1345,8 +1599,11 @@ export default function App() {
       const saved = (await res.json()) as CharacterSheet;
       updateSheet(saved);
       localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(saved));
+      setBaselineSheetJson(JSON.stringify(saved));
       setSaveStatus("saved");
-      window.location.href = `${window.location.origin}/character/${saved.id}`;
+      if (opts?.redirect !== false) {
+        window.location.href = `${window.location.origin}/character/${saved.id}`;
+      }
       return true;
     } catch (err) {
       setSaveStatus("failed");
@@ -1367,9 +1624,12 @@ export default function App() {
     setSaveNew(false);
     if (target === "cloud") {
       const exists = await checkCloudExists(sheet.id);
+      setSaveExistingRecord(exists);
       setSaveNewAvailable(exists);
     } else {
-      setSaveNewAvailable(localSaveExists(sheet.id));
+      const exists = localSaveExists(sheet.id);
+      setSaveExistingRecord(exists);
+      setSaveNewAvailable(exists);
     }
     setSaveMenuOpen(false);
     setSaveOptionsOpen(true);
@@ -1377,8 +1637,37 @@ export default function App() {
 
   const executeSave = async () => {
     if (saveTarget === "cloud") {
-      await handleCloudSave();
+      const creatingNew = saveNew || !saveExistingRecord;
+      if (creatingNew) {
+        try {
+          const count = (await listCharacters()).length;
+          if (count >= characterLimit) {
+            setSaveError(`Character limit reached (${characterLimit}). Delete one before creating a new copy.`);
+            return;
+          }
+        } catch {
+          setSaveError("Unable to verify character limit right now.");
+          return;
+        }
+      }
+      const continueAction = pendingEditorAction;
+      const ok = await handleCloudSave({ redirect: !continueAction });
+      if (ok) {
+        setSaveOptionsOpen(false);
+        setSaveMenuOpen(false);
+        if (continueAction) {
+          setPendingEditorAction(null);
+          await applyEditorAction(continueAction);
+        }
+      }
       return;
+    }
+    if (saveNew || !saveExistingRecord) {
+      const used = Object.keys(readLocalSaves()).length;
+      if (used >= characterLimit) {
+        setSaveError(`Character limit reached (${characterLimit}). Remove a local character before creating a new copy.`);
+        return;
+      }
     }
     const targetSheet = saveNew
       ? {
@@ -1391,6 +1680,11 @@ export default function App() {
     saveToLocalStorage(targetSheet);
     setSaveOptionsOpen(false);
     setSaveMenuOpen(false);
+    if (pendingEditorAction) {
+      const continueAction = pendingEditorAction;
+      setPendingEditorAction(null);
+      await applyEditorAction(continueAction);
+    }
   };
 
   const resetToLastSaved = async () => {
@@ -1400,7 +1694,8 @@ export default function App() {
       const saves = readLocalSaves();
       const localMatch = saves[sheet.id];
       if (localMatch) {
-        updateSheet(localMatch);
+        setSheet(localMatch);
+        setBaselineSheetJson(JSON.stringify(localMatch));
         setSaveStatus("reset to local saved copy");
         setStep("basics");
         return;
@@ -1408,7 +1703,8 @@ export default function App() {
       const lastSavedRaw = localStorage.getItem(LAST_SAVED_KEY);
       if (lastSavedRaw) {
         const lastSaved = JSON.parse(lastSavedRaw) as CharacterSheet;
-        updateSheet(lastSaved);
+        setSheet(lastSaved);
+        setBaselineSheetJson(JSON.stringify(lastSaved));
         setSaveStatus("reset to last saved copy");
         setStep("basics");
         return;
@@ -1420,7 +1716,8 @@ export default function App() {
         });
         if (res.ok) {
           const remote = (await res.json()) as CharacterSheet;
-          updateSheet(remote);
+          setSheet(remote);
+          setBaselineSheetJson(JSON.stringify(remote));
           localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(remote));
           setSaveStatus("reset to cloud saved copy");
           setStep("basics");
@@ -1431,7 +1728,8 @@ export default function App() {
       // ignore parse errors and reset to blank
     }
     const blank = createBlankCharacter();
-    updateSheet(blank);
+    setSheet(blank);
+    setBaselineSheetJson(JSON.stringify(blank));
     setSaveStatus("reset to blank sheet");
     setStep("basics");
   };
@@ -1465,7 +1763,20 @@ export default function App() {
     if (viewId) void handleViewLoad(viewId);
   }, [viewId]);
 
-  if (viewId) {
+  useEffect(() => {
+    if (page === "characters" && user) {
+      void refreshCharacterList();
+    }
+  }, [page, user]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onClick = () => setAccountMenuOpen(false);
+    window.addEventListener("click", onClick);
+    return () => window.removeEventListener("click", onClick);
+  }, [accountMenuOpen]);
+
+  if (page === "view" && viewId) {
     return (
       <div className="app">
         <header className="header">
@@ -1534,6 +1845,172 @@ export default function App() {
     );
   }
 
+  if (page === "settings") {
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="eyebrow">Whisperspace</div>
+          <div className="header-row">
+            <div>
+              <h1>Settings</h1>
+            </div>
+            <div className="header-actions">
+              <button className="ghost" onClick={() => navigate("/")}>
+                Back to Builder
+              </button>
+            </div>
+          </div>
+        </header>
+        <section className="card">
+          <p className="muted">Settings page is next in the queue.</p>
+        </section>
+      </div>
+    );
+  }
+
+  if (page === "characters") {
+    const emptySlots = Math.max(0, characterLimit - characterSummaries.length);
+    return (
+      <div className="app">
+        <header className="header">
+          <div className="eyebrow">Whisperspace</div>
+          <div className="header-row">
+            <div>
+              <h1>Character List</h1>
+              <p className="status">
+                {sortedFilteredCharacters.length} / {characterLimit} slots used
+              </p>
+            </div>
+            <div className="header-actions">
+              <button className="ghost" onClick={() => navigate("/")}>
+                Back to Builder
+              </button>
+            </div>
+          </div>
+          <div className="character-list-toolbar">
+            <button
+              className="primary"
+              onClick={() => beginEditorAction({ type: "add" })}
+              disabled={!user}
+            >
+              Add Character
+            </button>
+            <input
+              value={characterSearch}
+              onChange={(e) => setCharacterSearch(e.target.value)}
+              placeholder="Search by name"
+            />
+          </div>
+        </header>
+        <section className="card">
+          {characterListError ? <p className="error">{characterListError}</p> : null}
+          {characterListLoading ? <p className="muted">Loading characters...</p> : null}
+          <div className="character-table">
+            <div className="character-table-head">
+              <button className="ghost" onClick={() => toggleSort("name")}>Name</button>
+              <button className="ghost" onClick={() => toggleSort("updatedAt")}>Last Saved</button>
+              <button className="ghost" onClick={() => toggleSort("skillPoints")}>Skill Points</button>
+              <button className="ghost" onClick={() => toggleSort("phys")}>Phys</button>
+              <button className="ghost" onClick={() => toggleSort("ref")}>Ref</button>
+              <button className="ghost" onClick={() => toggleSort("soc")}>Soc</button>
+              <button className="ghost" onClick={() => toggleSort("ment")}>Ment</button>
+              <button className="ghost" onClick={() => toggleSort("weapon")}>Weapon</button>
+              <button className="ghost" onClick={() => toggleSort("armour")}>Armour</button>
+              <span>Actions</span>
+            </div>
+            {sortedFilteredCharacters.map((entry) => {
+              const full = characterSheetsById[entry.id];
+              const shareUrl = `${window.location.origin}/character/${entry.id}`;
+              return (
+                <div className="character-row" key={entry.id}>
+                  <span>{entry.name || "Unnamed Character"}</span>
+                  <span>{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : "-"}</span>
+                  <span>{full?.skillPoints ?? 0}</span>
+                  <span>{full?.attributes?.phys ?? 0}</span>
+                  <span>{full?.attributes?.ref ?? 0}</span>
+                  <span>{full?.attributes?.soc ?? 0}</span>
+                  <span>{full?.attributes?.ment ?? 0}</span>
+                  <span>{full?.weapons?.[0]?.name ?? "-"}</span>
+                  <span>{full?.armour?.name ?? "-"}</span>
+                  <div className="inline">
+                    <a className="ghost" href={shareUrl}>
+                      View
+                    </a>
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(shareUrl);
+                      }}
+                    >
+                      Copy Link
+                    </button>
+                    <button
+                      className="ghost"
+                      onClick={() =>
+                        beginEditorAction({
+                          type: "edit",
+                          id: entry.id,
+                          name: entry.name || "Unnamed Character",
+                        })
+                      }
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {Array.from({ length: emptySlots }).map((_, idx) => (
+              <div className="character-row empty" key={`empty-${idx}`}>
+                <span>Empty slot</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        {unsavedPromptOpen ? (
+          <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
+            <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <h2>You have unsaved changes</h2>
+                <button className="ghost" onClick={() => setUnsavedPromptOpen(false)}>
+                  Close
+                </button>
+              </div>
+              <p className="muted">
+                {pendingEditorAction?.type === "edit"
+                  ? pendingEditorAction.name
+                  : sheet.name || "Current character"}
+              </p>
+              <div className="stack">
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setUnsavedPromptOpen(false);
+                    navigate("/");
+                    setSaveMenuOpen(true);
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  className="ghost danger"
+                  onClick={() => {
+                    const action = pendingEditorAction;
+                    setUnsavedPromptOpen(false);
+                    setPendingEditorAction(null);
+                    if (action) void applyEditorAction(action);
+                  }}
+                >
+                  Discard changes
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -1544,19 +2021,49 @@ export default function App() {
           </div>
           <div className="inline auth-chip">
             {user ? (
-              <>
-                <span className="muted">Signed in</span>
-                <button className="ghost" onClick={handleLogout}>
-                  Log out
+              <div className="account-menu-wrap" onClick={(event) => event.stopPropagation()}>
+                <button
+                  className="ghost"
+                  onClick={() => setAccountMenuOpen((prev) => !prev)}
+                >
+                  {accountName} ▾
                 </button>
-              </>
+                {accountMenuOpen ? (
+                  <div className="account-menu">
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        navigate("/characters");
+                      }}
+                    >
+                      Character List
+                    </button>
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        navigate("/settings");
+                      }}
+                    >
+                      Settings
+                    </button>
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        void handleLogout();
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
-              <>
-                <span className="muted">Not signed in</span>
-                <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
-                  Log in / Sign up
-                </button>
-              </>
+              <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
+                Log in / Sign up
+              </button>
             )}
           </div>
         </div>
@@ -1851,7 +2358,7 @@ export default function App() {
                         <button className="skill-group-header" onClick={() => toggleSkillGroup(groupKey)}>
                           <span className="skill-group-title">
                             <span className={`skill-icon skill-icon-${attrKey}`}>
-                              {ATTRIBUTE_GROUP_META[attrKey].icon}
+                              {renderSkillIcon(attrKey)}
                             </span>
                             {ATTRIBUTE_GROUP_META[attrKey].title}
                           </span>
@@ -1920,7 +2427,7 @@ export default function App() {
                         <div key={focus} className="skills-subsection">
                           <button className="skill-group-header" onClick={() => toggleSkillGroup(groupKey)}>
                             <span className="skill-group-title">
-                              <span className={`skill-icon skill-icon-${focus}`}>{FOCUS_META[focus].icon}</span>
+                              <span className={`skill-icon skill-icon-${focus}`}>{renderSkillIcon(focus)}</span>
                               {FOCUS_META[focus].title}
                               {focus === learningFocus ? " (Selected Focus)" : ""}
                             </span>
@@ -2937,6 +3444,46 @@ export default function App() {
                   onChange={(event) => void handleImportDrop(event.target.files?.[0] ?? null)}
                 />
               </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {unsavedPromptOpen ? (
+        <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>You have unsaved changes</h2>
+              <button className="ghost" onClick={() => setUnsavedPromptOpen(false)}>
+                Close
+              </button>
+            </div>
+            <p className="muted">
+              {pendingEditorAction?.type === "edit"
+                ? pendingEditorAction.name
+                : sheet.name || "Current character"}
+            </p>
+            <div className="stack">
+              <button
+                className="primary"
+                onClick={() => {
+                  setUnsavedPromptOpen(false);
+                  setSaveMenuOpen(true);
+                }}
+              >
+                Save
+              </button>
+              <button
+                className="ghost danger"
+                onClick={() => {
+                  const action = pendingEditorAction;
+                  setUnsavedPromptOpen(false);
+                  setPendingEditorAction(null);
+                  if (action) void applyEditorAction(action);
+                }}
+              >
+                Discard changes
+              </button>
             </div>
           </div>
         </div>
