@@ -1,6 +1,6 @@
-import { CHARACTER_API_BASE } from "@whisperspace/sdk";
 import type { CharacterSheet } from "../model/character";
-import { validateCharacterRecordV1 } from "@whisperspace/sdk";
+import { CHARACTER_API_BASE } from "../model/api";
+import { validateCharacterRecordV1 } from "../model/validate";
 
 const API_BASE =
   (import.meta as any).env?.VITE_CHARACTER_API_BASE || CHARACTER_API_BASE;
@@ -11,6 +11,13 @@ function authHeaders() {
   };
   const apiKey = localStorage.getItem("ws_character_api_key");
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  const csrf = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("ws_csrf="));
+  if (csrf) {
+    headers["X-CSRF-Token"] = decodeURIComponent(csrf.split("=").slice(1).join("="));
+  }
   return headers;
 }
 

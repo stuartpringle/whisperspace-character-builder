@@ -190,6 +190,7 @@ export default function App() {
   const [resetEmail, setResetEmail] = useState<string>("");
   const [resetPassword, setResetPassword] = useState<string>("");
   const [resetToken, setResetToken] = useState<string>("");
+  const [pendingSaveAfterAuth, setPendingSaveAfterAuth] = useState<boolean>(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState<boolean>(false);
   const [saveVisibility, setSaveVisibility] = useState<"private" | "public">("private");
   const [saveNew, setSaveNew] = useState<boolean>(false);
@@ -1093,6 +1094,10 @@ export default function App() {
         setAuthPassword("");
         localStorage.setItem("ws_auth_session", JSON.stringify({ user: payload.user ?? null }));
         localStorage.setItem("ws_auth_session_at", String(Date.now()));
+        if (pendingSaveAfterAuth) {
+          setPendingSaveAfterAuth(false);
+          await handleCloudSave();
+        }
       }
     } catch {
       setAuthError("auth_failed");
@@ -1168,7 +1173,7 @@ export default function App() {
     }
   };
 
-  const handleCloudSave = async () => {
+  const handleCloudSave = async (): Promise<boolean> => {
     setSaveStatus("saving...");
     setSaveError("");
     setConflictSheet(null);
@@ -1191,7 +1196,7 @@ export default function App() {
       setSaveStatus("invalid");
       setSaveError("Validation failed. See details below.");
       setValidationErrors(validation.errors);
-      return;
+      return false;
     }
     const id = saveNew ? crypto.randomUUID() : sheet.id;
     const method = saveNew ? "POST" : "PUT";
@@ -1214,7 +1219,7 @@ export default function App() {
         setSaveStatus("conflict");
         setSaveError("Conflict: remote has a newer version.");
         setConflictSheet(payload?.current as CharacterSheet);
-        return;
+        return false;
       }
       if (res.status === 404 && method === "PUT") {
         res = await doRequest(`${apiBase}/characters?visibility=${saveVisibility}`, "POST");
@@ -1223,15 +1228,17 @@ export default function App() {
         const payload = await res.json().catch(() => ({}));
         setSaveStatus("failed");
         setSaveError(payload?.error || "Save failed");
-        return;
+        return false;
       }
       const saved = (await res.json()) as CharacterSheet;
       updateSheet(saved);
       setSaveStatus("saved");
       window.location.href = `${window.location.origin}/character/${saved.id}`;
+      return true;
     } catch (err) {
       setSaveStatus("failed");
       setSaveError(err instanceof Error ? err.message : "Save failed");
+      return false;
     }
   };
 
@@ -2492,10 +2499,13 @@ export default function App() {
             className="primary"
             onClick={() => {
               void fetchSession(true);
+              if (!user) {
+                setPendingSaveAfterAuth(true);
+              }
               setSaveDialogOpen(true);
             }}
           >
-            Save Character
+            Save
           </button>
         ) : (
           <button className="primary" onClick={goNext} disabled={currentStepIndex === STEPS.length - 1}>
@@ -2505,11 +2515,23 @@ export default function App() {
       </footer>
 
       {saveDialogOpen ? (
-        <div className="modal">
-          <div className="modal-card">
+        <div
+          className="modal"
+          onClick={() => {
+            setSaveDialogOpen(false);
+            setPendingSaveAfterAuth(false);
+          }}
+        >
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Save Character</h2>
-              <button className="ghost" onClick={() => setSaveDialogOpen(false)}>
+              <button
+                className="ghost"
+                onClick={() => {
+                  setSaveDialogOpen(false);
+                  setPendingSaveAfterAuth(false);
+                }}
+              >
                 Close
               </button>
             </div>
@@ -2606,7 +2628,6 @@ export default function App() {
               </div>
             ) : (
               <div className="stack">
-                <p className="muted">Signed in as {user.email}</p>
                 <div className="grid two">
                   <div>
                     <label>Visibility</label>
@@ -2614,13 +2635,13 @@ export default function App() {
                       value={saveVisibility}
                       onChange={(e) => setSaveVisibility(e.target.value as "private" | "public")}
                     >
-                      <option value="private">Private (owner/admin only)</option>
-                      <option value="public">Public (anyone with link)</option>
+                      <option value="private">Private (just you)</option>
+                      <option value="public">Public</option>
                     </select>
                     <p className="muted">
                       {saveVisibility === "private"
-                        ? "Private keeps the character restricted to your account and admins."
-                        : "Public allows read-only viewing by anyone with the URL."}
+                        ? "Private characters can be viewed only by you."
+                        : "Public characters can be viewed by anyone."}
                     </p>
                   </div>
                   <div className="toggle">
@@ -2639,25 +2660,38 @@ export default function App() {
                   </div>
                 </div>
                 <button className="primary" onClick={handleCloudSave}>
-                  {saveNew ? "Create Saved Copy" : "Save Changes"}
+                  Save
+                </button>
+                <button className="ghost" onClick={() => downloadCharacter(sheet)}>
+                  Export JSON
+                </button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    saveDraft(sheet);
+                    setSaveStatus("saved locally");
+                  }}
+                >
+                  Save to Local Storage
                 </button>
               </div>
             )}
-            <div className="stack">
-              <p className="muted">Local options</p>
-              <button className="ghost" onClick={() => downloadCharacter(sheet)}>
-                Export JSON
-              </button>
-              <button
-                className="ghost"
-                onClick={() => {
-                  saveDraft(sheet);
-                  setSaveStatus("saved locally");
-                }}
-              >
-                Save Draft
-              </button>
-            </div>
+            {!user ? (
+              <div className="stack">
+                <button className="ghost" onClick={() => downloadCharacter(sheet)}>
+                  Export JSON
+                </button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    saveDraft(sheet);
+                    setSaveStatus("saved locally");
+                  }}
+                >
+                  Save to Local Storage
+                </button>
+              </div>
+            ) : null}
             {saveError ? <p className="error">{saveError}</p> : null}
             {authFeedback ? (
               <p className={authFeedback.tone === "success" ? "success" : "error"}>

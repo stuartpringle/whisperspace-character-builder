@@ -52,12 +52,14 @@ npm run dev
 - [done] Move derived stats off the Attributes step and into Review.
 - [done] Save flow centered on Review with a dedicated Save dialog.
 - [done] Account-based cloud saves with login/signup/session persistence and polished auth/save dialog copy.
-- [done] Save permissions copy clarified: `private` (owner/admin) vs `public` (anyone with view URL).
+- [done] Save permissions copy clarified: `private` (just you) vs `public` (anyone).
 - [done] Post-save redirect to a character view page (shareable URL).
 - [done] Cache Rules API data locally with fallback messaging when offline.
 - [done] Display Rules API version and cache timestamp in the footer.
 - [done] Background/motivation pick + roll wired to Rules API tables.
 - [done] Login/signup modal copy and layout polish (readable errors, reset flow toggle, permission guidance).
+- [done] Save modal closes on outside click and supports auto-save after login/signup when save was requested while logged out.
+- [done] Visual refresh aligned to `whisperspace.com` contact/footer direction (dark slate + blue accents, starfield treatment on key panels, newsletter-style modal feel).
 - [planned] Add “My Characters” list for authenticated users.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
@@ -84,8 +86,9 @@ npm run dev
 - CSRF token is read from `ws_csrf` cookie and sent as `X-CSRF-Token` on sensitive requests.
 - Some storage helpers also support bearer token usage from `localStorage.ws_character_api_key` for API-style calls.
 - OAuth entrypoint used by UI: `${VITE_CHARACTER_API_BASE}/auth/oauth/google`.
+- If unauthenticated users click Save from Review, the auth modal opens and cloud save proceeds automatically after successful login/signup.
 
 ## Integration Gotchas
 - Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.
 - Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
-- Public characters are intended for view-by-link; private characters require owner/admin access on the server.
+- Public characters are intended for view-by-link; private characters are scoped to the owner.
