@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
  
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
@@ -250,9 +249,6 @@ export default function App() {
   });
   const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
   const [importDragActive, setImportDragActive] = useState<boolean>(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
-  const accountMenuButtonRef = useRef<HTMLButtonElement | null>(null);
-  const accountMenuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [characterLimit, setCharacterLimit] = useState<number>(20);
   const [characterSummaries, setCharacterSummaries] = useState<
     Array<{ id: string; name: string; updatedAt: string }>
@@ -1467,39 +1463,6 @@ export default function App() {
     return `${label} ${characterSortDirection === "asc" ? "▲" : "▼"}`;
   };
 
-  const onAccountMenuButtonKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setAccountMenuOpen(true);
-      window.setTimeout(() => accountMenuItemRefs.current[0]?.focus(), 0);
-    }
-    if (event.key === "Escape") {
-      setAccountMenuOpen(false);
-    }
-  };
-
-  const onAccountMenuItemKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    index: number
-  ) => {
-    const itemCount = accountMenuItemRefs.current.length;
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      accountMenuItemRefs.current[(index + 1) % itemCount]?.focus();
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      accountMenuItemRefs.current[(index - 1 + itemCount) % itemCount]?.focus();
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setAccountMenuOpen(false);
-      accountMenuButtonRef.current?.focus();
-    }
-  };
-
   const saveSettings = () => {
     localStorage.setItem("ws_pref_visibility", settingsVisibilityDefault);
     localStorage.setItem("ws_pref_landing", settingsLandingPage);
@@ -1834,31 +1797,140 @@ export default function App() {
     }
   }, [page, user]);
 
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const onClick = () => setAccountMenuOpen(false);
-    window.addEventListener("click", onClick);
-    return () => window.removeEventListener("click", onClick);
-  }, [accountMenuOpen]);
+  const activeMenuPage = page === "view" ? "builder" : page;
+  const renderAccountMenu = () => {
+    if (!user) {
+      return (
+        <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
+          Log in / Sign up
+        </button>
+      );
+    }
+    return (
+      <div className="account-block">
+        <div className="account-name">{accountName}</div>
+        <div className="account-links">
+          <button
+            className={activeMenuPage === "builder" ? "primary" : "ghost"}
+            onClick={() => navigate("/")}
+          >
+            Character Builder
+          </button>
+          <button
+            className={activeMenuPage === "characters" ? "primary" : "ghost"}
+            onClick={() => navigate("/characters")}
+          >
+            Character List
+          </button>
+          <button
+            className={activeMenuPage === "settings" ? "primary" : "ghost"}
+            onClick={() => navigate("/settings")}
+          >
+            Settings
+          </button>
+          <button className="ghost" onClick={() => void handleLogout()}>
+            Log out
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderHeader = (title: string, subtitle?: string, builderControls = false) => (
+    <header className="header">
+      <div className="eyebrow">Whisperspace</div>
+      <div className="header-row">
+        <div className="header-title-stack">
+          <h1>{title}</h1>
+          {page !== "builder" ? (
+            <button className="ghost" onClick={() => navigate("/")}>
+              Back to Character Builder
+            </button>
+          ) : null}
+          {subtitle ? <p className="status">{subtitle}</p> : null}
+        </div>
+        <div className="auth-chip">{renderAccountMenu()}</div>
+      </div>
+      {builderControls ? (
+        <div className="header-row">
+          <div className="header-actions">
+            <button className="primary" onClick={() => void openSaveMenu()}>
+              Save
+            </button>
+            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+              Import
+            </button>
+            <button className="ghost danger" onClick={() => void resetToLastSaved()}>
+              Reset
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {builderControls && importError ? <p className="error">{importError}</p> : null}
+      {builderControls && saveStatus ? <p className="muted">Save: {saveStatus}</p> : null}
+      {builderControls && validationErrors.length > 0 ? (
+        <div className="validation">
+          <p className="error">Validation errors:</p>
+          <ul>
+            {validationErrors.map((err, idx) => (
+              <li key={`${err}-${idx}`}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {builderControls && conflictSheet ? (
+        <div className="conflict">
+          <p className="error">Conflict detected. Remote version is newer.</p>
+          <div className="inline">
+            <button
+              className="ghost"
+              onClick={() => {
+                updateSheet(conflictSheet);
+                setConflictSheet(null);
+                setStep("review");
+              }}
+            >
+              Load Remote
+            </button>
+            <button
+              className="ghost danger"
+              onClick={async () => {
+                const result = await saveCharacter(sheet, { force: true });
+                if (result.ok) {
+                  setConflictSheet(null);
+                  setSaveStatus("overwrote remote");
+                } else {
+                  setSaveStatus("force save failed");
+                }
+              }}
+            >
+              Overwrite Remote
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </header>
+  );
+
+  const renderFooter = () => (
+    <footer className="footer">
+      <div className="footer-info">
+        {rulesCacheNote ? <span className="muted">{rulesCacheNote}</span> : null}
+        {rulesVersion || rulesFetchedAt ? (
+          <span className="muted">
+            {rulesVersion ? `Rules version: ${rulesVersion}` : "Rules version: unknown"}
+            {rulesFetchedAt ? ` · Cached: ${new Date(rulesFetchedAt).toLocaleString()}` : ""}
+          </span>
+        ) : null}
+      </div>
+    </footer>
+  );
 
   if (page === "view" && viewId) {
     return (
       <div className="app">
-        <header className="header">
-          <div className="eyebrow">Whisperspace</div>
-          <div className="header-row">
-            <div>
-              <h1>Character View</h1>
-              <p className="status">Rules API: {apiStatus}</p>
-            </div>
-            <div className="header-actions">
-              <a className="ghost" href="/">
-                Back to Builder
-              </a>
-            </div>
-          </div>
-          {viewError ? <p className="error">{viewError}</p> : null}
-        </header>
+        {renderHeader("Character View")}
+        {viewError ? <p className="error">{viewError}</p> : null}
         <section className="card">
           {viewSheet ? (
             <div className="stack">
@@ -1906,6 +1978,7 @@ export default function App() {
             <p className="muted">Loading character...</p>
           )}
         </section>
+        {renderFooter()}
       </div>
     );
   }
@@ -1913,19 +1986,7 @@ export default function App() {
   if (page === "settings") {
     return (
       <div className="app">
-        <header className="header">
-          <div className="eyebrow">Whisperspace</div>
-          <div className="header-row">
-            <div>
-              <h1>Settings</h1>
-            </div>
-            <div className="header-actions">
-              <button className="ghost" onClick={() => navigate("/")}>
-                Back to Builder
-              </button>
-            </div>
-          </div>
-        </header>
+        {renderHeader("Settings")}
         <section className="card">
           <div className="grid two">
             <div className="stack">
@@ -1966,6 +2027,7 @@ export default function App() {
             </div>
           </div>
         </section>
+        {renderFooter()}
       </div>
     );
   }
@@ -1975,21 +2037,11 @@ export default function App() {
     const emptySlots = showEmptySlots ? Math.max(0, characterLimit - characterSummaries.length) : 0;
     return (
       <div className="app">
-        <header className="header">
-          <div className="eyebrow">Whisperspace</div>
-          <div className="header-row">
-            <div>
-              <h1>Character List</h1>
-              <p className="status">
-                {sortedFilteredCharacters.length} / {characterLimit} slots used
-              </p>
-            </div>
-            <div className="header-actions">
-              <button className="ghost" onClick={() => navigate("/")}>
-                Back to Builder
-              </button>
-            </div>
-          </div>
+        {renderHeader(
+          "Character List",
+          `${sortedFilteredCharacters.length} / ${characterLimit} slots used`
+        )}
+        <section className="card">
           <div className="character-list-toolbar">
             <button
               className="primary"
@@ -2004,7 +2056,7 @@ export default function App() {
               placeholder="Search by name"
             />
           </div>
-        </header>
+        </section>
         <section className="card">
           {characterListError ? <p className="error">{characterListError}</p> : null}
           {characterListLoading ? <p className="muted">Loading characters...</p> : null}
@@ -2069,6 +2121,7 @@ export default function App() {
             ))}
           </div>
         </section>
+        {renderFooter()}
         {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
             <div className="modal-card" onClick={(event) => event.stopPropagation()}>
@@ -2115,139 +2168,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="eyebrow">Whisperspace</div>
-        <div className="header-row">
-          <div>
-            <h1>Character Builder</h1>
-          </div>
-          <div className="inline auth-chip">
-            {user ? (
-              <div className="account-menu-wrap" onClick={(event) => event.stopPropagation()}>
-                <button
-                  ref={accountMenuButtonRef}
-                  className="ghost"
-                  aria-haspopup="menu"
-                  aria-expanded={accountMenuOpen}
-                  onClick={() => setAccountMenuOpen((prev) => !prev)}
-                  onKeyDown={onAccountMenuButtonKeyDown}
-                >
-                  {accountName} ▾
-                </button>
-                {accountMenuOpen ? (
-                  <div className="account-menu" role="menu" aria-label="Account menu">
-                    <button
-                      ref={(node) => {
-                        accountMenuItemRefs.current[0] = node;
-                      }}
-                      className="ghost"
-                      role="menuitem"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        navigate("/characters");
-                      }}
-                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 0)}
-                    >
-                      Character List
-                    </button>
-                    <button
-                      ref={(node) => {
-                        accountMenuItemRefs.current[1] = node;
-                      }}
-                      className="ghost"
-                      role="menuitem"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        navigate("/settings");
-                      }}
-                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 1)}
-                    >
-                      Settings
-                    </button>
-                    <button
-                      ref={(node) => {
-                        accountMenuItemRefs.current[2] = node;
-                      }}
-                      className="ghost"
-                      role="menuitem"
-                      onClick={() => {
-                        setAccountMenuOpen(false);
-                        void handleLogout();
-                      }}
-                      onKeyDown={(event) => onAccountMenuItemKeyDown(event, 2)}
-                    >
-                      Log out
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
-                Log in / Sign up
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="header-row">
-          <div className="header-actions">
-            <button className="primary" onClick={() => void openSaveMenu()}>
-              Save
-            </button>
-            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
-              Import
-            </button>
-            <button
-              className="ghost danger"
-              onClick={() => void resetToLastSaved()}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-        {importError ? <p className="error">{importError}</p> : null}
-        {saveStatus ? <p className="muted">Save: {saveStatus}</p> : null}
-        {validationErrors.length > 0 ? (
-          <div className="validation">
-            <p className="error">Validation errors:</p>
-            <ul>
-              {validationErrors.map((err, idx) => (
-                <li key={`${err}-${idx}`}>{err}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {conflictSheet ? (
-          <div className="conflict">
-            <p className="error">Conflict detected. Remote version is newer.</p>
-            <div className="inline">
-              <button
-                className="ghost"
-                onClick={() => {
-                  updateSheet(conflictSheet);
-                  setConflictSheet(null);
-                  setStep("review");
-                }}
-              >
-                Load Remote
-              </button>
-              <button
-                className="ghost danger"
-                onClick={async () => {
-                  const result = await saveCharacter(sheet, { force: true });
-                  if (result.ok) {
-                    setConflictSheet(null);
-                    setSaveStatus("overwrote remote");
-                  } else {
-                    setSaveStatus("force save failed");
-                  }
-                }}
-              >
-                Overwrite Remote
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </header>
+      {renderHeader("Character Builder", undefined, true)}
 
       <nav className="steps">
         {STEPS.map((s, index) => (
@@ -3329,17 +3250,7 @@ export default function App() {
       </section>
 
 
-      <footer className="footer">
-        <div className="footer-info">
-          {rulesCacheNote ? <span className="muted">{rulesCacheNote}</span> : null}
-          {rulesVersion || rulesFetchedAt ? (
-            <span className="muted">
-              {rulesVersion ? `Rules version: ${rulesVersion}` : "Rules version: unknown"}
-              {rulesFetchedAt ? ` · Cached: ${new Date(rulesFetchedAt).toLocaleString()}` : ""}
-            </span>
-          ) : null}
-        </div>
-      </footer>
+      {renderFooter()}
 
       {saveMenuOpen ? (
         <div className="modal" onClick={() => setSaveMenuOpen(false)}>

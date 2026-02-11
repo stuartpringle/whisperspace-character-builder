@@ -71,6 +71,11 @@ body {
   gap: 16px;
 }
 
+.header-title-stack {
+  display: grid;
+  gap: 8px;
+}
+
 header h1 {
   margin: 8px 0 10px;
   font-size: clamp(2.5rem, 5vw, 3.6rem);
@@ -132,32 +137,32 @@ header p {
   justify-content: flex-end;
 }
 
-.account-menu-wrap {
-  position: relative;
-  z-index: 80;
+.account-block {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
 }
 
-.account-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 180px;
+.account-name {
+  font-weight: 600;
+  color: #c3d8ff;
+}
+
+.account-links {
+  min-width: 220px;
   border: 1px solid rgba(104, 136, 194, 0.55);
   border-radius: 12px;
   padding: 8px;
   background: rgba(10, 20, 40, 0.96);
   display: grid;
   gap: 6px;
-  z-index: 50;
-  pointer-events: auto;
 }
 
-.account-menu .ghost {
+.account-links button {
   width: 100%;
   justify-content: flex-start;
   min-height: 40px;
   padding: 10px 12px;
-  display: inline-flex;
 }
 
 .steps {
