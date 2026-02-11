@@ -239,11 +239,11 @@ header p {
 .step {
   position: relative;
   augmented-ui: tr-clip bl-clip br-clip border;
-  --aug-border: 1px;
-  --aug-border-bg: rgba(145, 178, 241, 0.45);
-  --aug-tr: 14px;
-  --aug-bl: 12px;
-  --aug-br: 9px;
+  --aug-border: 2px;
+  --aug-border-bg: rgba(169, 203, 255, 0.75);
+  --aug-tr: 20px;
+  --aug-bl: 16px;
+  --aug-br: 13px;
   border: 1px solid rgba(88, 111, 160, 0.42);
   border-radius: 16px;
   padding: 14px 16px;
@@ -261,7 +261,7 @@ header p {
 }
 
 .step.active {
-  --aug-border-bg: rgba(168, 202, 255, 0.9);
+  --aug-border-bg: rgba(212, 232, 255, 0.95);
   background: linear-gradient(130deg, #2563eb, #1d4ed8);
   color: #eaf1ff;
   border-color: rgba(135, 177, 255, 0.85);
@@ -282,12 +282,12 @@ header p {
 .card {
   position: relative;
   augmented-ui: tl-clip tr-clip bl-clip br-clip border;
-  --aug-border: 1px;
-  --aug-border-bg: rgba(103, 134, 196, 0.42);
-  --aug-tl: 16px;
-  --aug-tr: 16px;
-  --aug-bl: 12px;
-  --aug-br: 12px;
+  --aug-border: 2px;
+  --aug-border-bg: rgba(124, 162, 232, 0.72);
+  --aug-tl: 22px;
+  --aug-tr: 22px;
+  --aug-bl: 16px;
+  --aug-br: 16px;
   background: rgba(8, 16, 34, 0.86);
   border: 1px solid rgba(96, 124, 180, 0.28);
   border-radius: 18px;
@@ -384,10 +384,10 @@ label.ghost:hover {
 button.primary {
   position: relative;
   augmented-ui: tr-2-clip bl-2-clip border;
-  --aug-border: 1px;
-  --aug-border-bg: rgba(168, 201, 255, 0.75);
-  --aug-tr-1: 10px;
-  --aug-bl-1: 10px;
+  --aug-border: 2px;
+  --aug-border-bg: rgba(209, 230, 255, 0.88);
+  --aug-tr-1: 14px;
+  --aug-bl-1: 14px;
   background: linear-gradient(130deg, #2563eb, #1d4ed8);
   color: #f4f8ff;
   border-color: rgba(140, 176, 243, 0.72);
@@ -718,12 +718,12 @@ button:disabled {
 
 .modal-card {
   augmented-ui: tl-clip tr-clip bl-clip br-clip border;
-  --aug-border: 1px;
-  --aug-border-bg: rgba(116, 147, 206, 0.65);
-  --aug-tl: 16px;
-  --aug-tr: 16px;
-  --aug-bl: 14px;
-  --aug-br: 14px;
+  --aug-border: 2px;
+  --aug-border-bg: rgba(152, 184, 236, 0.8);
+  --aug-tl: 20px;
+  --aug-tr: 20px;
+  --aug-bl: 16px;
+  --aug-br: 16px;
   width: min(640px, 100%);
   position: relative;
   overflow: hidden;
@@ -793,12 +793,12 @@ button:disabled {
 
 .gear-card {
   augmented-ui: tl-clip tr-clip bl-clip br-clip border;
-  --aug-border: 1px;
-  --aug-border-bg: rgba(108, 141, 201, 0.42);
-  --aug-tl: 12px;
-  --aug-tr: 12px;
-  --aug-bl: 10px;
-  --aug-br: 10px;
+  --aug-border: 2px;
+  --aug-border-bg: rgba(134, 171, 230, 0.62);
+  --aug-tl: 16px;
+  --aug-tr: 16px;
+  --aug-bl: 12px;
+  --aug-br: 12px;
   border-radius: 16px;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(9, 19, 39, 0.8);

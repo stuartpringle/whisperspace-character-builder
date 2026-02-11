@@ -392,14 +392,18 @@ export default function App() {
             characterLimit?: number;
             limits?: { characterLimit?: number; maxCharacters?: number; characters?: number };
           };
-          setUser(payload.user ?? null);
-          const limit =
-            payload.characterLimit ??
-            payload.limits?.characterLimit ??
-            payload.limits?.maxCharacters ??
-            payload.limits?.characters;
-          if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
-          return;
+          // Trust cache only for positive authenticated session.
+          // If cached user is null, re-check server to avoid stale post-OAuth state.
+          if (payload.user) {
+            setUser(payload.user);
+            const limit =
+              payload.characterLimit ??
+              payload.limits?.characterLimit ??
+              payload.limits?.maxCharacters ??
+              payload.limits?.characters;
+            if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
+            return;
+          }
         } catch {
           // ignore cache errors
         }
@@ -1512,6 +1516,9 @@ export default function App() {
         setUser(null);
         localStorage.removeItem("ws_auth_session");
         localStorage.removeItem("ws_auth_session_at");
+        if (page !== "builder" && page !== "view") {
+          navigate("/");
+        }
       }
     } catch {
       setAuthError("logout_failed");
@@ -1794,6 +1801,15 @@ export default function App() {
   useEffect(() => {
     if (page === "characters" && user) {
       void refreshCharacterList();
+    }
+  }, [page, user]);
+
+  useEffect(() => {
+    // Public pages: builder + character view.
+    // Protected pages: characters + settings.
+    if (user) return;
+    if (page === "characters" || page === "settings") {
+      navigate("/");
     }
   }, [page, user]);
 

@@ -79,6 +79,10 @@ npm run dev
 - [done] Character builder now uses the same favicon assets as `whisperspace.com`.
 - [done] Account menu hit-area was expanded/tuned for reliable hover/click interaction.
 - [prototype] Added `augmented-ui` treatment to cards, step tabs, modal cards, gear cards, and primary buttons using the current Whisperspace palette.
+- [done] OAuth/session reliability fix: stale cached `null` sessions no longer block fresh server session checks after redirect.
+- [done] Auth guard now redirects logged-out users from protected pages (`/characters`, `/settings`) back to builder.
+- [done] Logout from protected pages now returns to builder immediately.
+- [prototype] Strengthened augmented-ui visual intensity (larger cuts + brighter border accents) for clearer evaluation.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
