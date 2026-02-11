@@ -34,7 +34,7 @@ body {
   display: grid;
   gap: 12px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 22px;
   border: 1px solid rgba(106, 141, 208, 0.32);
   background: linear-gradient(160deg, rgba(10, 20, 42, 0.95), rgba(7, 15, 31, 0.86));
@@ -147,7 +147,7 @@ header p {
   background: rgba(10, 20, 40, 0.96);
   display: grid;
   gap: 6px;
-  z-index: 15;
+  z-index: 50;
 }
 
 .steps {
@@ -204,6 +204,20 @@ header p {
 
 .character-row.empty {
   opacity: 0.62;
+}
+
+.character-name-link {
+  color: #d7e7ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.character-name-link:hover {
+  color: #ffffff;
+}
+
+.character-row .num {
+  text-align: right;
 }
 
 .step {

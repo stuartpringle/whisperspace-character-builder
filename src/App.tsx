@@ -231,7 +231,9 @@ export default function App() {
   const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
-  const [saveVisibility, setSaveVisibility] = useState<"private" | "public">("private");
+  const [saveVisibility, setSaveVisibility] = useState<"private" | "public">(
+    () => ((localStorage.getItem("ws_pref_visibility") as "private" | "public") || "private")
+  );
   const [saveNew, setSaveNew] = useState<boolean>(false);
   const [saveNewAvailable, setSaveNewAvailable] = useState<boolean>(false);
   const [saveError, setSaveError] = useState<string>("");
@@ -263,6 +265,13 @@ export default function App() {
     null | { type: "add" } | { type: "edit"; id: string; name: string }
   >(null);
   const [baselineSheetJson, setBaselineSheetJson] = useState<string>("");
+  const [settingsVisibilityDefault, setSettingsVisibilityDefault] = useState<"private" | "public">(
+    () => ((localStorage.getItem("ws_pref_visibility") as "private" | "public") || "private")
+  );
+  const [settingsLandingPage, setSettingsLandingPage] = useState<"builder" | "characters">(
+    () => ((localStorage.getItem("ws_pref_landing") as "builder" | "characters") || "builder")
+  );
+  const [settingsStatus, setSettingsStatus] = useState<string>("");
   const [viewId, setViewId] = useState<string>("");
   const [viewSheet, setViewSheet] = useState<CharacterSheet | null>(null);
   const [viewError, setViewError] = useState<string>("");
@@ -364,6 +373,13 @@ export default function App() {
       setBaselineSheetJson(JSON.stringify(sheet));
     }
   }, [baselineSheetJson, sheet]);
+
+  useEffect(() => {
+    if (window.location.pathname !== "/") return;
+    if (settingsLandingPage === "characters" && user) {
+      navigate("/characters");
+    }
+  }, [settingsLandingPage, user]);
 
   const fetchSession = async (force = false) => {
     const cached = localStorage.getItem("ws_auth_session");
@@ -1443,6 +1459,14 @@ export default function App() {
     setCharacterSortDirection("asc");
   };
 
+  const saveSettings = () => {
+    localStorage.setItem("ws_pref_visibility", settingsVisibilityDefault);
+    localStorage.setItem("ws_pref_landing", settingsLandingPage);
+    setSaveVisibility(settingsVisibilityDefault);
+    setSettingsStatus("saved");
+    window.setTimeout(() => setSettingsStatus(""), 1500);
+  };
+
   const handleAuth = async () => {
     setAuthError("");
     setAuthLoading(true);
@@ -1862,14 +1886,52 @@ export default function App() {
           </div>
         </header>
         <section className="card">
-          <p className="muted">Settings page is next in the queue.</p>
+          <div className="grid two">
+            <div className="stack">
+              <h3>Account</h3>
+              <p className="muted">Email: {user?.email || "Not signed in"}</p>
+              <p className="muted">Character limit: {characterLimit}</p>
+            </div>
+            <div className="stack">
+              <h3>Builder Preferences</h3>
+              <div>
+                <label>Default Save Visibility</label>
+                <select
+                  value={settingsVisibilityDefault}
+                  onChange={(e) =>
+                    setSettingsVisibilityDefault(e.target.value as "private" | "public")
+                  }
+                >
+                  <option value="private">Private</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+              <div>
+                <label>Default Landing Page</label>
+                <select
+                  value={settingsLandingPage}
+                  onChange={(e) =>
+                    setSettingsLandingPage(e.target.value as "builder" | "characters")
+                  }
+                >
+                  <option value="builder">Builder</option>
+                  <option value="characters">Character List</option>
+                </select>
+              </div>
+              <button className="primary" onClick={saveSettings}>
+                Save Settings
+              </button>
+              {settingsStatus ? <span className="success">Settings saved.</span> : null}
+            </div>
+          </div>
         </section>
       </div>
     );
   }
 
   if (page === "characters") {
-    const emptySlots = Math.max(0, characterLimit - characterSummaries.length);
+    const showEmptySlots = characterSearch.trim().length === 0;
+    const emptySlots = showEmptySlots ? Math.max(0, characterLimit - characterSummaries.length) : 0;
     return (
       <div className="app">
         <header className="header">
@@ -1923,26 +1985,25 @@ export default function App() {
               const shareUrl = `${window.location.origin}/character/${entry.id}`;
               return (
                 <div className="character-row" key={entry.id}>
-                  <span>{entry.name || "Unnamed Character"}</span>
+                  <a className="character-name-link" href={shareUrl}>
+                    {entry.name || "Unnamed Character"}
+                  </a>
                   <span>{entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : "-"}</span>
-                  <span>{full?.skillPoints ?? 0}</span>
-                  <span>{full?.attributes?.phys ?? 0}</span>
-                  <span>{full?.attributes?.ref ?? 0}</span>
-                  <span>{full?.attributes?.soc ?? 0}</span>
-                  <span>{full?.attributes?.ment ?? 0}</span>
+                  <span className="num">{full?.skillPoints ?? 0}</span>
+                  <span className="num">{full?.attributes?.phys ?? 0}</span>
+                  <span className="num">{full?.attributes?.ref ?? 0}</span>
+                  <span className="num">{full?.attributes?.soc ?? 0}</span>
+                  <span className="num">{full?.attributes?.ment ?? 0}</span>
                   <span>{full?.weapons?.[0]?.name ?? "-"}</span>
                   <span>{full?.armour?.name ?? "-"}</span>
                   <div className="inline">
-                    <a className="ghost" href={shareUrl}>
-                      View
-                    </a>
                     <button
                       className="ghost"
                       onClick={() => {
                         void navigator.clipboard?.writeText(shareUrl);
                       }}
                     >
-                      Copy Link
+                      {"Copy\u00A0Link"}
                     </button>
                     <button
                       className="ghost"
