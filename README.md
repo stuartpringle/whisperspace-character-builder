@@ -41,3 +41,51 @@ npm run dev
 ## Notes
 
 - Uses `@whisperspace/sdk` for API access.
+
+## Design Goals & Status
+
+- [done] Skills are loaded from the Rules API and validated with calc endpoints.
+- [done] Gear catalog (items, cyberware, narcotics, hacker gear) loaded from the Rules API.
+- [done] Weapons and armour catalogs loaded from the Rules API.
+- [done] Derived stats displayed in Review (Attributes, CUF, Speed, Carrying Capacity).
+- [done] Wounds and Stress displayed in Review.
+- [done] Move derived stats off the Attributes step and into Review.
+- [done] Save flow centered on Review with a dedicated Save dialog.
+- [done] Account-based cloud saves with login/signup/session persistence and polished auth/save dialog copy.
+- [done] Save permissions copy clarified: `private` (owner/admin) vs `public` (anyone with view URL).
+- [done] Post-save redirect to a character view page (shareable URL).
+- [done] Cache Rules API data locally with fallback messaging when offline.
+- [done] Display Rules API version and cache timestamp in the footer.
+- [done] Background/motivation pick + roll wired to Rules API tables.
+- [done] Login/signup modal copy and layout polish (readable errors, reset flow toggle, permission guidance).
+- [planned] Add “My Characters” list for authenticated users.
+- [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
+- [planned] Add a cache refresh control for rules data.
+
+## Integration Quick Reference
+- Public app URL: `https://builder.whisperspace.com/`
+- Character view URL pattern: `https://builder.whisperspace.com/character/:id`
+- Rules API base (default): `https://rules-api.whisperspace.com/rules-api/latest`
+- Calc API base (default): `https://rules-api.whisperspace.com/rules-api/calc`
+- Character API base (default): `https://rules-api.whisperspace.com/character-api`
+
+## Environment Variables
+- `VITE_RULES_API_BASE` (override rules JSON base URL)
+- `VITE_CALC_API_BASE` (override calc endpoint base URL)
+- `VITE_CHARACTER_API_BASE` (override character/auth API base URL)
+
+## API/Schema Contracts
+- Canonical character schema is from `@whisperspace/sdk` (`CharacterRecordV1`).
+- Client-side validation runs before save via `validateCharacterRecordV1`.
+- Save visibility values sent to character API: `private` or `public`.
+
+## Auth Expectations
+- Browser-session auth uses cookies (`credentials: include` on auth/character endpoints).
+- CSRF token is read from `ws_csrf` cookie and sent as `X-CSRF-Token` on sensitive requests.
+- Some storage helpers also support bearer token usage from `localStorage.ws_character_api_key` for API-style calls.
+- OAuth entrypoint used by UI: `${VITE_CHARACTER_API_BASE}/auth/oauth/google`.
+
+## Integration Gotchas
+- Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.
+- Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
+- Public characters are intended for view-by-link; private characters require owner/admin access on the server.
