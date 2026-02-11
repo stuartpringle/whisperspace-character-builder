@@ -134,6 +134,7 @@ header p {
 
 .account-menu-wrap {
   position: relative;
+  z-index: 80;
 }
 
 .account-menu {
@@ -148,6 +149,15 @@ header p {
   display: grid;
   gap: 6px;
   z-index: 50;
+  pointer-events: auto;
+}
+
+.account-menu .ghost {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 10px 12px;
+  display: inline-flex;
 }
 
 .steps {

@@ -76,6 +76,8 @@ npm run dev
 - [done] Settings page now includes account summary plus saved preferences (default visibility, default landing page).
 - [done] Account dropdown clipping fixed in header.
 - [done] Account dropdown supports keyboard navigation (Enter/Space open, Arrow Up/Down navigation, Escape close) with ARIA menu semantics.
+- [done] Character builder now uses the same favicon assets as `whisperspace.com`.
+- [done] Account dropdown menu hit-area was expanded/tuned for reliable hover/click interaction.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
