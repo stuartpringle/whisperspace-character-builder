@@ -527,6 +527,13 @@ button:disabled {
   border-radius: 12px;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(10, 20, 40, 0.86);
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.skill-row:hover {
+  border-color: rgba(140, 175, 240, 0.7);
+  background: rgba(17, 30, 57, 0.92);
+  box-shadow: 0 0 0 1px rgba(120, 161, 232, 0.25);
 }
 
 .skill-group-header {
@@ -653,6 +660,15 @@ button:disabled {
   padding: 14px 16px;
   display: grid;
   gap: 8px;
+  justify-items: center;
+  text-align: center;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.metric-card:hover {
+  border-color: rgba(140, 175, 240, 0.72);
+  background: rgba(18, 31, 58, 0.9);
+  box-shadow: 0 0 0 1px rgba(120, 161, 232, 0.24);
 }
 
 .metric-label {

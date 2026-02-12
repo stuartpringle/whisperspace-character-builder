@@ -223,6 +223,7 @@ export default function App() {
   const [motivationOptions, setMotivationOptions] = useState<MotivationOption[]>([]);
   const [conceptIntro, setConceptIntro] = useState<string>("");
   const [creditsIntro, setCreditsIntro] = useState<string>("");
+  const [archetypeIntro, setArchetypeIntro] = useState<string>("");
   const [rulesStatus, setRulesStatus] = useState<string>("idle");
   const [rulesError, setRulesError] = useState<string>("");
   const [rulesCacheNote, setRulesCacheNote] = useState<string>("");
@@ -497,7 +498,11 @@ export default function App() {
     const credits =
       paragraphs.find((p) => /1d12/i.test(p) && /50/.test(p) && /800/.test(p) && /credits/i.test(p)) ??
       "";
-    return { concept, credits };
+    const archetype =
+      paragraphs.find((p) => /ripley from alien/i.test(p) && /archetype/i.test(p)) ??
+      paragraphs.find((p) => /in whisperspace, an archetype is defined/i.test(p)) ??
+      "";
+    return { concept, credits, archetype };
   };
 
   useEffect(() => {
@@ -545,6 +550,7 @@ export default function App() {
         const narrative = extractRulesNarrative(data);
         if (narrative.concept) setConceptIntro(narrative.concept);
         if (narrative.credits) setCreditsIntro(narrative.credits);
+        if (narrative.archetype) setArchetypeIntro(narrative.archetype);
         if (backgroundRows.length) setBackgroundOptions(backgroundRows);
         if (motivationRows.length) setMotivationOptions(motivationRows);
         setRulesCacheNote("Using cached rules data.");
@@ -595,6 +601,7 @@ export default function App() {
         const narrative = extractRulesNarrative(data);
         setConceptIntro(narrative.concept);
         setCreditsIntro(narrative.credits);
+        setArchetypeIntro(narrative.archetype);
         setBackgroundOptions(backgroundRows);
         setMotivationOptions(motivationRows);
         if (!backgroundPick && backgroundRows.length) {
@@ -779,6 +786,42 @@ export default function App() {
     if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     deriveTimer.current = window.setTimeout(async () => {
       try {
+        const normalizeTarget = (raw: string) => {
+          const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
+          if (key === "physique") return "phys";
+          if (key === "reflex") return "ref";
+          if (key === "social") return "soc";
+          if (key === "mental") return "ment";
+          if (key === "cool_under_fire" || key === "cuf") return "cool_under_fire";
+          if (key === "carryingcapacity") return "carrying_capacity";
+          return key;
+        };
+        const normalizeEffect = (effect: string) => {
+          const match = effect.trim().match(/^([a-zA-Z0-9 _-]+)\s*([+-]\d+)$/);
+          if (!match) return effect.trim();
+          return `${normalizeTarget(match[1])}${match[2]}`;
+        };
+        const flatten = (value?: string[] | string) => {
+          if (!value) return [] as string[];
+          if (Array.isArray(value)) {
+            return value.flatMap((v) =>
+              String(v)
+                .split(",")
+                .map((s) => normalizeEffect(s))
+                .filter(Boolean)
+            );
+          }
+          return String(value)
+            .split(",")
+            .map((s) => normalizeEffect(s))
+            .filter(Boolean);
+        };
+        const gameplayEffects: string[] = [];
+        (sheet.weapons ?? []).forEach((weapon) => gameplayEffects.push(...flatten(weapon.gameplayEffects)));
+        (sheet.inventory ?? []).forEach((item) => gameplayEffects.push(...flatten(item.gameplayEffects)));
+        if (sheet.armour) gameplayEffects.push(...flatten(sheet.armour.gameplayEffects));
+        (sheet.feats ?? []).forEach((feat) => gameplayEffects.push(...flatten(feat.gameplayEffects)));
+
         const [attrsRes, cufRes] = await Promise.all([
           fetch(`${calcBase}/derive-attributes`, {
             method: "POST",
@@ -786,12 +829,13 @@ export default function App() {
             body: JSON.stringify({
               skills: sheet.skills ?? {},
               inherentSkills: skillsData.inherent,
+              gameplayEffects,
             }),
           }),
           fetch(`${calcBase}/derive-cuf`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ skills: sheet.skills ?? {} }),
+            body: JSON.stringify({ skills: sheet.skills ?? {}, gameplayEffects }),
           }),
         ]);
         if (!attrsRes.ok || !cufRes.ok) return;
@@ -802,12 +846,12 @@ export default function App() {
           fetch(`${calcBase}/derive-speed`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phys }),
+            body: JSON.stringify({ phys, gameplayEffects }),
           }),
           fetch(`${calcBase}/derive-capacity`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phys }),
+            body: JSON.stringify({ phys, gameplayEffects }),
           }),
         ]);
         if (speedRes.ok && capacityRes.ok) {
@@ -838,7 +882,7 @@ export default function App() {
     return () => {
       if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     };
-  }, [skillsData, sheet.skills]);
+  }, [skillsData, sheet.skills, sheet.weapons, sheet.inventory, sheet.armour, sheet.feats]);
 
  
 
@@ -940,6 +984,24 @@ export default function App() {
     }
     return map;
   }, [skillsData]);
+
+  const tooltipByLowerLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.entries(skillTooltips?.skills ?? {}).forEach(([label, tooltip]) => {
+      map.set(label.toLowerCase(), tooltip);
+    });
+    return map;
+  }, [skillTooltips]);
+
+  const resolveSkillTooltip = (skill: { id: string; label: string }) => {
+    const direct = tooltipByLowerLabel.get(skill.label.toLowerCase());
+    if (direct) return direct;
+    const fromId = skill.id
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+    return tooltipByLowerLabel.get(fromId.toLowerCase()) ?? "";
+  };
 
   const gameplayTargets = useMemo(() => {
     const base = {
@@ -2593,11 +2655,6 @@ export default function App() {
               </div>
               {rulesStatus === "error" ? <p className="error">{rulesError}</p> : null}
             </div>
-          </div>
-        )}
-
-        {step === "archetype" && (
-          <div className="grid two">
             <div className="span-2">
               <label>Background</label>
               <textarea
@@ -2635,6 +2692,12 @@ export default function App() {
               </div>
               {rulesStatus === "error" ? <p className="error">{rulesError}</p> : null}
             </div>
+          </div>
+        )}
+
+        {step === "archetype" && (
+          <div className="stack">
+            {archetypeIntro ? <p className="muted">{archetypeIntro}</p> : null}
           </div>
         )}
 
@@ -2811,22 +2874,22 @@ export default function App() {
                         </button>
                         {skillGroupsCollapsed[groupKey] ? null : (
                           <div className="skills-table">
-                            {filtered.map((skill) => (
-                              <div className="skill-row" key={skill.id}>
-                                <div className="skill-meta">
-                                  <strong>{skill.label}</strong>
-                                  <span className="skill-hint">{ATTRIBUTE_GROUP_META[attrKey].short}</span>
-                                  <button
-                                    className="skill-info"
-                                    title={skillTooltips?.skills?.[skill.label] ?? "No description available."}
-                                    aria-label={`${skill.label} info`}
-                                  >
-                                    i
-                                  </button>
-                                </div>
-                                <div className="skill-rank-controls">
-                                  <button
-                                    className="ghost"
+                            {filtered.map((skill) => {
+                              const tooltip = resolveSkillTooltip(skill);
+                              return (
+                                <div className="skill-row" key={skill.id}>
+                                  <div className="skill-meta">
+                                    <strong>{skill.label}</strong>
+                                    <span className="skill-hint">{ATTRIBUTE_GROUP_META[attrKey].short}</span>
+                                    {tooltip ? (
+                                      <button className="skill-info" title={tooltip} aria-label={`${skill.label} info`}>
+                                        i
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  <div className="skill-rank-controls">
+                                    <button
+                                      className="ghost"
                                     onClick={() => nudgeSkillRank(skill.id, -1, MAX_RANK_INHERENT)}
                                   >
                                     -
@@ -2840,15 +2903,16 @@ export default function App() {
                                       updateSkillRank(skill.id, Number(e.target.value) || 0, MAX_RANK_INHERENT)
                                     }
                                   />
-                                  <button
-                                    className="ghost"
-                                    onClick={() => nudgeSkillRank(skill.id, 1, MAX_RANK_INHERENT)}
-                                  >
-                                    +
-                                  </button>
+                                    <button
+                                      className="ghost"
+                                      onClick={() => nudgeSkillRank(skill.id, 1, MAX_RANK_INHERENT)}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -2880,21 +2944,21 @@ export default function App() {
                           </button>
                           {skillGroupsCollapsed[groupKey] ? null : (
                             <div className="skills-table">
-                              {filtered.map((skill) => (
-                                <div className="skill-row" key={skill.id}>
-                                  <div className="skill-meta">
-                                    <strong>{skill.label}</strong>
-                                    <span className="skill-hint">
-                                      {focus.charAt(0).toUpperCase() + focus.slice(1)}
-                                    </span>
-                                    <button
-                                      className="skill-info"
-                                      title={skillTooltips?.skills?.[skill.label] ?? "No description available."}
-                                      aria-label={`${skill.label} info`}
-                                    >
-                                      i
-                                    </button>
-                                  </div>
+                              {filtered.map((skill) => {
+                                const tooltip = resolveSkillTooltip(skill);
+                                return (
+                                  <div className="skill-row" key={skill.id}>
+                                    <div className="skill-meta">
+                                      <strong>{skill.label}</strong>
+                                      <span className="skill-hint">
+                                        {focus.charAt(0).toUpperCase() + focus.slice(1)}
+                                      </span>
+                                      {tooltip ? (
+                                        <button className="skill-info" title={tooltip} aria-label={`${skill.label} info`}>
+                                          i
+                                        </button>
+                                      ) : null}
+                                    </div>
                                   <div className="skill-rank-controls">
                                     <button className="ghost" onClick={() => nudgeSkillRank(skill.id, -1, maxRank)}>
                                       -
@@ -2911,7 +2975,8 @@ export default function App() {
                                     </button>
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

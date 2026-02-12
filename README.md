@@ -100,6 +100,10 @@ npm run dev
 - [done] Builder flow now follows character-creation order: `Origin -> Archetype -> Feats -> Skills -> Attributes -> Equipment -> Review`.
 - [done] `Skills` and `Attributes` are now merged into a single `Skills & Attributes` step, with derived attributes shown at the top.
 - [done] `Skills & Attributes` now has explicit section headers and card-based metric display for Physique/Reflex/Social/Mental plus Cool Under Fire/Speed/Carrying Capacity.
+- [done] Attribute metric cards are now centered and use subtle hover lighting; skill rows also use a subtle hover highlight.
+- [done] Skill tooltip resolution now uses Rules API `skill_tooltips.json` label matching (case-insensitive/id fallback) and only shows info icons when text exists.
+- [done] Background authoring/picker moved from `Archetype` to `Origin`; `Archetype` currently displays Rules API narrative intro text.
+- [done] Gameplay effects are now forwarded to derive endpoints (`derive-attributes`, `derive-cuf`, `derive-speed`, `derive-capacity`) with alias normalization (for example `reflex+1` -> `ref+1`).
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
