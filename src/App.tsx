@@ -1805,30 +1805,6 @@ export default function App() {
   }, [page, user]);
 
   useEffect(() => {
-    // augmented-ui v2 expects data attributes on elements.
-    const applyAugmented = () => {
-      const preset = "tl-clip tr-2-clip-y br-clip border";
-      document.querySelectorAll(".card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", preset);
-      });
-      document.querySelectorAll(".modal-card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", preset);
-      });
-      document.querySelectorAll(".gear-card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", preset);
-      });
-      document.querySelectorAll(".step").forEach((el) => {
-        el.setAttribute("data-augmented-ui", preset);
-      });
-      document.querySelectorAll("button.primary").forEach((el) => {
-        el.setAttribute("data-augmented-ui", preset);
-      });
-    };
-    const frame = window.requestAnimationFrame(applyAugmented);
-    return () => window.cancelAnimationFrame(frame);
-  });
-
-  useEffect(() => {
     // Public pages: builder + character view.
     // Protected pages: characters + settings.
     if (user) return;

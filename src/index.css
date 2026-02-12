@@ -1,5 +1,4 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Unbounded:wght@500;700&display=swap");
-@import url("https://unpkg.com/augmented-ui@2/augmented-ui.min.css");
 
 :root {
   color-scheme: dark;
@@ -238,11 +237,6 @@ header p {
 
 .step {
   position: relative;
-  --aug-border: 2px;
-  --aug-border-bg: rgba(169, 203, 255, 0.75);
-  --aug-tl: 18px;
-  --aug-tr-2: 20px;
-  --aug-br: 14px;
   border: 1px solid rgba(88, 111, 160, 0.42);
   border-radius: 0;
   padding: 14px 16px;
@@ -260,7 +254,6 @@ header p {
 }
 
 .step.active {
-  --aug-border-bg: rgba(212, 232, 255, 0.95);
   background: linear-gradient(130deg, #2563eb, #1d4ed8);
   color: #eaf1ff;
   border-color: rgba(135, 177, 255, 0.85);
@@ -280,11 +273,6 @@ header p {
 
 .card {
   position: relative;
-  --aug-border: 2px;
-  --aug-border-bg: rgba(124, 162, 232, 0.72);
-  --aug-tl: 20px;
-  --aug-tr-2: 22px;
-  --aug-br: 18px;
   background: rgba(8, 16, 34, 0.86);
   border: 1px solid rgba(96, 124, 180, 0.28);
   border-radius: 0;
@@ -380,11 +368,6 @@ label.ghost:hover {
 
 button.primary {
   position: relative;
-  --aug-border: 2px;
-  --aug-border-bg: rgba(209, 230, 255, 0.88);
-  --aug-tl: 10px;
-  --aug-tr-2: 14px;
-  --aug-br: 10px;
   background: linear-gradient(130deg, #2563eb, #1d4ed8);
   color: #f4f8ff;
   border-color: rgba(140, 176, 243, 0.72);
@@ -714,11 +697,6 @@ button:disabled {
 }
 
 .modal-card {
-  --aug-border: 2px;
-  --aug-border-bg: rgba(152, 184, 236, 0.8);
-  --aug-tl: 20px;
-  --aug-tr-2: 22px;
-  --aug-br: 18px;
   width: min(640px, 100%);
   position: relative;
   overflow: hidden;
@@ -787,11 +765,6 @@ button:disabled {
 }
 
 .gear-card {
-  --aug-border: 2px;
-  --aug-border-bg: rgba(134, 171, 230, 0.62);
-  --aug-tl: 14px;
-  --aug-tr-2: 16px;
-  --aug-br: 12px;
   border-radius: 0;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(9, 19, 39, 0.8);
@@ -800,12 +773,14 @@ button:disabled {
   gap: 12px;
 }
 
-.card[data-augmented-ui],
-.modal-card[data-augmented-ui],
-.gear-card[data-augmented-ui],
-.step[data-augmented-ui],
-button.primary[data-augmented-ui] {
-  border-radius: 0 !important;
+.step,
+.card,
+.modal-card,
+.gear-card,
+button.primary {
+  border-start-start-radius: 50px;
+  border-end-end-radius: 50px;
+  corner-shape: bevel;
 }
 
 .gear-header {
