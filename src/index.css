@@ -35,10 +35,13 @@ body {
   gap: 12px;
   position: relative;
   overflow: visible;
-  border-radius: 22px;
+  border-radius: 0;
+  border-start-end-radius: 50px;
+  border-end-start-radius: 50px;
+  corner-shape: bevel;
   border: 1px solid rgba(106, 141, 208, 0.32);
   background: linear-gradient(160deg, rgba(10, 20, 42, 0.95), rgba(7, 15, 31, 0.86));
-  padding: 24px;
+  padding: 29px 24px 24px;
   box-shadow: 0 28px 70px rgba(2, 5, 14, 0.55);
 }
 
@@ -275,8 +278,8 @@ header p {
   position: relative;
   background: rgba(8, 16, 34, 0.86);
   border: 1px solid rgba(96, 124, 180, 0.28);
-  border-radius: 0;
-  padding: 28px;
+  border-radius: 18px;
+  padding: 33px 28px 28px;
   box-shadow: 0 28px 72px rgba(2, 5, 14, 0.52);
 }
 
@@ -703,7 +706,7 @@ button:disabled {
   background: linear-gradient(165deg, rgba(11, 21, 44, 0.96), rgba(9, 17, 35, 0.9));
   border: 1px solid rgba(102, 132, 188, 0.42);
   border-radius: 0;
-  padding: 24px;
+  padding: 29px 24px 24px;
   box-shadow: 0 30px 85px rgba(0, 0, 0, 0.55);
   display: grid;
   gap: 16px;
@@ -765,19 +768,17 @@ button:disabled {
 }
 
 .gear-card {
-  border-radius: 0;
+  border-radius: 16px;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(9, 19, 39, 0.8);
-  padding: 16px;
+  padding: 21px 16px 21px;
   display: grid;
   gap: 12px;
 }
 
 .step,
-.card,
 .modal-card,
-.gear-card,
-button.primary {
+.gear-card {
   border-start-start-radius: 50px;
   border-end-end-radius: 50px;
   corner-shape: bevel;
