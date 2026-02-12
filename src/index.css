@@ -180,6 +180,12 @@ header p {
   gap: 12px;
 }
 
+.steps-nav.in-card {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(97, 122, 178, 0.28);
+}
+
 .character-list-toolbar {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -771,9 +777,14 @@ button:disabled {
   border-radius: 16px;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(9, 19, 39, 0.8);
-  padding: 21px 16px 21px;
+  padding: 31px 16px 31px;
   display: grid;
   gap: 12px;
+  cursor: grab;
+}
+
+.gear-card:active {
+  cursor: grabbing;
 }
 
 .card,

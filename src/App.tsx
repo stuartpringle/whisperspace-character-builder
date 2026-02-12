@@ -285,6 +285,8 @@ export default function App() {
   const [weaponSearch, setWeaponSearch] = useState<string>("");
   const [armourPickId, setArmourPickId] = useState<string>("");
   const [armourSearch, setArmourSearch] = useState<string>("");
+  const [draggingInventoryIndex, setDraggingInventoryIndex] = useState<number | null>(null);
+  const [draggingWeaponIndex, setDraggingWeaponIndex] = useState<number | null>(null);
   const [skillValidation, setSkillValidation] = useState<{
     valid: boolean;
     errors: string[];
@@ -1028,6 +1030,20 @@ export default function App() {
     updateSheet({ ...sheet, inventory: nextInventory });
   };
 
+  const reorder = <T,>(items: T[], from: number, to: number): T[] => {
+    if (from === to) return items;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  };
+
+  const reorderInventory = (from: number, to: number) => {
+    const current = sheet.inventory ?? [];
+    if (from < 0 || to < 0 || from >= current.length || to >= current.length) return;
+    updateSheet({ ...sheet, inventory: reorder(current, from, to) });
+  };
+
   const filterOptions = (options: Array<{ key: string; label: string }>, query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
@@ -1269,6 +1285,12 @@ export default function App() {
     const nextWeapons = [...(sheet.weapons ?? [])];
     nextWeapons.splice(index, 1);
     updateSheet({ ...sheet, weapons: nextWeapons });
+  };
+
+  const reorderWeapons = (from: number, to: number) => {
+    const current = sheet.weapons ?? [];
+    if (from < 0 || to < 0 || from >= current.length || to >= current.length) return;
+    updateSheet({ ...sheet, weapons: reorder(current, from, to) });
   };
 
   const equipArmour = () => {
@@ -2199,14 +2221,6 @@ export default function App() {
           </button>
         ))}
       </nav>
-      <div className="steps-nav">
-        <button className="ghost" onClick={goPrev} disabled={currentStepIndex === 0}>
-          Back
-        </button>
-        <button className="primary" onClick={goNext} disabled={currentStepIndex === STEPS.length - 1}>
-          Next
-        </button>
-      </div>
 
       <section className="card">
         {step === "basics" && (
@@ -2630,7 +2644,19 @@ export default function App() {
             ) : (
               <div className="gear-list">
                 {(sheet.inventory ?? []).map((gear, idx) => (
-                  <div className="gear-card" key={gear.id ?? String(idx)}>
+                  <div
+                    className="gear-card"
+                    key={gear.id ?? String(idx)}
+                    draggable
+                    onDragStart={() => setDraggingInventoryIndex(idx)}
+                    onDragEnd={() => setDraggingInventoryIndex(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => {
+                      if (draggingInventoryIndex === null) return;
+                      reorderInventory(draggingInventoryIndex, idx);
+                      setDraggingInventoryIndex(null);
+                    }}
+                  >
                     <div className="gear-header">
                       <div>
                         <strong>{gear.name || "Unnamed"}</strong>
@@ -2895,7 +2921,19 @@ export default function App() {
                   ) : (
                     <div className="gear-list">
                       {(sheet.weapons ?? []).map((weapon, idx) => (
-                        <div className="gear-card" key={weapon.id ?? String(idx)}>
+                        <div
+                          className="gear-card"
+                          key={weapon.id ?? String(idx)}
+                          draggable
+                          onDragStart={() => setDraggingWeaponIndex(idx)}
+                          onDragEnd={() => setDraggingWeaponIndex(null)}
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={() => {
+                            if (draggingWeaponIndex === null) return;
+                            reorderWeapons(draggingWeaponIndex, idx);
+                            setDraggingWeaponIndex(null);
+                          }}
+                        >
                           <div className="gear-header">
                             <div>
                               <strong>{weapon.name || "Unnamed"}</strong>
@@ -3263,6 +3301,18 @@ export default function App() {
             />
           </div>
         )}
+        <div className="steps-nav in-card">
+          <button className="ghost" onClick={goPrev} disabled={currentStepIndex === 0}>
+            Previous
+          </button>
+          <button
+            className="primary"
+            onClick={goNext}
+            disabled={currentStepIndex === STEPS.length - 1}
+          >
+            Next
+          </button>
+        </div>
       </section>
 
 

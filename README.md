@@ -67,6 +67,7 @@ npm run dev
 - [done] Skills section headers now use inline SVG icons per attribute/focus domain.
 - [done] Learning Focus skills no longer show attribute labels; they are grouped by focus domain.
 - [done] Current tab persists across refresh; Back/Next controls moved next to step tabs.
+- [done] Previous/Next controls now render inside the main content card container.
 - [done] Authenticated account menu now shows username with an always-visible menu (Character Builder, Character List, Settings, Log out) and active-page highlighting.
 - [done] Character List page supports search, sortable columns, slot-capacity display, name-as-view-link, copy-link/edit actions, and right-aligned numeric columns.
 - [done] Character List sort headers now show direction indicators (ascending/descending).
@@ -83,6 +84,8 @@ npm run dev
 - [done] Auth guard now redirects logged-out users from protected pages (`/characters`, `/settings`) back to builder.
 - [done] Logout from protected pages now returns to builder immediately.
 - [prototype] Strengthened augmented-ui visual intensity (larger cuts + brighter border accents) for clearer evaluation.
+- [done] Gear item and weapon cards now support drag-and-drop reordering.
+- [done] Gear cards include extra vertical breathing room (+10px top/bottom).
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
