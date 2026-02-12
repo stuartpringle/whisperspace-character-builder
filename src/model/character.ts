@@ -118,7 +118,6 @@ export type BuilderStep =
   | "archetype"
   | "feats"
   | "skills"
-  | "attributes"
   | "equipment"
   | "review";
 

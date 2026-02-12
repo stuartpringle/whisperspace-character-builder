@@ -13,8 +13,7 @@ const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "origin", label: "Origin", hint: "Concept and start" },
   { id: "archetype", label: "Archetype", hint: "Background and role" },
   { id: "feats", label: "Feats", hint: "Core advantages" },
-  { id: "skills", label: "Skills", hint: "Focus and ranks" },
-  { id: "attributes", label: "Attributes", hint: "Derived profile" },
+  { id: "skills", label: "Skills & Attributes", hint: "Ranks and derived profile" },
   { id: "equipment", label: "Equipment", hint: "Loadout and credits" },
   { id: "review", label: "Review", hint: "Summary" },
 ];
@@ -372,7 +371,6 @@ export default function App() {
       (savedStep === "origin" ||
         savedStep === "archetype" ||
         savedStep === "feats" ||
-        savedStep === "attributes" ||
         savedStep === "skills" ||
         savedStep === "equipment")
     ) {
@@ -2670,7 +2668,7 @@ export default function App() {
           </div>
         )}
 
-        {step === "attributes" && (
+        {step === "skills" && (
           <div className="stack">
             <div className="grid three">
               {Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => (
@@ -2694,11 +2692,6 @@ export default function App() {
                 <input type="number" value={derivedStats.capacity} disabled />
               </div>
             </div>
-          </div>
-        )}
-
-        {step === "skills" && (
-          <div className="stack">
             {skillsStatus === "loading" ? (
               <p className="muted">Loading skills from the Rules API...</p>
             ) : null}
