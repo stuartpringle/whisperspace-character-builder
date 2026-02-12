@@ -808,34 +808,17 @@ export default function App() {
     if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     deriveTimer.current = window.setTimeout(async () => {
       try {
-        const normalizeTarget = (raw: string) => {
-          const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
-          if (key === "physique") return "phys";
-          if (key === "reflex") return "ref";
-          if (key === "social") return "soc";
-          if (key === "mental") return "ment";
-          if (key === "cool_under_fire" || key === "cuf") return "cool_under_fire";
-          if (key === "carryingcapacity") return "carrying_capacity";
-          return key;
-        };
-        const normalizeEffect = (effect: string) => {
-          const match = effect.trim().match(/^([a-zA-Z0-9 _-]+)\s*([+-]\d+)$/);
-          if (!match) return effect.trim();
-          return `${normalizeTarget(match[1])}${match[2]}`;
-        };
         const flatten = (value?: string[] | string) => {
           if (!value) return [] as string[];
           if (Array.isArray(value)) {
-            return value.flatMap((v) =>
-              String(v)
-                .split(",")
-                .map((s) => normalizeEffect(s))
-                .filter(Boolean)
-            );
+            return value
+              .flatMap((v) => String(v).split(","))
+              .map((s) => s.trim())
+              .filter(Boolean);
           }
           return String(value)
             .split(",")
-            .map((s) => normalizeEffect(s))
+            .map((s) => s.trim())
             .filter(Boolean);
         };
         const gameplayEffects: string[] = [];
@@ -852,10 +835,6 @@ export default function App() {
               skills: sheet.skills ?? {},
               inherentSkills: skillsData.inherent,
               gameplayEffects,
-              weapons: sheet.weapons ?? [],
-              armour: sheet.armour ?? [],
-              items: sheet.inventory ?? [],
-              feats: sheet.feats ?? [],
             }),
           }),
           fetch(`${calcBase}/derive-cuf`, {
@@ -864,10 +843,6 @@ export default function App() {
             body: JSON.stringify({
               skills: sheet.skills ?? {},
               gameplayEffects,
-              weapons: sheet.weapons ?? [],
-              armour: sheet.armour ?? [],
-              items: sheet.inventory ?? [],
-              feats: sheet.feats ?? [],
             }),
           }),
         ]);
@@ -886,10 +861,6 @@ export default function App() {
             body: JSON.stringify({
               phys,
               gameplayEffects,
-              weapons: sheet.weapons ?? [],
-              armour: sheet.armour ?? [],
-              items: sheet.inventory ?? [],
-              feats: sheet.feats ?? [],
             }),
           }),
           fetch(`${calcBase}/derive-capacity`, {
@@ -898,10 +869,6 @@ export default function App() {
             body: JSON.stringify({
               phys,
               gameplayEffects,
-              weapons: sheet.weapons ?? [],
-              armour: sheet.armour ?? [],
-              items: sheet.inventory ?? [],
-              feats: sheet.feats ?? [],
             }),
           }),
         ]);
@@ -1438,13 +1405,13 @@ export default function App() {
           type: "hacker_gear",
           name: entry.name,
           quantity: 1,
-          systemTierAccess: entry.systemTierAccess,
-          maxSoftwareTier: entry.maxSoftwareTier,
-          bulk: entry.bulk,
-          cost: entry.cost,
-        });
-        return;
-      }
+        systemTierAccess: entry.systemTierAccess,
+        maxSoftwareTier: entry.maxSoftwareTier,
+        bulk: entry.bulk,
+        cost: entry.cost,
+      });
+      return;
+    }
       if (gearPickName.startsWith("software:")) {
         const name = gearPickName.replace("software:", "");
         const entry = gearData.hacking.software.find((item) => item.name === name);
@@ -1453,11 +1420,11 @@ export default function App() {
           id: crypto.randomUUID(),
           type: "hacker_gear",
           name: entry.name,
-          quantity: 1,
-          tier: entry.tier,
-          notes: entry.notes,
-          cost: entry.cost,
-        });
+        quantity: 1,
+        tier: entry.tier,
+        notes: entry.notes,
+        cost: entry.cost,
+      });
       }
     }
   };
