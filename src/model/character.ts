@@ -113,7 +113,14 @@ export type CharacterSheet = {
   version: 1;
 };
 
-export type BuilderStep = "basics" | "attributes" | "skills" | "gear" | "review";
+export type BuilderStep =
+  | "origin"
+  | "archetype"
+  | "feats"
+  | "skills"
+  | "attributes"
+  | "equipment"
+  | "review";
 
 export function createBlankCharacter(): CharacterSheet {
   const now = new Date().toISOString();

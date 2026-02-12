@@ -805,6 +805,15 @@ button:disabled {
   gap: 10px;
   align-items: center;
   cursor: pointer;
+  text-align: right;
+}
+
+.gear-row > span {
+  justify-self: end;
+}
+
+.gear-row .row-controls {
+  justify-content: flex-end;
 }
 
 .gear-row-header {
@@ -814,6 +823,7 @@ button:disabled {
   font-size: 0.72rem;
   color: #9fb7de;
   padding: 0 6px;
+  text-align: right;
 }
 
 .gear-row-header span:last-child {

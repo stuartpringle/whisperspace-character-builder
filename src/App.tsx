@@ -10,10 +10,12 @@ import { fetchCharacter, listCharacters, saveCharacter } from "./storage/remote"
  
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
-  { id: "basics", label: "Basics", hint: "Who are they?" },
-  { id: "attributes", label: "Attributes", hint: "Core stats" },
+  { id: "origin", label: "Origin", hint: "Concept and start" },
+  { id: "archetype", label: "Archetype", hint: "Background and role" },
+  { id: "feats", label: "Feats", hint: "Core advantages" },
   { id: "skills", label: "Skills", hint: "Focus and ranks" },
-  { id: "gear", label: "Inventory", hint: "Loadout" },
+  { id: "attributes", label: "Attributes", hint: "Derived profile" },
+  { id: "equipment", label: "Equipment", hint: "Loadout and credits" },
   { id: "review", label: "Review", hint: "Summary" },
 ];
 
@@ -197,7 +199,7 @@ export default function App() {
     []
   );
   const [sheet, setSheet] = useState<CharacterSheet>(() => loadDraft() ?? createBlankCharacter());
-  const [step, setStep] = useState<BuilderStep>("basics");
+  const [step, setStep] = useState<BuilderStep>("origin");
   const [importError, setImportError] = useState<string>("");
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
@@ -213,6 +215,8 @@ export default function App() {
   });
   const [backgroundOptions, setBackgroundOptions] = useState<BackgroundOption[]>([]);
   const [motivationOptions, setMotivationOptions] = useState<MotivationOption[]>([]);
+  const [conceptIntro, setConceptIntro] = useState<string>("");
+  const [creditsIntro, setCreditsIntro] = useState<string>("");
   const [rulesStatus, setRulesStatus] = useState<string>("idle");
   const [rulesError, setRulesError] = useState<string>("");
   const [rulesCacheNote, setRulesCacheNote] = useState<string>("");
@@ -365,10 +369,12 @@ export default function App() {
     if (
       savedStep &&
       savedStep !== "review" &&
-      (savedStep === "basics" ||
+      (savedStep === "origin" ||
+        savedStep === "archetype" ||
+        savedStep === "feats" ||
         savedStep === "attributes" ||
         savedStep === "skills" ||
-        savedStep === "gear")
+        savedStep === "equipment")
     ) {
       setStep(savedStep);
     }
@@ -457,6 +463,38 @@ export default function App() {
     void fetchSession();
   }, [apiBase]);
 
+  const extractRulesNarrative = (data: any) => {
+    const paragraphs: string[] = [];
+    const walk = (node: any) => {
+      if (!node) return;
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (typeof node === "object") {
+        if (node.type === "paragraph") {
+          const text = Array.isArray(node.children)
+            ? node.children
+                .map((child: any) => (typeof child?.text === "string" ? child.text : ""))
+                .join("")
+                .trim()
+            : "";
+          if (text) paragraphs.push(text);
+        }
+        Object.values(node).forEach(walk);
+      }
+    };
+    walk(data);
+    const concept =
+      paragraphs.find((p) => /modeling your character around a concept/i.test(p)) ??
+      paragraphs.find((p) => /character concept/i.test(p)) ??
+      "";
+    const credits =
+      paragraphs.find((p) => /1d12/i.test(p) && /50/.test(p) && /800/.test(p) && /credits/i.test(p)) ??
+      "";
+    return { concept, credits };
+  };
+
   useEffect(() => {
     let active = true;
     setRulesStatus("loading");
@@ -499,6 +537,9 @@ export default function App() {
           }
         };
         walk(data);
+        const narrative = extractRulesNarrative(data);
+        if (narrative.concept) setConceptIntro(narrative.concept);
+        if (narrative.credits) setCreditsIntro(narrative.credits);
         if (backgroundRows.length) setBackgroundOptions(backgroundRows);
         if (motivationRows.length) setMotivationOptions(motivationRows);
         setRulesCacheNote("Using cached rules data.");
@@ -546,6 +587,9 @@ export default function App() {
         };
 
         walk(data);
+        const narrative = extractRulesNarrative(data);
+        setConceptIntro(narrative.concept);
+        setCreditsIntro(narrative.credits);
         setBackgroundOptions(backgroundRows);
         setMotivationOptions(motivationRows);
         if (!backgroundPick && backgroundRows.length) {
@@ -1083,7 +1127,25 @@ export default function App() {
   };
 
   const addInventoryItem = (item: CharacterSheet["inventory"][number]) => {
-    updateSheet({ ...sheet, inventory: [...(sheet.inventory ?? []), item] });
+    const current = [...(sheet.inventory ?? [])];
+    const signature = (entry: CharacterSheet["inventory"][number]) => {
+      const clone: Record<string, unknown> = { ...entry };
+      delete clone.id;
+      delete clone.quantity;
+      return JSON.stringify(clone);
+    };
+    const targetSignature = signature(item);
+    const matchIndex = current.findIndex((entry) => signature(entry) === targetSignature);
+    if (matchIndex >= 0) {
+      const existing = current[matchIndex];
+      current[matchIndex] = {
+        ...existing,
+        quantity: (existing.quantity ?? 1) + (item.quantity ?? 1),
+      } as CharacterSheet["inventory"][number];
+      updateSheet({ ...sheet, inventory: current });
+      return;
+    }
+    updateSheet({ ...sheet, inventory: [...current, item] });
   };
 
   const inventoryRowKey = (item: CharacterSheet["inventory"][number], idx: number) =>
@@ -1491,6 +1553,27 @@ export default function App() {
     updateSheet({ ...sheet, motivation: result });
   };
 
+  const addFeat = () => {
+    updateSheet({
+      ...sheet,
+      feats: [...(sheet.feats ?? []), { name: "", description: "", gameplayEffects: [] }],
+    });
+  };
+
+  const updateFeat = (index: number, next: Partial<CharacterSheet["feats"][number]>) => {
+    const feats = [...(sheet.feats ?? [])];
+    const current = feats[index];
+    if (!current) return;
+    feats[index] = { ...current, ...next };
+    updateSheet({ ...sheet, feats });
+  };
+
+  const removeFeat = (index: number) => {
+    const feats = [...(sheet.feats ?? [])];
+    feats.splice(index, 1);
+    updateSheet({ ...sheet, feats });
+  };
+
   const getCookie = (name: string) => {
     const cookie = document.cookie
       .split(";")
@@ -1589,7 +1672,7 @@ export default function App() {
       const blank = createBlankCharacter();
       setSheet(blank);
       setBaselineSheetJson(JSON.stringify(blank));
-      setStep("basics");
+      setStep("origin");
       navigate("/");
       return;
     }
@@ -1597,7 +1680,7 @@ export default function App() {
       const loaded = await fetchCharacter(action.id);
       setSheet(loaded);
       setBaselineSheetJson(JSON.stringify(loaded));
-      setStep("basics");
+      setStep("origin");
       navigate("/");
     } catch {
       setSaveError("Failed to load character for edit.");
@@ -1892,7 +1975,7 @@ export default function App() {
         setSheet(localMatch);
         setBaselineSheetJson(JSON.stringify(localMatch));
         setSaveStatus("reset to local saved copy");
-        setStep("basics");
+        setStep("origin");
         return;
       }
       const lastSavedRaw = localStorage.getItem(LAST_SAVED_KEY);
@@ -1901,7 +1984,7 @@ export default function App() {
         setSheet(lastSaved);
         setBaselineSheetJson(JSON.stringify(lastSaved));
         setSaveStatus("reset to last saved copy");
-        setStep("basics");
+        setStep("origin");
         return;
       }
       if (user) {
@@ -1915,7 +1998,7 @@ export default function App() {
           setBaselineSheetJson(JSON.stringify(remote));
           localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(remote));
           setSaveStatus("reset to cloud saved copy");
-          setStep("basics");
+          setStep("origin");
           return;
         }
       }
@@ -1926,7 +2009,7 @@ export default function App() {
     setSheet(blank);
     setBaselineSheetJson(JSON.stringify(blank));
     setSaveStatus("reset to blank sheet");
-    setStep("basics");
+    setStep("origin");
   };
 
   const handleImportDrop = async (file: File | null) => {
@@ -2429,7 +2512,7 @@ export default function App() {
       </nav>
 
       <section className="card cut-corner-padded">
-        {step === "basics" && (
+        {step === "origin" && (
           <div className="grid two">
             <div>
               <label>Name</label>
@@ -2438,6 +2521,35 @@ export default function App() {
                 onChange={(e) => updateSheet({ ...sheet, name: e.target.value })}
                 placeholder="Nyx"
               />
+            </div>
+            <div>
+              <label>Credits</label>
+              <input
+                type="number"
+                min={0}
+                value={sheet.credits ?? 0}
+                onChange={(e) =>
+                  updateSheet({
+                    ...sheet,
+                    credits: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+              />
+            </div>
+            {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
+            {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
+            <div className="span-2 inline wrap">
+              <button
+                className="ghost"
+                onClick={() =>
+                  updateSheet({
+                    ...sheet,
+                    credits: (Math.floor(Math.random() * 12) + 1) * 50 + 800,
+                  })
+                }
+              >
+                Generate Starting Money
+              </button>
             </div>
             <div className="span-2">
               <label>Motivation</label>
@@ -2476,6 +2588,11 @@ export default function App() {
               </div>
               {rulesStatus === "error" ? <p className="error">{rulesError}</p> : null}
             </div>
+          </div>
+        )}
+
+        {step === "archetype" && (
+          <div className="grid two">
             <div className="span-2">
               <label>Background</label>
               <textarea
@@ -2516,11 +2633,45 @@ export default function App() {
           </div>
         )}
 
+        {step === "feats" && (
+          <div className="stack">
+            <div className="inline wrap">
+              <button className="ghost" onClick={addFeat}>
+                Add Feat
+              </button>
+            </div>
+            {(sheet.feats ?? []).length === 0 ? (
+              <p className="muted">No feats added yet.</p>
+            ) : (
+              <div className="stack">
+                {(sheet.feats ?? []).map((feat, featIndex) => (
+                  <div key={`feat-${featIndex}`} className="reset-block">
+                    <div className="inline wrap">
+                      <div style={{ flex: 1 }}>
+                        <label>Name</label>
+                        <input
+                          value={feat.name ?? ""}
+                          onChange={(e) => updateFeat(featIndex, { name: e.target.value })}
+                        />
+                      </div>
+                      <button className="ghost danger" onClick={() => removeFeat(featIndex)}>
+                        Remove
+                      </button>
+                    </div>
+                    <label>Description</label>
+                    <textarea
+                      value={feat.description ?? ""}
+                      onChange={(e) => updateFeat(featIndex, { description: e.target.value })}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {step === "attributes" && (
           <div className="stack">
-            <p className="muted">
-              Attributes auto-derive from skills via the Rules API and are shown in Review.
-            </p>
             <div className="grid three">
               {Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => (
                 <div key={key} className="stat">
@@ -2528,6 +2679,20 @@ export default function App() {
                   <input type="number" value={sheet.attributes[key as AttributeKey]} disabled />
                 </div>
               ))}
+            </div>
+            <div className="grid three">
+              <div className="stat">
+                <label>Cool Under Fire</label>
+                <input type="number" value={sheet.stress?.cuf ?? 0} disabled />
+              </div>
+              <div className="stat">
+                <label>Speed</label>
+                <input type="number" value={derivedStats.speed} disabled />
+              </div>
+              <div className="stat">
+                <label>Carrying Capacity</label>
+                <input type="number" value={derivedStats.capacity} disabled />
+              </div>
             </div>
           </div>
         )}
@@ -2757,7 +2922,7 @@ export default function App() {
           </div>
         )}
 
-        {step === "gear" && (
+        {step === "equipment" && (
           <div className="stack">
             {gearStatus === "loading" ? (
               <p className="muted">Loading gear catalogs from the Rules API...</p>
@@ -2767,7 +2932,7 @@ export default function App() {
               <>
                 <div className="gear-summary">
                   <span>Total Bulk: {gearTotals.bulk}</span>
-                  <span>Total Credits: {gearTotals.cost}</span>
+                  <span>Credits: {sheet.credits ?? 0}</span>
                 </div>
 
                 <div className="gear-arsenal">
@@ -2875,8 +3040,8 @@ export default function App() {
                                   <button
                                     className="ghost icon-only"
                                     onClick={() => reloadWeaponAmmo(weaponIndex)}
-                                    title="reload"
-                                    aria-label="reload"
+                                    title="Reload"
+                                    aria-label="Reload"
                                   >
                                     <svg viewBox="0 0 24 24" aria-hidden="true">
                                       <path

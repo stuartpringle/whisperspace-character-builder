@@ -97,6 +97,11 @@ npm run dev
 - [done] Gear search now filters both catalog options and currently equipped inventory/weapon rows.
 - [done] Gameplay effect editor now auto-collapses after adding a new effect.
 - [done] Drag/reorder handlers now set HTML5 `dataTransfer` payloads for better browser compatibility.
+- [done] Builder flow now follows character-creation order: `Origin -> Archetype -> Feats -> Skills -> Attributes -> Equipment -> Review`.
+- [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
+- [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
+- [done] Equipment summary now shows current `Credits` balance instead of total item cost.
+- [done] Adding an inventory entry now merges into quantity when an equivalent gear record already exists.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
