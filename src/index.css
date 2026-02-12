@@ -787,7 +787,7 @@ button:disabled {
   border-radius: 16px;
   border: 1px solid rgba(89, 113, 161, 0.34);
   background: rgba(9, 19, 39, 0.8);
-  padding: 25px 26px;
+  padding: 25px 41px;
   display: grid;
   gap: 12px;
 }
@@ -807,6 +807,19 @@ button:disabled {
   cursor: pointer;
 }
 
+.gear-row-header {
+  cursor: default;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  color: #9fb7de;
+  padding: 0 6px;
+}
+
+.gear-row-header span:last-child {
+  text-align: right;
+}
+
 .gear-card.collapsed .gear-expand {
   display: none;
 }
@@ -822,6 +835,19 @@ button:disabled {
   height: 32px;
   padding: 0;
   justify-content: center;
+}
+
+.icon-only {
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.icon-only svg {
+  width: 14px;
+  height: 14px;
 }
 
 .drag-handle {

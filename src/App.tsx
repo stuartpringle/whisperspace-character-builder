@@ -1144,42 +1144,26 @@ export default function App() {
 
   const buildGearOptions = (type: GearType, query = "") => {
     if (!gearData) return [];
-    const owned = (sheet.inventory ?? [])
-      .filter((entry) => entry.type === type)
-      .map((entry, idx) => ({
-        key: `owned:${entry.id ?? idx}`,
-        label: `Owned: ${entry.name || "Unnamed"}`,
-      }));
     if (type === "item") {
       return filterOptions(
-        [
-          ...owned,
-          ...gearData.items.items.map((entry) => ({ key: entry.name, label: entry.name })),
-        ],
+        gearData.items.items.map((entry) => ({ key: entry.name, label: entry.name })),
         query
       );
     }
     if (type === "cyberware") {
       return filterOptions(
-        [
-          ...owned,
-          ...gearData.cyberware.cyberware.map((entry) => ({ key: entry.name, label: entry.name })),
-        ],
+        gearData.cyberware.cyberware.map((entry) => ({ key: entry.name, label: entry.name })),
         query
       );
     }
     if (type === "narcotics") {
       return filterOptions(
-        [
-          ...owned,
-          ...gearData.narcotics.narcotics.map((entry) => ({ key: entry.name, label: entry.name })),
-        ],
+        gearData.narcotics.narcotics.map((entry) => ({ key: entry.name, label: entry.name })),
         query
       );
     }
     return filterOptions(
       [
-        ...owned,
         ...gearData.hacking.rigs.map((entry) => ({
           key: `rig:${entry.name}`,
           label: `Rig: ${entry.name}`,
@@ -1211,17 +1195,6 @@ export default function App() {
 
   const addSelectedGear = () => {
     if (!gearData || !gearPickName) return;
-    if (gearPickName.startsWith("owned:")) {
-      const match = (sheet.inventory ?? []).find(
-        (entry, idx) => `owned:${entry.id ?? idx}` === gearPickName
-      );
-      if (!match) return;
-      addInventoryItem({
-        ...match,
-        id: crypto.randomUUID(),
-      });
-      return;
-    }
     if (gearPickType === "item") {
       const entry = gearData.items.items.find((item) => item.name === gearPickName);
       if (!entry) return;
@@ -2129,6 +2102,34 @@ export default function App() {
     </footer>
   );
 
+  const filteredInventoryRows = useMemo(() => {
+    const q = gearSearch.trim().toLowerCase();
+    return (sheet.inventory ?? [])
+      .map((gear, index) => ({ gear, index }))
+      .filter(({ gear }) => {
+        if (!q) return true;
+        return `${gear.name ?? ""} ${gear.type}`.toLowerCase().includes(q);
+      });
+  }, [sheet.inventory, gearSearch]);
+
+  const filteredWeaponRows = useMemo(() => {
+    const q = weaponSearch.trim().toLowerCase();
+    return (sheet.weapons ?? [])
+      .map((weapon, index) => ({ weapon, index }))
+      .filter(({ weapon }) => {
+        if (!q) return true;
+        const skill = skillLabelById[weapon.skillId ?? ""] ?? weapon.skillId ?? "";
+        return `${weapon.name ?? ""} ${skill}`.toLowerCase().includes(q);
+      });
+  }, [sheet.weapons, weaponSearch, skillLabelById]);
+
+  const armourMatchesSearch = useMemo(() => {
+    if (!activeArmour) return false;
+    const q = armourSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (activeArmour.name ?? "").toLowerCase().includes(q);
+  }, [activeArmour, armourSearch]);
+
   const categoryTargetOptions = (category: GameplayCategory) => {
     if (category === "attribute") return gameplayTargets.attribute;
     if (category === "inherent_skill") return gameplayTargets.inherent_skill;
@@ -2805,12 +2806,26 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    {(sheet.weapons ?? []).length === 0 ? (
-                      <p className="muted">No weapons equipped.</p>
+                    {filteredWeaponRows.length === 0 ? (
+                      <p className="muted">
+                        {(sheet.weapons ?? []).length === 0
+                          ? "No weapons equipped."
+                          : "No weapons match your search."}
+                      </p>
                     ) : (
                       <div className="gear-list">
-                        {(sheet.weapons ?? []).map((weapon, idx) => {
-                          const key = weaponRowKey(weapon, idx);
+                        <div className="gear-row gear-row-header">
+                          <span>Move</span>
+                          <span>Name</span>
+                          <span>Skill</span>
+                          <span>Use DC</span>
+                          <span>Damage</span>
+                          <span>Range</span>
+                          <span>Ammo</span>
+                          <span>Actions</span>
+                        </div>
+                        {filteredWeaponRows.map(({ weapon, index: weaponIndex }) => {
+                          const key = weaponRowKey(weapon, weaponIndex);
                           const expanded = Boolean(weaponExpanded[key]);
                           const draft = weaponGameplayDrafts[key] ?? defaultDraft(false);
                           return (
@@ -2820,7 +2835,7 @@ export default function App() {
                               onDragOver={(event) => event.preventDefault()}
                               onDrop={() => {
                                 if (draggingWeaponIndex === null) return;
-                                reorderWeapons(draggingWeaponIndex, idx);
+                                reorderWeapons(draggingWeaponIndex, weaponIndex);
                                 setDraggingWeaponIndex(null);
                               }}
                             >
@@ -2836,9 +2851,14 @@ export default function App() {
                                   data-no-expand="true"
                                   className="drag-handle"
                                   draggable
-                                  onDragStart={() => setDraggingWeaponIndex(idx)}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", String(weaponIndex));
+                                    setDraggingWeaponIndex(weaponIndex);
+                                  }}
                                   onDragEnd={() => setDraggingWeaponIndex(null)}
                                   aria-label="Drag to reorder weapon"
+                                  title="Drag to reorder"
                                 >
                                   ::
                                 </button>
@@ -2848,18 +2868,32 @@ export default function App() {
                                 <span>{weapon.damage ?? 0}</span>
                                 <span>{weapon.range ?? "-"}</span>
                                 <div className="inline row-controls" data-no-expand="true">
-                                  <button className="ghost" onClick={() => nudgeWeaponAmmo(idx, -1)}>
+                                  <button className="ghost" onClick={() => nudgeWeaponAmmo(weaponIndex, -1)}>
                                     -
                                   </button>
                                   <span>{weapon.ammo ?? 0}</span>
-                                  <button className="ghost" onClick={() => reloadWeaponAmmo(idx)}>
-                                    Reload
+                                  <button
+                                    className="ghost icon-only"
+                                    onClick={() => reloadWeaponAmmo(weaponIndex)}
+                                    title="reload"
+                                    aria-label="reload"
+                                  >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                      <path
+                                        d="M20 12a8 8 0 1 1-2.4-5.7"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                      />
+                                      <path d="M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2" />
+                                    </svg>
                                   </button>
                                 </div>
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
-                                  onClick={() => removeWeapon(idx)}
+                                  onClick={() => removeWeapon(weaponIndex)}
                                 >
                                   Remove
                                 </button>
@@ -2871,14 +2905,14 @@ export default function App() {
                                       <label>Name</label>
                                       <input
                                         value={weapon.name ?? ""}
-                                        onChange={(e) => updateWeapon(idx, { name: e.target.value })}
+                                        onChange={(e) => updateWeapon(weaponIndex, { name: e.target.value })}
                                       />
                                     </div>
                                     <div>
                                       <label>Skill</label>
                                       <select
                                         value={weapon.skillId ?? ""}
-                                        onChange={(e) => updateWeapon(idx, { skillId: e.target.value })}
+                                        onChange={(e) => updateWeapon(weaponIndex, { skillId: e.target.value })}
                                       >
                                         <option value="">Unspecified</option>
                                         {Object.entries(skillLabelById)
@@ -2897,7 +2931,7 @@ export default function App() {
                                         min={0}
                                         value={weapon.useDC ?? 0}
                                         onChange={(e) =>
-                                          updateWeapon(idx, { useDC: Number(e.target.value) || 0 })
+                                          updateWeapon(weaponIndex, { useDC: Number(e.target.value) || 0 })
                                         }
                                       />
                                     </div>
@@ -2908,7 +2942,7 @@ export default function App() {
                                         min={0}
                                         value={weapon.damage ?? 0}
                                         onChange={(e) =>
-                                          updateWeapon(idx, { damage: Number(e.target.value) || 0 })
+                                          updateWeapon(weaponIndex, { damage: Number(e.target.value) || 0 })
                                         }
                                       />
                                     </div>
@@ -2916,7 +2950,7 @@ export default function App() {
                                       <label>Range</label>
                                       <input
                                         value={weapon.range ?? ""}
-                                        onChange={(e) => updateWeapon(idx, { range: e.target.value })}
+                                        onChange={(e) => updateWeapon(weaponIndex, { range: e.target.value })}
                                       />
                                     </div>
                                     <div>
@@ -2926,7 +2960,7 @@ export default function App() {
                                         min={0}
                                         value={weapon.ammo ?? 0}
                                         onChange={(e) =>
-                                          updateWeapon(idx, { ammo: Number(e.target.value) || 0 })
+                                          updateWeapon(weaponIndex, { ammo: Number(e.target.value) || 0 })
                                         }
                                       />
                                     </div>
@@ -2937,7 +2971,7 @@ export default function App() {
                                         min={0}
                                         value={weapon.bulk ?? 0}
                                         onChange={(e) =>
-                                          updateWeapon(idx, { bulk: Number(e.target.value) || 0 })
+                                          updateWeapon(weaponIndex, { bulk: Number(e.target.value) || 0 })
                                         }
                                       />
                                     </div>
@@ -2948,7 +2982,7 @@ export default function App() {
                                         min={0}
                                         value={weapon.cost ?? 0}
                                         onChange={(e) =>
-                                          updateWeapon(idx, { cost: Number(e.target.value) || 0 })
+                                          updateWeapon(weaponIndex, { cost: Number(e.target.value) || 0 })
                                         }
                                       />
                                     </div>
@@ -2956,7 +2990,7 @@ export default function App() {
                                       <label>Req</label>
                                       <input
                                         value={weapon.req ?? ""}
-                                        onChange={(e) => updateWeapon(idx, { req: e.target.value })}
+                                        onChange={(e) => updateWeapon(weaponIndex, { req: e.target.value })}
                                       />
                                     </div>
                                   </div>
@@ -2964,7 +2998,7 @@ export default function App() {
                                     {renderGameplayTags(weapon.gameplayEffects, (effectIndex) => {
                                       const next = [...(weapon.gameplayEffects ?? [])];
                                       next.splice(effectIndex, 1);
-                                      setWeaponGameplayEffects(idx, next);
+                                      setWeaponGameplayEffects(weaponIndex, next);
                                     })}
                                     {draft.open ? (
                                       <div className="gameplay-editor">
@@ -3031,7 +3065,11 @@ export default function App() {
                                               ...(weapon.gameplayEffects ?? []),
                                               toGameplayEffect(draft.target, draft.amount),
                                             ];
-                                            setWeaponGameplayEffects(idx, next);
+                                            setWeaponGameplayEffects(weaponIndex, next);
+                                            setWeaponGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }));
                                           }}
                                         >
                                           Add
@@ -3094,7 +3132,7 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    {activeArmour ? (
+                    {activeArmour && armourMatchesSearch ? (
                       <div className="gear-card expanded cut-corner-padded">
                         <div className="gear-header">
                           <div>
@@ -3278,6 +3316,11 @@ export default function App() {
                                     ...(activeArmour.gameplayEffects ?? []),
                                     toGameplayEffect(armourGameplayDraft.target, armourGameplayDraft.amount),
                                   ]);
+                                  setArmourGameplayDraft((prev) => ({
+                                    ...prev,
+                                    open: false,
+                                    amount: 0,
+                                  }));
                                 }}
                               >
                                 Add
@@ -3293,7 +3336,9 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <p className="muted">No armour equipped.</p>
+                      <p className="muted">
+                        {activeArmour ? "No armour matches your search." : "No armour equipped."}
+                      </p>
                     )}
                   </div>
 
@@ -3369,12 +3414,26 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    {(sheet.inventory ?? []).length === 0 ? (
-                      <p className="muted">No inventory items yet.</p>
+                    {filteredInventoryRows.length === 0 ? (
+                      <p className="muted">
+                        {(sheet.inventory ?? []).length === 0
+                          ? "No inventory items yet."
+                          : "No inventory items match your search."}
+                      </p>
                     ) : (
                       <div className="gear-list">
-                        {(sheet.inventory ?? []).map((gear, idx) => {
-                          const key = inventoryRowKey(gear, idx);
+                        <div className="gear-row gear-row-header">
+                          <span>Move</span>
+                          <span>Name</span>
+                          <span>Type</span>
+                          <span>Bulk</span>
+                          <span>Quantity</span>
+                          <span>Uses</span>
+                          <span>Cost</span>
+                          <span>Actions</span>
+                        </div>
+                        {filteredInventoryRows.map(({ gear, index: inventoryIndex }) => {
+                          const key = inventoryRowKey(gear, inventoryIndex);
                           const expanded = Boolean(inventoryExpanded[key]);
                           const draft = inventoryGameplayDrafts[key] ?? defaultDraft(false);
                           return (
@@ -3384,7 +3443,7 @@ export default function App() {
                               onDragOver={(event) => event.preventDefault()}
                               onDrop={() => {
                                 if (draggingInventoryIndex === null) return;
-                                reorderInventory(draggingInventoryIndex, idx);
+                                reorderInventory(draggingInventoryIndex, inventoryIndex);
                                 setDraggingInventoryIndex(null);
                               }}
                             >
@@ -3400,9 +3459,14 @@ export default function App() {
                                   data-no-expand="true"
                                   className="drag-handle"
                                   draggable
-                                  onDragStart={() => setDraggingInventoryIndex(idx)}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData("text/plain", String(inventoryIndex));
+                                    setDraggingInventoryIndex(inventoryIndex);
+                                  }}
                                   onDragEnd={() => setDraggingInventoryIndex(null)}
                                   aria-label="Drag to reorder item"
+                                  title="Drag to reorder"
                                 >
                                   ::
                                 </button>
@@ -3413,7 +3477,9 @@ export default function App() {
                                   <button
                                     className="ghost"
                                     onClick={() =>
-                                      updateInventoryItem(idx, { quantity: Math.max(0, (gear.quantity ?? 1) - 1) })
+                                      updateInventoryItem(inventoryIndex, {
+                                        quantity: Math.max(0, (gear.quantity ?? 1) - 1),
+                                      })
                                     }
                                   >
                                     -
@@ -3421,7 +3487,9 @@ export default function App() {
                                   <span>{gear.quantity ?? 1}</span>
                                   <button
                                     className="ghost"
-                                    onClick={() => updateInventoryItem(idx, { quantity: (gear.quantity ?? 1) + 1 })}
+                                    onClick={() =>
+                                      updateInventoryItem(inventoryIndex, { quantity: (gear.quantity ?? 1) + 1 })
+                                    }
                                   >
                                     +
                                   </button>
@@ -3431,7 +3499,7 @@ export default function App() {
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
-                                  onClick={() => removeInventoryItem(idx)}
+                                  onClick={() => removeInventoryItem(inventoryIndex)}
                                 >
                                   Remove
                                 </button>
@@ -3443,7 +3511,9 @@ export default function App() {
                                       <label>Name</label>
                                       <input
                                         value={gear.name ?? ""}
-                                        onChange={(e) => updateInventoryItem(idx, { name: e.target.value })}
+                                        onChange={(e) =>
+                                          updateInventoryItem(inventoryIndex, { name: e.target.value })
+                                        }
                                       />
                                     </div>
                                     <div>
@@ -3453,7 +3523,7 @@ export default function App() {
                                         min={0}
                                         value={gear.quantity ?? 1}
                                         onChange={(e) =>
-                                          updateInventoryItem(idx, {
+                                          updateInventoryItem(inventoryIndex, {
                                             quantity: Math.max(0, Number(e.target.value) || 0),
                                           })
                                         }
@@ -3465,7 +3535,9 @@ export default function App() {
                                         type="number"
                                         min={0}
                                         value={gear.bulk ?? 0}
-                                        onChange={(e) => updateInventoryItem(idx, { bulk: Number(e.target.value) || 0 })}
+                                        onChange={(e) =>
+                                          updateInventoryItem(inventoryIndex, { bulk: Number(e.target.value) || 0 })
+                                        }
                                       />
                                     </div>
                                     <div>
@@ -3474,7 +3546,9 @@ export default function App() {
                                         type="number"
                                         min={0}
                                         value={gear.cost ?? 0}
-                                        onChange={(e) => updateInventoryItem(idx, { cost: Number(e.target.value) || 0 })}
+                                        onChange={(e) =>
+                                          updateInventoryItem(inventoryIndex, { cost: Number(e.target.value) || 0 })
+                                        }
                                       />
                                     </div>
                                     {gear.type === "item" ? (
@@ -3483,14 +3557,18 @@ export default function App() {
                                           <label>Uses</label>
                                           <input
                                             value={gear.uses ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { uses: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { uses: e.target.value })
+                                            }
                                           />
                                         </div>
                                         <div className="span-2">
                                           <label>Effect</label>
                                           <textarea
                                             value={gear.effect ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { effect: e.target.value })
+                                            }
                                           />
                                         </div>
                                       </>
@@ -3503,7 +3581,11 @@ export default function App() {
                                             type="number"
                                             min={0}
                                             value={gear.tier ?? 0}
-                                            onChange={(e) => updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, {
+                                                tier: Number(e.target.value) || 0,
+                                              })
+                                            }
                                           />
                                         </div>
                                         <div>
@@ -3513,7 +3595,7 @@ export default function App() {
                                             min={0}
                                             value={gear.installationDifficulty ?? 0}
                                             onChange={(e) =>
-                                              updateInventoryItem(idx, {
+                                              updateInventoryItem(inventoryIndex, {
                                                 installationDifficulty: Number(e.target.value) || 0,
                                               })
                                             }
@@ -3523,21 +3605,31 @@ export default function App() {
                                           <label>Requirements</label>
                                           <input
                                             value={gear.requirements ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { requirements: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, {
+                                                requirements: e.target.value,
+                                              })
+                                            }
                                           />
                                         </div>
                                         <div>
                                           <label>Physical Impact</label>
                                           <input
                                             value={gear.physicalImpact ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { physicalImpact: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, {
+                                                physicalImpact: e.target.value,
+                                              })
+                                            }
                                           />
                                         </div>
                                         <div className="span-2">
                                           <label>Effect</label>
                                           <textarea
                                             value={gear.effect ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { effect: e.target.value })
+                                            }
                                           />
                                         </div>
                                       </>
@@ -3550,7 +3642,11 @@ export default function App() {
                                             type="number"
                                             min={0}
                                             value={gear.uses ?? 0}
-                                            onChange={(e) => updateInventoryItem(idx, { uses: Number(e.target.value) || 0 })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, {
+                                                uses: Number(e.target.value) || 0,
+                                              })
+                                            }
                                           />
                                         </div>
                                         <div>
@@ -3560,7 +3656,9 @@ export default function App() {
                                             min={0}
                                             value={gear.addictionScore ?? 0}
                                             onChange={(e) =>
-                                              updateInventoryItem(idx, { addictionScore: Number(e.target.value) || 0 })
+                                              updateInventoryItem(inventoryIndex, {
+                                                addictionScore: Number(e.target.value) || 0,
+                                              })
                                             }
                                           />
                                         </div>
@@ -3568,14 +3666,18 @@ export default function App() {
                                           <label>Legality</label>
                                           <input
                                             value={gear.legality ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { legality: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { legality: e.target.value })
+                                            }
                                           />
                                         </div>
                                         <div className="span-2">
                                           <label>Effect</label>
                                           <textarea
                                             value={gear.effect ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { effect: e.target.value })
+                                            }
                                           />
                                         </div>
                                       </>
@@ -3589,7 +3691,9 @@ export default function App() {
                                             min={0}
                                             value={gear.systemTierAccess ?? 0}
                                             onChange={(e) =>
-                                              updateInventoryItem(idx, { systemTierAccess: Number(e.target.value) || 0 })
+                                              updateInventoryItem(inventoryIndex, {
+                                                systemTierAccess: Number(e.target.value) || 0,
+                                              })
                                             }
                                           />
                                         </div>
@@ -3600,7 +3704,9 @@ export default function App() {
                                             min={0}
                                             value={gear.maxSoftwareTier ?? 0}
                                             onChange={(e) =>
-                                              updateInventoryItem(idx, { maxSoftwareTier: Number(e.target.value) || 0 })
+                                              updateInventoryItem(inventoryIndex, {
+                                                maxSoftwareTier: Number(e.target.value) || 0,
+                                              })
                                             }
                                           />
                                         </div>
@@ -3610,14 +3716,20 @@ export default function App() {
                                             type="number"
                                             min={0}
                                             value={gear.tier ?? 0}
-                                            onChange={(e) => updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, {
+                                                tier: Number(e.target.value) || 0,
+                                              })
+                                            }
                                           />
                                         </div>
                                         <div className="span-2">
                                           <label>Notes</label>
                                           <textarea
                                             value={gear.notes ?? ""}
-                                            onChange={(e) => updateInventoryItem(idx, { notes: e.target.value })}
+                                            onChange={(e) =>
+                                              updateInventoryItem(inventoryIndex, { notes: e.target.value })
+                                            }
                                           />
                                         </div>
                                       </>
@@ -3627,7 +3739,7 @@ export default function App() {
                                     {renderGameplayTags(gear.gameplayEffects, (effectIndex) => {
                                       const next = [...(gear.gameplayEffects ?? [])];
                                       next.splice(effectIndex, 1);
-                                      setInventoryGameplayEffects(idx, next);
+                                      setInventoryGameplayEffects(inventoryIndex, next);
                                     })}
                                     {draft.open ? (
                                       <div className="gameplay-editor">
@@ -3694,7 +3806,11 @@ export default function App() {
                                               ...(gear.gameplayEffects ?? []),
                                               toGameplayEffect(draft.target, draft.amount),
                                             ];
-                                            setInventoryGameplayEffects(idx, next);
+                                            setInventoryGameplayEffects(inventoryIndex, next);
+                                            setInventoryGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }));
                                           }}
                                         >
                                           Add

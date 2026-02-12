@@ -92,6 +92,11 @@ npm run dev
 - [done] Added gameplay-effect editing UI for items, weapons, and armour (category + target + +/- amount + removable tags).
 - [done] Cut-corner components now share a consistent `25px` top/bottom padding treatment.
 - [done] Remove buttons now use a stronger hover state for clearer destructive affordance.
+- [done] Gear row headers now label collapsed weapon/item columns for readability.
+- [done] Reload control now uses an icon button with hover tooltip.
+- [done] Gear search now filters both catalog options and currently equipped inventory/weapon rows.
+- [done] Gameplay effect editor now auto-collapses after adding a new effect.
+- [done] Drag/reorder handlers now set HTML5 `dataTransfer` payloads for better browser compatibility.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
