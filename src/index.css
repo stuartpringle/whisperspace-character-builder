@@ -241,7 +241,7 @@ header p {
 .step {
   position: relative;
   border: 1px solid rgba(88, 111, 160, 0.42);
-  border-radius: 0;
+  border-radius: 16px;
   padding: 14px 16px;
   text-align: left;
   background: linear-gradient(170deg, rgba(9, 19, 39, 0.84), rgba(7, 14, 30, 0.75));
@@ -776,7 +776,7 @@ button:disabled {
   gap: 12px;
 }
 
-.step,
+.card,
 .modal-card,
 .gear-card {
   border-start-start-radius: 50px;
