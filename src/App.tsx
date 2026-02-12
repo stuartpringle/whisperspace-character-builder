@@ -4108,71 +4108,131 @@ export default function App() {
         )}
 
         {step === "review" && (
-          <div className="stack">
-            <h2>{sheet.name || "Unnamed Character"}</h2>
-            <p className="muted">{sheet.motivation || "Motivation missing"}</p>
-            <div className="summary">
-              <div>
+          <div className="stack review-layout">
+            <div className="review-hero">
+              <h2>{sheet.name || "Unnamed Character"}</h2>
+              <p className="muted">{sheet.motivation || "Motivation missing"}</p>
+            </div>
+
+            <div className="review-metrics">
+              <div className="review-pill">
+                <span>Credits</span>
+                <strong>{sheet.credits ?? 0}</strong>
+              </div>
+              <div className="review-pill">
+                <span>Total Bulk</span>
+                <strong>{gearTotals.bulk}</strong>
+              </div>
+              <div className="review-pill">
+                <span>CUF</span>
+                <strong>{sheet.stress?.cuf ?? 0}</strong>
+              </div>
+              <div className="review-pill">
+                <span>Speed</span>
+                <strong>{derivedStats.speed}</strong>
+              </div>
+              <div className="review-pill">
+                <span>Capacity</span>
+                <strong>{derivedStats.capacity}</strong>
+              </div>
+            </div>
+
+            <div className="review-grid">
+              <section className="review-card">
                 <h3>Attributes</h3>
-                <ul>
-                  {Object.entries(sheet.attributes).map(([key, value]) => (
+                <ul className="review-list">
+                  {Object.entries(ATTRIBUTE_LABELS).map(([key, short]) => (
                     <li key={key}>
-                      {ATTRIBUTE_LABELS[key as AttributeKey]}: {value}
+                      <span>{ATTRIBUTE_FULL_LABELS[key as AttributeKey]}</span>
+                      <strong>{sheet.attributes[key as AttributeKey]}</strong>
                     </li>
                   ))}
                 </ul>
-                <p className="muted">CUF: {sheet.stress?.cuf ?? 0}</p>
-                <p className="muted">Speed: {derivedStats.speed}</p>
-                <p className="muted">Carrying Capacity: {derivedStats.capacity}</p>
-              </div>
-              <div>
+              </section>
+
+              <section className="review-card">
                 <h3>Skills</h3>
-                <ul>
-                  {Object.keys(sheet.skills ?? {}).length
-                    ? Object.entries(sheet.skills ?? {}).map(([key, rank]) => (
+                <ul className="review-list">
+                  {Object.keys(sheet.skills ?? {}).length ? (
+                    Object.entries(sheet.skills ?? {})
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                      .map(([key, rank]) => (
                         <li key={key}>
-                          {key} ({rank})
+                          <span>{skillLabelById[key] ?? key}</span>
+                          <strong>{rank}</strong>
                         </li>
                       ))
-                    : "None"}
+                  ) : (
+                    <li>
+                      <span>None</span>
+                    </li>
+                  )}
                 </ul>
-              </div>
-              <div>
-                <h3>Inventory</h3>
-                <ul>
-                  {(sheet.inventory ?? []).length
-                    ? (sheet.inventory ?? []).map((gear, idx) => (
-                        <li key={gear.id ?? String(idx)}>
-                          {gear.name || "Unnamed"} ({gear.type})
-                        </li>
-                      ))
-                    : "None"}
+              </section>
+
+              <section className="review-card">
+                <h3>Equipment</h3>
+                <ul className="review-list">
+                  {(sheet.weapons ?? []).map((weapon, idx) => (
+                    <li key={`weapon-${weapon.id ?? idx}`}>
+                      <span>{weapon.name || "Unnamed Weapon"}</span>
+                      <strong>Weapon</strong>
+                    </li>
+                  ))}
+                  {sheet.armour ? (
+                    <li>
+                      <span>{sheet.armour.name || "Armour"}</span>
+                      <strong>Armour</strong>
+                    </li>
+                  ) : null}
+                  {(sheet.inventory ?? []).map((gear, idx) => (
+                    <li key={gear.id ?? String(idx)}>
+                      <span>{gear.name || "Unnamed Item"}</span>
+                      <strong>{gear.type}</strong>
+                    </li>
+                  ))}
+                  {(sheet.weapons ?? []).length === 0 && !sheet.armour && (sheet.inventory ?? []).length === 0 ? (
+                    <li>
+                      <span>None</span>
+                    </li>
+                  ) : null}
                 </ul>
-                <p className="muted">
-                  Total Bulk: {gearTotals.bulk} · Total Credits: {gearTotals.cost}
-                </p>
-              </div>
-              <div>
-                <h3>Stress</h3>
-                <ul>
-                  <li>Current: {sheet.stress?.current ?? 0}</li>
-                  <li>CUF Loss: {sheet.stress?.cufLoss ?? 0}</li>
+              </section>
+
+              <section className="review-card">
+                <h3>Health</h3>
+                <ul className="review-list">
+                  <li>
+                    <span>Stress (Current)</span>
+                    <strong>{sheet.stress?.current ?? 0}</strong>
+                  </li>
+                  <li>
+                    <span>CUF Loss</span>
+                    <strong>{sheet.stress?.cufLoss ?? 0}</strong>
+                  </li>
+                  <li>
+                    <span>Wounds (Light)</span>
+                    <strong>{sheet.wounds?.light ?? 0}</strong>
+                  </li>
+                  <li>
+                    <span>Wounds (Moderate)</span>
+                    <strong>{sheet.wounds?.moderate ?? 0}</strong>
+                  </li>
+                  <li>
+                    <span>Wounds (Heavy)</span>
+                    <strong>{sheet.wounds?.heavy ?? 0}</strong>
+                  </li>
                 </ul>
-              </div>
-              <div>
-                <h3>Wounds</h3>
-                <ul>
-                  <li>Light: {sheet.wounds?.light ?? 0}</li>
-                  <li>Moderate: {sheet.wounds?.moderate ?? 0}</li>
-                  <li>Heavy: {sheet.wounds?.heavy ?? 0}</li>
-                </ul>
-              </div>
+              </section>
             </div>
-            <label>Notes</label>
-            <textarea
-              value={sheet.notes}
-              onChange={(e) => updateSheet({ ...sheet, notes: e.target.value })}
-            />
+
+            <div className="review-card">
+              <h3>Notes</h3>
+              <textarea
+                value={sheet.notes}
+                onChange={(e) => updateSheet({ ...sheet, notes: e.target.value })}
+              />
+            </div>
           </div>
         )}
         <div className="steps-nav in-card">

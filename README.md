@@ -107,6 +107,7 @@ npm run dev
 - [done] Rules narrative extraction now reads direct `text` nodes in `rules.json` (not only paragraph-child structures), improving concept/archetype/credits copy rendering reliability.
 - [done] Tooltips are now loaded independently of skills data and cached separately; missing tooltip payloads no longer block skills loading.
 - [done] Drag handles now use dedicated draggable elements with explicit HTML5 transfer payload + drop parsing fallback for improved cross-browser reorder behavior.
+- [done] Review page UI refresh: hero header, compact stat pills, carded content sections (Attributes/Skills/Equipment/Health), cleaner list styling, and integrated notes card for better visual consistency.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.

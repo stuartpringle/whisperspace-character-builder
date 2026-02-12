@@ -457,6 +457,88 @@ button:disabled {
   gap: 16px;
 }
 
+.review-layout {
+  gap: 20px;
+}
+
+.review-hero {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(96, 124, 180, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(155deg, rgba(12, 23, 47, 0.82), rgba(9, 18, 36, 0.75));
+}
+
+.review-hero h2 {
+  margin: 0;
+}
+
+.review-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.review-pill {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(96, 126, 182, 0.36);
+  border-radius: 999px;
+  background: rgba(12, 24, 47, 0.84);
+  text-align: center;
+}
+
+.review-pill span {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9db5de;
+}
+
+.review-pill strong {
+  font-size: 1.05rem;
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.review-card {
+  border: 1px solid rgba(90, 116, 168, 0.3);
+  border-radius: 14px;
+  background: rgba(9, 19, 39, 0.72);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.review-card h3 {
+  margin: 0;
+}
+
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.review-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(88, 113, 165, 0.24);
+  border-radius: 10px;
+  background: rgba(11, 23, 47, 0.66);
+}
+
 .cloud-list {
   margin-top: 20px;
   border-top: 1px solid rgba(90, 76, 64, 0.2);
