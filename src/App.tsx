@@ -478,6 +478,9 @@ export default function App() {
         return;
       }
       if (typeof node === "object") {
+        if (typeof node.text === "string" && node.text.trim()) {
+          paragraphs.push(node.text.trim());
+        }
         if (node.type === "paragraph") {
           const text = Array.isArray(node.children)
             ? node.children
@@ -631,6 +634,7 @@ export default function App() {
     setSkillsStatus("loading");
     setSkillsError("");
     const cachedSkills = localStorage.getItem("ws_rules_skills_json");
+    const cachedTooltips = localStorage.getItem("ws_rules_skill_tooltips_json");
     if (cachedSkills) {
       try {
         const data = JSON.parse(cachedSkills) as SkillsData;
@@ -641,20 +645,22 @@ export default function App() {
         // ignore cache errors
       }
     }
+    if (cachedTooltips) {
+      try {
+        setSkillTooltips(JSON.parse(cachedTooltips) as SkillTooltips);
+      } catch {
+        // ignore cache errors
+      }
+    }
 
-    Promise.all([
-      fetch(`${rulesBase}/skills.json`).then((res) =>
+    fetch(`${rulesBase}/skills.json`)
+      .then((res) =>
         res.ok ? (res.json() as Promise<SkillsData>) : Promise.reject(new Error("bad response"))
-      ),
-      fetch(`${rulesBase}/skill_tooltips.json`).then((res) =>
-        res.ok ? (res.json() as Promise<SkillTooltips>) : Promise.reject(new Error("bad response"))
-      ),
-    ])
-      .then(([data, tooltips]) => {
+      )
+      .then((data) => {
         if (!active) return;
         localStorage.setItem("ws_rules_skills_json", JSON.stringify(data));
         setSkillsData(data);
-        setSkillTooltips(tooltips);
         setSkillsStatus("ready");
         setRulesCacheNote("");
       })
@@ -663,6 +669,17 @@ export default function App() {
         setSkillsError("Unable to load skills from the Rules API.");
         setSkillsStatus(skillsData ? "cached" : "error");
         if (skillsData) setRulesCacheNote("Can't connect to Rules API; using cached data.");
+      });
+
+    fetch(`${rulesBase}/skill_tooltips.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<SkillTooltips>) : Promise.reject(new Error("bad response"))))
+      .then((tooltips) => {
+        if (!active) return;
+        localStorage.setItem("ws_rules_skill_tooltips_json", JSON.stringify(tooltips));
+        setSkillTooltips(tooltips);
+      })
+      .catch(() => {
+        // keep skills usable even if tooltip file is unavailable
       });
     return () => {
       active = false;
@@ -856,10 +873,13 @@ export default function App() {
         ]);
         if (speedRes.ok && capacityRes.ok) {
           const speedPayload = (await speedRes.json()) as { speed: number };
-          const capacityPayload = (await capacityRes.json()) as { capacity: number };
+          const capacityPayload = (await capacityRes.json()) as {
+            capacity?: number;
+            carryingCapacity?: number;
+          };
           setDerivedStats({
             speed: speedPayload.speed ?? 0,
-            capacity: capacityPayload.capacity ?? 0,
+            capacity: capacityPayload.carryingCapacity ?? capacityPayload.capacity ?? 0,
           });
         }
         updateSheet({
@@ -2618,6 +2638,7 @@ export default function App() {
                 Generate Starting Money
               </button>
             </div>
+            <h3 className="span-2">Motivation</h3>
             <div className="span-2">
               <label>Motivation</label>
               <input
@@ -2655,6 +2676,7 @@ export default function App() {
               </div>
               {rulesStatus === "error" ? <p className="error">{rulesError}</p> : null}
             </div>
+            <h3 className="span-2">Background</h3>
             <div className="span-2">
               <label>Background</label>
               <textarea
@@ -2881,11 +2903,13 @@ export default function App() {
                                   <div className="skill-meta">
                                     <strong>{skill.label}</strong>
                                     <span className="skill-hint">{ATTRIBUTE_GROUP_META[attrKey].short}</span>
-                                    {tooltip ? (
-                                      <button className="skill-info" title={tooltip} aria-label={`${skill.label} info`}>
-                                        i
-                                      </button>
-                                    ) : null}
+                                    <button
+                                      className="skill-info"
+                                      title={tooltip || "No tooltip published for this skill yet."}
+                                      aria-label={`${skill.label} info`}
+                                    >
+                                      i
+                                    </button>
                                   </div>
                                   <div className="skill-rank-controls">
                                     <button
@@ -2953,11 +2977,13 @@ export default function App() {
                                       <span className="skill-hint">
                                         {focus.charAt(0).toUpperCase() + focus.slice(1)}
                                       </span>
-                                      {tooltip ? (
-                                        <button className="skill-info" title={tooltip} aria-label={`${skill.label} info`}>
-                                          i
-                                        </button>
-                                      ) : null}
+                                      <button
+                                        className="skill-info"
+                                        title={tooltip || "No tooltip published for this skill yet."}
+                                        aria-label={`${skill.label} info`}
+                                      >
+                                        i
+                                      </button>
                                     </div>
                                   <div className="skill-rank-controls">
                                     <button className="ghost" onClick={() => nudgeSkillRank(skill.id, -1, maxRank)}>
@@ -3065,9 +3091,12 @@ export default function App() {
                               className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
                               key={key}
                               onDragOver={(event) => event.preventDefault()}
-                              onDrop={() => {
-                                if (draggingWeaponIndex === null) return;
-                                reorderWeapons(draggingWeaponIndex, weaponIndex);
+                              onDrop={(event) => {
+                                const fromRaw = event.dataTransfer.getData("text/plain");
+                                const parsed = Number(fromRaw);
+                                const from = Number.isFinite(parsed) ? parsed : draggingWeaponIndex;
+                                if (from === null) return;
+                                reorderWeapons(from, weaponIndex);
                                 setDraggingWeaponIndex(null);
                               }}
                             >
@@ -3079,7 +3108,7 @@ export default function App() {
                                   setWeaponExpanded((prev) => ({ ...prev, [key]: !expanded }));
                                 }}
                               >
-                                <button
+                                <div
                                   data-no-expand="true"
                                   className="drag-handle"
                                   draggable
@@ -3093,7 +3122,7 @@ export default function App() {
                                   title="Drag to reorder"
                                 >
                                   ::
-                                </button>
+                                </div>
                                 <span>{weapon.name || "Unnamed"}</span>
                                 <span>{skillLabelById[weapon.skillId ?? ""] ?? weapon.skillId ?? "-"}</span>
                                 <span>{weapon.useDC ?? 0}</span>
@@ -3673,9 +3702,12 @@ export default function App() {
                               className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
                               key={key}
                               onDragOver={(event) => event.preventDefault()}
-                              onDrop={() => {
-                                if (draggingInventoryIndex === null) return;
-                                reorderInventory(draggingInventoryIndex, inventoryIndex);
+                              onDrop={(event) => {
+                                const fromRaw = event.dataTransfer.getData("text/plain");
+                                const parsed = Number(fromRaw);
+                                const from = Number.isFinite(parsed) ? parsed : draggingInventoryIndex;
+                                if (from === null) return;
+                                reorderInventory(from, inventoryIndex);
                                 setDraggingInventoryIndex(null);
                               }}
                             >
@@ -3687,7 +3719,7 @@ export default function App() {
                                   setInventoryExpanded((prev) => ({ ...prev, [key]: !expanded }));
                                 }}
                               >
-                                <button
+                                <div
                                   data-no-expand="true"
                                   className="drag-handle"
                                   draggable
@@ -3701,7 +3733,7 @@ export default function App() {
                                   title="Drag to reorder"
                                 >
                                   ::
-                                </button>
+                                </div>
                                 <span>{gear.name || "Unnamed"}</span>
                                 <span>{gear.type}</span>
                                 <span>{gear.bulk ?? 0}</span>

@@ -104,6 +104,9 @@ npm run dev
 - [done] Skill tooltip resolution now uses Rules API `skill_tooltips.json` label matching (case-insensitive/id fallback) and only shows info icons when text exists.
 - [done] Background authoring/picker moved from `Archetype` to `Origin`; `Archetype` currently displays Rules API narrative intro text.
 - [done] Gameplay effects are now forwarded to derive endpoints (`derive-attributes`, `derive-cuf`, `derive-speed`, `derive-capacity`) with alias normalization (for example `reflex+1` -> `ref+1`).
+- [done] Rules narrative extraction now reads direct `text` nodes in `rules.json` (not only paragraph-child structures), improving concept/archetype/credits copy rendering reliability.
+- [done] Tooltips are now loaded independently of skills data and cached separately; missing tooltip payloads no longer block skills loading.
+- [done] Drag handles now use dedicated draggable elements with explicit HTML5 transfer payload + drop parsing fallback for improved cross-browser reorder behavior.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
