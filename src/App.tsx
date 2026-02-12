@@ -87,6 +87,7 @@ const LOCAL_SAVED_KEY = "ws_character_saved_local_v1";
 const LAST_SAVED_KEY = "ws_character_last_saved_v1";
 
 type GearType = "item" | "cyberware" | "narcotics" | "hacker_gear";
+type GameplayCategory = "attribute" | "inherent_skill" | "learning_focus_skill" | "other";
 
 type ItemsData = { items: Array<{ name: string; effect?: string; uses?: string; bulk?: number; cost?: number }> };
 type CyberwareData = {
@@ -287,6 +288,25 @@ export default function App() {
   const [armourSearch, setArmourSearch] = useState<string>("");
   const [draggingInventoryIndex, setDraggingInventoryIndex] = useState<number | null>(null);
   const [draggingWeaponIndex, setDraggingWeaponIndex] = useState<number | null>(null);
+  const [inventoryExpanded, setInventoryExpanded] = useState<Record<string, boolean>>({});
+  const [weaponExpanded, setWeaponExpanded] = useState<Record<string, boolean>>({});
+  const [inventoryGameplayDrafts, setInventoryGameplayDrafts] = useState<
+    Record<string, { open: boolean; category: GameplayCategory; target: string; amount: number }>
+  >({});
+  const [weaponGameplayDrafts, setWeaponGameplayDrafts] = useState<
+    Record<string, { open: boolean; category: GameplayCategory; target: string; amount: number }>
+  >({});
+  const [armourGameplayDraft, setArmourGameplayDraft] = useState<{
+    open: boolean;
+    category: GameplayCategory;
+    target: string;
+    amount: number;
+  }>({
+    open: false,
+    category: "attribute",
+    target: "phys",
+    amount: 0,
+  });
   const [skillValidation, setSkillValidation] = useState<{
     valid: boolean;
     errors: string[];
@@ -857,6 +877,59 @@ export default function App() {
     return grouped;
   }, [skillsData]);
 
+  const skillLabelById = useMemo(() => {
+    const map: Record<string, string> = {};
+    (skillsData?.inherent ?? []).forEach((skill) => {
+      map[skill.id] = skill.label;
+    });
+    if (skillsData?.learned) {
+      Object.values(skillsData.learned).forEach((list) => {
+        list.forEach((skill) => {
+          map[skill.id] = skill.label;
+        });
+      });
+    }
+    return map;
+  }, [skillsData]);
+
+  const gameplayTargets = useMemo(() => {
+    const base = {
+      attribute: [
+        { key: "phys", label: "Physique" },
+        { key: "ref", label: "Reflex" },
+        { key: "soc", label: "Social" },
+        { key: "ment", label: "Mental" },
+      ],
+      inherent_skill: (skillsData?.inherent ?? []).map((skill) => ({
+        key: skill.id,
+        label: skill.label,
+      })),
+      learning_focus_skill: Object.values(skillsData?.learned ?? {})
+        .flat()
+        .map((skill) => ({ key: skill.id, label: skill.label })),
+      other: [
+        { key: "cool_under_fire", label: "Cool Under Fire" },
+        { key: "speed", label: "Speed" },
+        { key: "carrying_capacity", label: "Carrying Capacity" },
+      ],
+    };
+    return base;
+  }, [skillsData]);
+
+  const toGameplayEffect = (target: string, amount: number) => `${target}${amount >= 0 ? "+" : ""}${amount}`;
+
+  const parseGameplayEffect = (effect: string) => {
+    const match = effect.trim().match(/^([a-z0-9_]+)\s*([+-]\d+)$/i);
+    if (!match) return { target: effect, amount: 0 };
+    return { target: match[1], amount: Number(match[2]) || 0 };
+  };
+
+  const gameplayLabel = (target: string) =>
+    gameplayTargets.attribute.find((entry) => entry.key === target)?.label ??
+    gameplayTargets.other.find((entry) => entry.key === target)?.label ??
+    skillLabelById[target] ??
+    target;
+
   const sortedFilteredCharacters = useMemo(() => {
     const filtered = characterSummaries.filter((entry) =>
       (entry.name || "Unnamed Character")
@@ -1013,6 +1086,11 @@ export default function App() {
     updateSheet({ ...sheet, inventory: [...(sheet.inventory ?? []), item] });
   };
 
+  const inventoryRowKey = (item: CharacterSheet["inventory"][number], idx: number) =>
+    item.id ?? `inventory-${idx}`;
+  const weaponRowKey = (weapon: CharacterSheet["weapons"][number], idx: number) =>
+    `${weapon.id ?? "weapon"}-${idx}`;
+
   const updateInventoryItem = (
     index: number,
     next: Partial<CharacterSheet["inventory"][number]>
@@ -1026,6 +1104,20 @@ export default function App() {
 
   const removeInventoryItem = (index: number) => {
     const nextInventory = [...(sheet.inventory ?? [])];
+    const removed = nextInventory[index];
+    if (removed) {
+      const key = inventoryRowKey(removed, index);
+      setInventoryExpanded((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setInventoryGameplayDrafts((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
     nextInventory.splice(index, 1);
     updateSheet({ ...sheet, inventory: nextInventory });
   };
@@ -1052,26 +1144,42 @@ export default function App() {
 
   const buildGearOptions = (type: GearType, query = "") => {
     if (!gearData) return [];
+    const owned = (sheet.inventory ?? [])
+      .filter((entry) => entry.type === type)
+      .map((entry, idx) => ({
+        key: `owned:${entry.id ?? idx}`,
+        label: `Owned: ${entry.name || "Unnamed"}`,
+      }));
     if (type === "item") {
       return filterOptions(
-        gearData.items.items.map((entry) => ({ key: entry.name, label: entry.name })),
+        [
+          ...owned,
+          ...gearData.items.items.map((entry) => ({ key: entry.name, label: entry.name })),
+        ],
         query
       );
     }
     if (type === "cyberware") {
       return filterOptions(
-        gearData.cyberware.cyberware.map((entry) => ({ key: entry.name, label: entry.name })),
+        [
+          ...owned,
+          ...gearData.cyberware.cyberware.map((entry) => ({ key: entry.name, label: entry.name })),
+        ],
         query
       );
     }
     if (type === "narcotics") {
       return filterOptions(
-        gearData.narcotics.narcotics.map((entry) => ({ key: entry.name, label: entry.name })),
+        [
+          ...owned,
+          ...gearData.narcotics.narcotics.map((entry) => ({ key: entry.name, label: entry.name })),
+        ],
         query
       );
     }
     return filterOptions(
       [
+        ...owned,
         ...gearData.hacking.rigs.map((entry) => ({
           key: `rig:${entry.name}`,
           label: `Rig: ${entry.name}`,
@@ -1103,6 +1211,17 @@ export default function App() {
 
   const addSelectedGear = () => {
     if (!gearData || !gearPickName) return;
+    if (gearPickName.startsWith("owned:")) {
+      const match = (sheet.inventory ?? []).find(
+        (entry, idx) => `owned:${entry.id ?? idx}` === gearPickName
+      );
+      if (!match) return;
+      addInventoryItem({
+        ...match,
+        id: crypto.randomUUID(),
+      });
+      return;
+    }
     if (gearPickType === "item") {
       const entry = gearData.items.items.find((item) => item.name === gearPickName);
       if (!entry) return;
@@ -1283,14 +1402,60 @@ export default function App() {
 
   const removeWeapon = (index: number) => {
     const nextWeapons = [...(sheet.weapons ?? [])];
+    const removed = nextWeapons[index];
+    if (removed) {
+      const key = weaponRowKey(removed, index);
+      setWeaponExpanded((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setWeaponGameplayDrafts((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
     nextWeapons.splice(index, 1);
     updateSheet({ ...sheet, weapons: nextWeapons });
+  };
+
+  const setInventoryGameplayEffects = (index: number, effects: string[]) => {
+    const current = sheet.inventory?.[index];
+    if (!current) return;
+    updateInventoryItem(index, { gameplayEffects: effects });
+  };
+
+  const setWeaponGameplayEffects = (index: number, effects: string[]) => {
+    const current = sheet.weapons?.[index];
+    if (!current) return;
+    updateWeapon(index, { gameplayEffects: effects });
+  };
+
+  const setArmourGameplayEffects = (effects: string[]) => {
+    if (!sheet.armour) return;
+    updateSheet({ ...sheet, armour: { ...sheet.armour, gameplayEffects: effects } });
   };
 
   const reorderWeapons = (from: number, to: number) => {
     const current = sheet.weapons ?? [];
     if (from < 0 || to < 0 || from >= current.length || to >= current.length) return;
     updateSheet({ ...sheet, weapons: reorder(current, from, to) });
+  };
+
+  const nudgeWeaponAmmo = (index: number, delta: number) => {
+    const current = sheet.weapons?.[index];
+    if (!current) return;
+    updateWeapon(index, { ammo: Math.max(0, (current.ammo ?? 0) + delta) });
+  };
+
+  const reloadWeaponAmmo = (index: number) => {
+    const weapon = sheet.weapons?.[index];
+    if (!weapon || !gearData) return;
+    const fromCatalog =
+      gearData.weapons.weapons.find((entry) => entry.id === weapon.id) ??
+      gearData.weapons.weapons.find((entry) => entry.name === weapon.name);
+    updateWeapon(index, { ammo: Math.max(0, fromCatalog?.ammo ?? weapon.ammo ?? 0) });
   };
 
   const equipArmour = () => {
@@ -1875,7 +2040,7 @@ export default function App() {
   };
 
   const renderHeader = (title: string, subtitle?: string, builderControls = false) => (
-    <header className="header">
+    <header className="header cut-corner-padded">
       <div className="eyebrow">Whisperspace</div>
       <div className="header-row">
         <div className="header-title-stack">
@@ -1964,12 +2129,52 @@ export default function App() {
     </footer>
   );
 
+  const categoryTargetOptions = (category: GameplayCategory) => {
+    if (category === "attribute") return gameplayTargets.attribute;
+    if (category === "inherent_skill") return gameplayTargets.inherent_skill;
+    if (category === "learning_focus_skill") return gameplayTargets.learning_focus_skill;
+    return gameplayTargets.other;
+  };
+
+  const defaultDraft = (open = false, category: GameplayCategory = "attribute") => {
+    const first = categoryTargetOptions(category)[0]?.key ?? "";
+    return { open, category, target: first, amount: 0 };
+  };
+
+  const renderGameplayTags = (
+    effects: string[] | undefined,
+    onRemove: (effectIndex: number) => void
+  ) => {
+    if (!effects?.length) return null;
+    return (
+      <div className="gameplay-tags">
+        {effects.map((effect, effectIndex) => {
+          const parsed = parseGameplayEffect(effect);
+          const tone = parsed.amount < 0 ? "penalty" : parsed.amount > 0 ? "bonus" : "neutral";
+          return (
+            <span key={`${effect}-${effectIndex}`} className={`gameplay-tag ${tone}`}>
+              {gameplayLabel(parsed.target)} {parsed.amount >= 0 ? `+${parsed.amount}` : parsed.amount}
+              <button
+                data-no-expand="true"
+                className="gameplay-tag-remove"
+                onClick={() => onRemove(effectIndex)}
+                aria-label="Remove gameplay effect"
+              >
+                x
+              </button>
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (page === "view" && viewId) {
     return (
       <div className="app">
         {renderHeader("Character View")}
         {viewError ? <p className="error">{viewError}</p> : null}
-        <section className="card">
+        <section className="card cut-corner-padded">
           {viewSheet ? (
             <div className="stack">
               <h2>{viewSheet.name || "Unnamed Character"}</h2>
@@ -2025,7 +2230,7 @@ export default function App() {
     return (
       <div className="app">
         {renderHeader("Settings")}
-        <section className="card">
+        <section className="card cut-corner-padded">
           <div className="grid two">
             <div className="stack">
               <h3>Account</h3>
@@ -2079,7 +2284,7 @@ export default function App() {
           "Character List",
           `${sortedFilteredCharacters.length} / ${characterLimit} slots used`
         )}
-        <section className="card">
+        <section className="card cut-corner-padded">
           <div className="character-list-toolbar">
             <button
               className="primary"
@@ -2095,7 +2300,7 @@ export default function App() {
             />
           </div>
         </section>
-        <section className="card">
+        <section className="card cut-corner-padded">
           {characterListError ? <p className="error">{characterListError}</p> : null}
           {characterListLoading ? <p className="muted">Loading characters...</p> : null}
           <div className="character-table">
@@ -2162,7 +2367,7 @@ export default function App() {
         {renderFooter()}
         {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
-            <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
                 <h2>You have unsaved changes</h2>
                 <button className="ghost" onClick={() => setUnsavedPromptOpen(false)}>
@@ -2222,7 +2427,7 @@ export default function App() {
         ))}
       </nav>
 
-      <section className="card">
+      <section className="card cut-corner-padded">
         {step === "basics" && (
           <div className="grid two">
             <div>
@@ -2563,672 +2768,961 @@ export default function App() {
                   <span>Total Bulk: {gearTotals.bulk}</span>
                   <span>Total Credits: {gearTotals.cost}</span>
                 </div>
-                <div className="gear-picker">
-                  <div>
-                    <label>Gear Type</label>
-                    <select
-                      value={gearPickType}
-                      onChange={(e) => {
-                        const nextType = e.target.value as GearType;
-                        setGearPickType(nextType);
-                        const options = buildGearOptions(nextType, gearSearch);
-                        setGearPickName(options[0]?.key ?? "");
-                      }}
-                    >
-                      <option value="item">Item</option>
-                      <option value="cyberware">Cyberware</option>
-                      <option value="narcotics">Narcotics</option>
-                      <option value="hacker_gear">Hacker Gear</option>
-                    </select>
+
+                <div className="gear-arsenal">
+                  <div className="gear-section stack">
+                    <h3>Weapons</h3>
+                    <div className="gear-picker">
+                      <div>
+                        <label>Search Weapons</label>
+                        <input
+                          value={weaponSearch}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setWeaponSearch(next);
+                            const options = buildWeaponOptions(next);
+                            if (!options.find((opt) => opt.key === weaponPickId)) {
+                              setWeaponPickId(options[0]?.key ?? "");
+                            }
+                          }}
+                          placeholder="Search weapons"
+                        />
+                      </div>
+                      <div>
+                        <label>Weapon Catalog</label>
+                        <select value={weaponPickId} onChange={(e) => setWeaponPickId(e.target.value)}>
+                          {buildWeaponOptions(weaponSearch).map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="gear-actions">
+                        <label>&nbsp;</label>
+                        <button className="ghost" onClick={addSelectedWeapon}>
+                          Add Weapon
+                        </button>
+                      </div>
+                    </div>
+                    {(sheet.weapons ?? []).length === 0 ? (
+                      <p className="muted">No weapons equipped.</p>
+                    ) : (
+                      <div className="gear-list">
+                        {(sheet.weapons ?? []).map((weapon, idx) => {
+                          const key = weaponRowKey(weapon, idx);
+                          const expanded = Boolean(weaponExpanded[key]);
+                          const draft = weaponGameplayDrafts[key] ?? defaultDraft(false);
+                          return (
+                            <div
+                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
+                              key={key}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={() => {
+                                if (draggingWeaponIndex === null) return;
+                                reorderWeapons(draggingWeaponIndex, idx);
+                                setDraggingWeaponIndex(null);
+                              }}
+                            >
+                              <div
+                                className="gear-row"
+                                onClick={(event) => {
+                                  const target = event.target as HTMLElement;
+                                  if (target.closest("[data-no-expand='true']")) return;
+                                  setWeaponExpanded((prev) => ({ ...prev, [key]: !expanded }));
+                                }}
+                              >
+                                <button
+                                  data-no-expand="true"
+                                  className="drag-handle"
+                                  draggable
+                                  onDragStart={() => setDraggingWeaponIndex(idx)}
+                                  onDragEnd={() => setDraggingWeaponIndex(null)}
+                                  aria-label="Drag to reorder weapon"
+                                >
+                                  ::
+                                </button>
+                                <span>{weapon.name || "Unnamed"}</span>
+                                <span>{skillLabelById[weapon.skillId ?? ""] ?? weapon.skillId ?? "-"}</span>
+                                <span>{weapon.useDC ?? 0}</span>
+                                <span>{weapon.damage ?? 0}</span>
+                                <span>{weapon.range ?? "-"}</span>
+                                <div className="inline row-controls" data-no-expand="true">
+                                  <button className="ghost" onClick={() => nudgeWeaponAmmo(idx, -1)}>
+                                    -
+                                  </button>
+                                  <span>{weapon.ammo ?? 0}</span>
+                                  <button className="ghost" onClick={() => reloadWeaponAmmo(idx)}>
+                                    Reload
+                                  </button>
+                                </div>
+                                <button
+                                  data-no-expand="true"
+                                  className="ghost danger"
+                                  onClick={() => removeWeapon(idx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              {expanded ? (
+                                <div className="gear-expand">
+                                  <div className="grid three">
+                                    <div>
+                                      <label>Name</label>
+                                      <input
+                                        value={weapon.name ?? ""}
+                                        onChange={(e) => updateWeapon(idx, { name: e.target.value })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Skill</label>
+                                      <select
+                                        value={weapon.skillId ?? ""}
+                                        onChange={(e) => updateWeapon(idx, { skillId: e.target.value })}
+                                      >
+                                        <option value="">Unspecified</option>
+                                        {Object.entries(skillLabelById)
+                                          .sort((a, b) => a[1].localeCompare(b[1]))
+                                          .map(([id, label]) => (
+                                            <option key={id} value={id}>
+                                              {label}
+                                            </option>
+                                          ))}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <label>Use DC</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={weapon.useDC ?? 0}
+                                        onChange={(e) =>
+                                          updateWeapon(idx, { useDC: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Damage</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={weapon.damage ?? 0}
+                                        onChange={(e) =>
+                                          updateWeapon(idx, { damage: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Range</label>
+                                      <input
+                                        value={weapon.range ?? ""}
+                                        onChange={(e) => updateWeapon(idx, { range: e.target.value })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Ammo</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={weapon.ammo ?? 0}
+                                        onChange={(e) =>
+                                          updateWeapon(idx, { ammo: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Bulk</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={weapon.bulk ?? 0}
+                                        onChange={(e) =>
+                                          updateWeapon(idx, { bulk: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Cost</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={weapon.cost ?? 0}
+                                        onChange={(e) =>
+                                          updateWeapon(idx, { cost: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Req</label>
+                                      <input
+                                        value={weapon.req ?? ""}
+                                        onChange={(e) => updateWeapon(idx, { req: e.target.value })}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="gameplay-block">
+                                    {renderGameplayTags(weapon.gameplayEffects, (effectIndex) => {
+                                      const next = [...(weapon.gameplayEffects ?? [])];
+                                      next.splice(effectIndex, 1);
+                                      setWeaponGameplayEffects(idx, next);
+                                    })}
+                                    {draft.open ? (
+                                      <div className="gameplay-editor">
+                                        <select
+                                          value={draft.category}
+                                          onChange={(e) => {
+                                            const category = e.target.value as GameplayCategory;
+                                            const target = categoryTargetOptions(category)[0]?.key ?? "";
+                                            setWeaponGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, category, target },
+                                            }));
+                                          }}
+                                        >
+                                          <option value="attribute">Attribute</option>
+                                          <option value="inherent_skill">Inherent Skill</option>
+                                          <option value="learning_focus_skill">Learning Focus Skill</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <select
+                                          value={draft.target}
+                                          onChange={(e) =>
+                                            setWeaponGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, target: e.target.value },
+                                            }))
+                                          }
+                                        >
+                                          {categoryTargetOptions(draft.category).map((opt) => (
+                                            <option key={opt.key} value={opt.key}>
+                                              {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <div className="skill-rank-controls">
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setWeaponGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.max(-5, draft.amount - 1) },
+                                              }))
+                                            }
+                                          >
+                                            -
+                                          </button>
+                                          <input type="number" min={-5} max={5} value={draft.amount} readOnly />
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setWeaponGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.min(5, draft.amount + 1) },
+                                              }))
+                                            }
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                        <button
+                                          className="ghost"
+                                          onClick={() => {
+                                            const next = [
+                                              ...(weapon.gameplayEffects ?? []),
+                                              toGameplayEffect(draft.target, draft.amount),
+                                            ];
+                                            setWeaponGameplayEffects(idx, next);
+                                          }}
+                                        >
+                                          Add
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                    <button
+                                      className="ghost"
+                                      onClick={() =>
+                                        setWeaponGameplayDrafts((prev) => ({
+                                          ...prev,
+                                          [key]: defaultDraft(true),
+                                        }))
+                                      }
+                                    >
+                                      Add Gameplay Effect
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label>Catalog</label>
-                    <select
-                      value={gearPickName}
-                      onChange={(e) => setGearPickName(e.target.value)}
-                    >
-                      {buildGearOptions(gearPickType, gearSearch).map((opt) => (
-                        <option key={opt.key} value={opt.key}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+
+                  <div className="gear-section stack">
+                    <h3>Armour</h3>
+                    <div className="gear-picker">
+                      <div>
+                        <label>Search Armour</label>
+                        <input
+                          value={armourSearch}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setArmourSearch(next);
+                            const options = buildArmourOptions(next);
+                            if (!options.find((opt) => opt.key === armourPickId)) {
+                              setArmourPickId(options[0]?.key ?? "");
+                            }
+                          }}
+                          placeholder="Search armour"
+                        />
+                      </div>
+                      <div>
+                        <label>Armour Catalog</label>
+                        <select value={armourPickId} onChange={(e) => setArmourPickId(e.target.value)}>
+                          {buildArmourOptions(armourSearch).map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="gear-actions">
+                        <label>&nbsp;</label>
+                        <button className="ghost" onClick={equipArmour}>
+                          Equip Armour
+                        </button>
+                      </div>
+                    </div>
+                    {activeArmour ? (
+                      <div className="gear-card expanded cut-corner-padded">
+                        <div className="gear-header">
+                          <div>
+                            <strong>{activeArmour.name || "Armour"}</strong>
+                            <span className="muted">Protection {activeArmour.protection ?? 0}</span>
+                          </div>
+                          <button
+                            className="ghost danger"
+                            onClick={() => updateSheet({ ...sheet, armour: undefined })}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="grid three">
+                          <div>
+                            <label>Name</label>
+                            <input
+                              value={activeArmour.name ?? ""}
+                              onChange={(e) =>
+                                updateSheet({ ...sheet, armour: { ...activeArmour, name: e.target.value } })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Protection</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={activeArmour.protection ?? 0}
+                              onChange={(e) =>
+                                updateSheet({
+                                  ...sheet,
+                                  armour: { ...activeArmour, protection: Number(e.target.value) || 0 },
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Bulk</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={activeArmour.bulk ?? 0}
+                              onChange={(e) =>
+                                updateSheet({ ...sheet, armour: { ...activeArmour, bulk: Number(e.target.value) || 0 } })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Durability (current)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={activeArmour.durability?.current ?? 0}
+                              onChange={(e) =>
+                                updateSheet({
+                                  ...sheet,
+                                  armour: {
+                                    ...activeArmour,
+                                    durability: {
+                                      current: Number(e.target.value) || 0,
+                                      max: activeArmour.durability?.max ?? 0,
+                                    },
+                                  },
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Durability (max)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={activeArmour.durability?.max ?? 0}
+                              onChange={(e) =>
+                                updateSheet({
+                                  ...sheet,
+                                  armour: {
+                                    ...activeArmour,
+                                    durability: {
+                                      current: activeArmour.durability?.current ?? 0,
+                                      max: Number(e.target.value) || 0,
+                                    },
+                                  },
+                                })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Cost</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={activeArmour.cost ?? 0}
+                              onChange={(e) =>
+                                updateSheet({ ...sheet, armour: { ...activeArmour, cost: Number(e.target.value) || 0 } })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label>Req</label>
+                            <input
+                              value={activeArmour.req ?? ""}
+                              onChange={(e) =>
+                                updateSheet({ ...sheet, armour: { ...activeArmour, req: e.target.value } })
+                              }
+                            />
+                          </div>
+                          <div className="span-2">
+                            <label>Special</label>
+                            <textarea
+                              value={activeArmour.special ?? ""}
+                              onChange={(e) =>
+                                updateSheet({ ...sheet, armour: { ...activeArmour, special: e.target.value } })
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="gameplay-block">
+                          {renderGameplayTags(activeArmour.gameplayEffects, (effectIndex) => {
+                            const next = [...(activeArmour.gameplayEffects ?? [])];
+                            next.splice(effectIndex, 1);
+                            setArmourGameplayEffects(next);
+                          })}
+                          {armourGameplayDraft.open ? (
+                            <div className="gameplay-editor">
+                              <select
+                                value={armourGameplayDraft.category}
+                                onChange={(e) => {
+                                  const category = e.target.value as GameplayCategory;
+                                  const target = categoryTargetOptions(category)[0]?.key ?? "";
+                                  setArmourGameplayDraft((prev) => ({ ...prev, category, target }));
+                                }}
+                              >
+                                <option value="attribute">Attribute</option>
+                                <option value="inherent_skill">Inherent Skill</option>
+                                <option value="learning_focus_skill">Learning Focus Skill</option>
+                                <option value="other">Other</option>
+                              </select>
+                              <select
+                                value={armourGameplayDraft.target}
+                                onChange={(e) =>
+                                  setArmourGameplayDraft((prev) => ({ ...prev, target: e.target.value }))
+                                }
+                              >
+                                {categoryTargetOptions(armourGameplayDraft.category).map((opt) => (
+                                  <option key={opt.key} value={opt.key}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="skill-rank-controls">
+                                <button
+                                  className="ghost"
+                                  onClick={() =>
+                                    setArmourGameplayDraft((prev) => ({
+                                      ...prev,
+                                      amount: Math.max(-5, prev.amount - 1),
+                                    }))
+                                  }
+                                >
+                                  -
+                                </button>
+                                <input type="number" min={-5} max={5} value={armourGameplayDraft.amount} readOnly />
+                                <button
+                                  className="ghost"
+                                  onClick={() =>
+                                    setArmourGameplayDraft((prev) => ({
+                                      ...prev,
+                                      amount: Math.min(5, prev.amount + 1),
+                                    }))
+                                  }
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                className="ghost"
+                                onClick={() => {
+                                  setArmourGameplayEffects([
+                                    ...(activeArmour.gameplayEffects ?? []),
+                                    toGameplayEffect(armourGameplayDraft.target, armourGameplayDraft.amount),
+                                  ]);
+                                }}
+                              >
+                                Add
+                              </button>
+                            </div>
+                          ) : null}
+                          <button
+                            className="ghost"
+                            onClick={() => setArmourGameplayDraft(defaultDraft(true))}
+                          >
+                            Add Gameplay Effect
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="muted">No armour equipped.</p>
+                    )}
                   </div>
-                  <div className="gear-actions">
-                    <label>&nbsp;</label>
-                    <button className="ghost" onClick={addSelectedGear}>
-                      Add Gear
-                    </button>
-                  </div>
-                </div>
-                <div className="gear-tools">
-                  <div>
-                    <label>Search Catalog</label>
-                    <input
-                      value={gearSearch}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setGearSearch(next);
-                        const options = buildGearOptions(gearPickType, next);
-                        if (!options.find((opt) => opt.key === gearPickName)) {
-                          setGearPickName(options[0]?.key ?? "");
-                        }
-                      }}
-                      placeholder="Search gear"
-                    />
-                  </div>
-                  <div>
-                    <label>Custom Gear Type</label>
-                    <select
-                      value={customGearType}
-                      onChange={(e) => setCustomGearType(e.target.value as GearType)}
-                    >
-                      <option value="item">Item</option>
-                      <option value="cyberware">Cyberware</option>
-                      <option value="narcotics">Narcotics</option>
-                      <option value="hacker_gear">Hacker Gear</option>
-                    </select>
-                  </div>
-                  <div className="gear-actions">
-                    <label>&nbsp;</label>
-                    <button className="ghost" onClick={addCustomGear}>
-                      Add Custom
-                    </button>
+
+                  <div className="gear-section stack">
+                    <h3>Items</h3>
+                    <div className="gear-picker">
+                      <div>
+                        <label>Gear Type</label>
+                        <select
+                          value={gearPickType}
+                          onChange={(e) => {
+                            const nextType = e.target.value as GearType;
+                            setGearPickType(nextType);
+                            const options = buildGearOptions(nextType, gearSearch);
+                            setGearPickName(options[0]?.key ?? "");
+                          }}
+                        >
+                          <option value="item">Item</option>
+                          <option value="cyberware">Cyberware</option>
+                          <option value="narcotics">Narcotics</option>
+                          <option value="hacker_gear">Hacker Gear</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label>Catalog</label>
+                        <select value={gearPickName} onChange={(e) => setGearPickName(e.target.value)}>
+                          {buildGearOptions(gearPickType, gearSearch).map((opt) => (
+                            <option key={opt.key} value={opt.key}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="gear-actions">
+                        <label>&nbsp;</label>
+                        <button className="ghost" onClick={addSelectedGear}>
+                          Add Gear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="gear-tools">
+                      <div>
+                        <label>Search Catalog</label>
+                        <input
+                          value={gearSearch}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setGearSearch(next);
+                            const options = buildGearOptions(gearPickType, next);
+                            if (!options.find((opt) => opt.key === gearPickName)) {
+                              setGearPickName(options[0]?.key ?? "");
+                            }
+                          }}
+                          placeholder="Search gear"
+                        />
+                      </div>
+                      <div>
+                        <label>Custom Gear Type</label>
+                        <select
+                          value={customGearType}
+                          onChange={(e) => setCustomGearType(e.target.value as GearType)}
+                        >
+                          <option value="item">Item</option>
+                          <option value="cyberware">Cyberware</option>
+                          <option value="narcotics">Narcotics</option>
+                          <option value="hacker_gear">Hacker Gear</option>
+                        </select>
+                      </div>
+                      <div className="gear-actions">
+                        <label>&nbsp;</label>
+                        <button className="ghost" onClick={addCustomGear}>
+                          Add Custom
+                        </button>
+                      </div>
+                    </div>
+                    {(sheet.inventory ?? []).length === 0 ? (
+                      <p className="muted">No inventory items yet.</p>
+                    ) : (
+                      <div className="gear-list">
+                        {(sheet.inventory ?? []).map((gear, idx) => {
+                          const key = inventoryRowKey(gear, idx);
+                          const expanded = Boolean(inventoryExpanded[key]);
+                          const draft = inventoryGameplayDrafts[key] ?? defaultDraft(false);
+                          return (
+                            <div
+                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
+                              key={key}
+                              onDragOver={(event) => event.preventDefault()}
+                              onDrop={() => {
+                                if (draggingInventoryIndex === null) return;
+                                reorderInventory(draggingInventoryIndex, idx);
+                                setDraggingInventoryIndex(null);
+                              }}
+                            >
+                              <div
+                                className="gear-row"
+                                onClick={(event) => {
+                                  const target = event.target as HTMLElement;
+                                  if (target.closest("[data-no-expand='true']")) return;
+                                  setInventoryExpanded((prev) => ({ ...prev, [key]: !expanded }));
+                                }}
+                              >
+                                <button
+                                  data-no-expand="true"
+                                  className="drag-handle"
+                                  draggable
+                                  onDragStart={() => setDraggingInventoryIndex(idx)}
+                                  onDragEnd={() => setDraggingInventoryIndex(null)}
+                                  aria-label="Drag to reorder item"
+                                >
+                                  ::
+                                </button>
+                                <span>{gear.name || "Unnamed"}</span>
+                                <span>{gear.type}</span>
+                                <span>{gear.bulk ?? 0}</span>
+                                <div className="inline row-controls" data-no-expand="true">
+                                  <button
+                                    className="ghost"
+                                    onClick={() =>
+                                      updateInventoryItem(idx, { quantity: Math.max(0, (gear.quantity ?? 1) - 1) })
+                                    }
+                                  >
+                                    -
+                                  </button>
+                                  <span>{gear.quantity ?? 1}</span>
+                                  <button
+                                    className="ghost"
+                                    onClick={() => updateInventoryItem(idx, { quantity: (gear.quantity ?? 1) + 1 })}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <span>{"uses" in gear ? gear.uses ?? "-" : "-"}</span>
+                                <span>{gear.cost ?? 0}</span>
+                                <button
+                                  data-no-expand="true"
+                                  className="ghost danger"
+                                  onClick={() => removeInventoryItem(idx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              {expanded ? (
+                                <div className="gear-expand">
+                                  <div className="grid three">
+                                    <div>
+                                      <label>Name</label>
+                                      <input
+                                        value={gear.name ?? ""}
+                                        onChange={(e) => updateInventoryItem(idx, { name: e.target.value })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Quantity</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={gear.quantity ?? 1}
+                                        onChange={(e) =>
+                                          updateInventoryItem(idx, {
+                                            quantity: Math.max(0, Number(e.target.value) || 0),
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Bulk</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={gear.bulk ?? 0}
+                                        onChange={(e) => updateInventoryItem(idx, { bulk: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Cost</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={gear.cost ?? 0}
+                                        onChange={(e) => updateInventoryItem(idx, { cost: Number(e.target.value) || 0 })}
+                                      />
+                                    </div>
+                                    {gear.type === "item" ? (
+                                      <>
+                                        <div>
+                                          <label>Uses</label>
+                                          <input
+                                            value={gear.uses ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { uses: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="span-2">
+                                          <label>Effect</label>
+                                          <textarea
+                                            value={gear.effect ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                          />
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {gear.type === "cyberware" ? (
+                                      <>
+                                        <div>
+                                          <label>Tier</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.tier ?? 0}
+                                            onChange={(e) => updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Install Difficulty</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.installationDifficulty ?? 0}
+                                            onChange={(e) =>
+                                              updateInventoryItem(idx, {
+                                                installationDifficulty: Number(e.target.value) || 0,
+                                              })
+                                            }
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Requirements</label>
+                                          <input
+                                            value={gear.requirements ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { requirements: e.target.value })}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Physical Impact</label>
+                                          <input
+                                            value={gear.physicalImpact ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { physicalImpact: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="span-2">
+                                          <label>Effect</label>
+                                          <textarea
+                                            value={gear.effect ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                          />
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {gear.type === "narcotics" ? (
+                                      <>
+                                        <div>
+                                          <label>Uses</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.uses ?? 0}
+                                            onChange={(e) => updateInventoryItem(idx, { uses: Number(e.target.value) || 0 })}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Addiction Score</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.addictionScore ?? 0}
+                                            onChange={(e) =>
+                                              updateInventoryItem(idx, { addictionScore: Number(e.target.value) || 0 })
+                                            }
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Legality</label>
+                                          <input
+                                            value={gear.legality ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { legality: e.target.value })}
+                                          />
+                                        </div>
+                                        <div className="span-2">
+                                          <label>Effect</label>
+                                          <textarea
+                                            value={gear.effect ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
+                                          />
+                                        </div>
+                                      </>
+                                    ) : null}
+                                    {gear.type === "hacker_gear" ? (
+                                      <>
+                                        <div>
+                                          <label>System Tier Access</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.systemTierAccess ?? 0}
+                                            onChange={(e) =>
+                                              updateInventoryItem(idx, { systemTierAccess: Number(e.target.value) || 0 })
+                                            }
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Max Software Tier</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.maxSoftwareTier ?? 0}
+                                            onChange={(e) =>
+                                              updateInventoryItem(idx, { maxSoftwareTier: Number(e.target.value) || 0 })
+                                            }
+                                          />
+                                        </div>
+                                        <div>
+                                          <label>Tier</label>
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            value={gear.tier ?? 0}
+                                            onChange={(e) => updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })}
+                                          />
+                                        </div>
+                                        <div className="span-2">
+                                          <label>Notes</label>
+                                          <textarea
+                                            value={gear.notes ?? ""}
+                                            onChange={(e) => updateInventoryItem(idx, { notes: e.target.value })}
+                                          />
+                                        </div>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                  <div className="gameplay-block">
+                                    {renderGameplayTags(gear.gameplayEffects, (effectIndex) => {
+                                      const next = [...(gear.gameplayEffects ?? [])];
+                                      next.splice(effectIndex, 1);
+                                      setInventoryGameplayEffects(idx, next);
+                                    })}
+                                    {draft.open ? (
+                                      <div className="gameplay-editor">
+                                        <select
+                                          value={draft.category}
+                                          onChange={(e) => {
+                                            const category = e.target.value as GameplayCategory;
+                                            const target = categoryTargetOptions(category)[0]?.key ?? "";
+                                            setInventoryGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, category, target },
+                                            }));
+                                          }}
+                                        >
+                                          <option value="attribute">Attribute</option>
+                                          <option value="inherent_skill">Inherent Skill</option>
+                                          <option value="learning_focus_skill">Learning Focus Skill</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <select
+                                          value={draft.target}
+                                          onChange={(e) =>
+                                            setInventoryGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, target: e.target.value },
+                                            }))
+                                          }
+                                        >
+                                          {categoryTargetOptions(draft.category).map((opt) => (
+                                            <option key={opt.key} value={opt.key}>
+                                              {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <div className="skill-rank-controls">
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setInventoryGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.max(-5, draft.amount - 1) },
+                                              }))
+                                            }
+                                          >
+                                            -
+                                          </button>
+                                          <input type="number" min={-5} max={5} value={draft.amount} readOnly />
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setInventoryGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.min(5, draft.amount + 1) },
+                                              }))
+                                            }
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                        <button
+                                          className="ghost"
+                                          onClick={() => {
+                                            const next = [
+                                              ...(gear.gameplayEffects ?? []),
+                                              toGameplayEffect(draft.target, draft.amount),
+                                            ];
+                                            setInventoryGameplayEffects(idx, next);
+                                          }}
+                                        >
+                                          Add
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                    <button
+                                      className="ghost"
+                                      onClick={() =>
+                                        setInventoryGameplayDrafts((prev) => ({
+                                          ...prev,
+                                          [key]: defaultDraft(true),
+                                        }))
+                                      }
+                                    >
+                                      Add Gameplay Effect
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
-            ) : null}
-
-            {(sheet.inventory ?? []).length === 0 ? (
-              <p className="muted">No inventory items yet.</p>
-            ) : (
-              <div className="gear-list">
-                {(sheet.inventory ?? []).map((gear, idx) => (
-                  <div
-                    className="gear-card"
-                    key={gear.id ?? String(idx)}
-                    draggable
-                    onDragStart={() => setDraggingInventoryIndex(idx)}
-                    onDragEnd={() => setDraggingInventoryIndex(null)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => {
-                      if (draggingInventoryIndex === null) return;
-                      reorderInventory(draggingInventoryIndex, idx);
-                      setDraggingInventoryIndex(null);
-                    }}
-                  >
-                    <div className="gear-header">
-                      <div>
-                        <strong>{gear.name || "Unnamed"}</strong>
-                        <span className="muted">{gear.type}</span>
-                      </div>
-                      <button className="ghost danger" onClick={() => removeInventoryItem(idx)}>
-                        Remove
-                      </button>
-                    </div>
-                    <div className="grid three">
-                      <div>
-                        <label>Name</label>
-                        <input
-                          value={gear.name ?? ""}
-                          onChange={(e) => updateInventoryItem(idx, { name: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label>Quantity</label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={gear.quantity ?? 1}
-                          onChange={(e) =>
-                            updateInventoryItem(idx, {
-                              quantity: Math.max(0, Number(e.target.value) || 0),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>Bulk</label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={gear.bulk ?? 0}
-                          onChange={(e) =>
-                            updateInventoryItem(idx, { bulk: Number(e.target.value) || 0 })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label>Cost</label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={gear.cost ?? 0}
-                          onChange={(e) =>
-                            updateInventoryItem(idx, { cost: Number(e.target.value) || 0 })
-                          }
-                        />
-                      </div>
-                      {gear.type === "item" ? (
-                        <>
-                          <div>
-                            <label>Uses</label>
-                            <input
-                              value={gear.uses ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { uses: e.target.value })}
-                            />
-                          </div>
-                          <div className="span-2">
-                            <label>Effect</label>
-                            <textarea
-                              value={gear.effect ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {gear.type === "cyberware" ? (
-                        <>
-                          <div>
-                            <label>Tier</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.tier ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Install Difficulty</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.installationDifficulty ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, {
-                                  installationDifficulty: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Requirements</label>
-                            <input
-                              value={gear.requirements ?? ""}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, { requirements: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Physical Impact</label>
-                            <input
-                              value={gear.physicalImpact ?? ""}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, { physicalImpact: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div className="span-2">
-                            <label>Effect</label>
-                            <textarea
-                              value={gear.effect ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {gear.type === "narcotics" ? (
-                        <>
-                          <div>
-                            <label>Uses</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.uses ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, { uses: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Addiction Score</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.addictionScore ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, {
-                                  addictionScore: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Legality</label>
-                            <input
-                              value={gear.legality ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { legality: e.target.value })}
-                            />
-                          </div>
-                          <div className="span-2">
-                            <label>Effect</label>
-                            <textarea
-                              value={gear.effect ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { effect: e.target.value })}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      {gear.type === "hacker_gear" ? (
-                        <>
-                          <div>
-                            <label>System Tier Access</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.systemTierAccess ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, {
-                                  systemTierAccess: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Max Software Tier</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.maxSoftwareTier ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, {
-                                  maxSoftwareTier: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Tier</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={gear.tier ?? 0}
-                              onChange={(e) =>
-                                updateInventoryItem(idx, { tier: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div className="span-2">
-                            <label>Notes</label>
-                            <textarea
-                              value={gear.notes ?? ""}
-                              onChange={(e) => updateInventoryItem(idx, { notes: e.target.value })}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {gearStatus === "ready" && gearData ? (
-              <div className="gear-arsenal">
-                <div className="stack">
-                  <h3>Weapons</h3>
-                  <div className="gear-picker">
-                    <div>
-                      <label>Search Weapons</label>
-                      <input
-                        value={weaponSearch}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setWeaponSearch(next);
-                          const options = buildWeaponOptions(next);
-                          if (!options.find((opt) => opt.key === weaponPickId)) {
-                            setWeaponPickId(options[0]?.key ?? "");
-                          }
-                        }}
-                        placeholder="Search weapons"
-                      />
-                    </div>
-                    <div>
-                      <label>Weapon Catalog</label>
-                      <select
-                        value={weaponPickId}
-                        onChange={(e) => setWeaponPickId(e.target.value)}
-                      >
-                        {buildWeaponOptions(weaponSearch).map((opt) => (
-                          <option key={opt.key} value={opt.key}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="gear-actions">
-                      <label>&nbsp;</label>
-                      <button className="ghost" onClick={addSelectedWeapon}>
-                        Add Weapon
-                      </button>
-                    </div>
-                  </div>
-                  {(sheet.weapons ?? []).length === 0 ? (
-                    <p className="muted">No weapons equipped.</p>
-                  ) : (
-                    <div className="gear-list">
-                      {(sheet.weapons ?? []).map((weapon, idx) => (
-                        <div
-                          className="gear-card"
-                          key={weapon.id ?? String(idx)}
-                          draggable
-                          onDragStart={() => setDraggingWeaponIndex(idx)}
-                          onDragEnd={() => setDraggingWeaponIndex(null)}
-                          onDragOver={(event) => event.preventDefault()}
-                          onDrop={() => {
-                            if (draggingWeaponIndex === null) return;
-                            reorderWeapons(draggingWeaponIndex, idx);
-                            setDraggingWeaponIndex(null);
-                          }}
-                        >
-                          <div className="gear-header">
-                            <div>
-                              <strong>{weapon.name || "Unnamed"}</strong>
-                              <span className="muted">{weapon.skillId || "Unspecified skill"}</span>
-                            </div>
-                            <button className="ghost danger" onClick={() => removeWeapon(idx)}>
-                              Remove
-                            </button>
-                          </div>
-                          <div className="grid three">
-                            <div>
-                              <label>Name</label>
-                              <input
-                                value={weapon.name ?? ""}
-                                onChange={(e) => updateWeapon(idx, { name: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <label>Skill Id</label>
-                              <input
-                                value={weapon.skillId ?? ""}
-                                onChange={(e) => updateWeapon(idx, { skillId: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <label>Use DC</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={weapon.useDC ?? 0}
-                                onChange={(e) =>
-                                  updateWeapon(idx, { useDC: Number(e.target.value) || 0 })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label>Damage</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={weapon.damage ?? 0}
-                                onChange={(e) =>
-                                  updateWeapon(idx, { damage: Number(e.target.value) || 0 })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label>Range</label>
-                              <input
-                                value={weapon.range ?? ""}
-                                onChange={(e) => updateWeapon(idx, { range: e.target.value })}
-                              />
-                            </div>
-                            <div>
-                              <label>Ammo</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={weapon.ammo ?? 0}
-                                onChange={(e) =>
-                                  updateWeapon(idx, { ammo: Number(e.target.value) || 0 })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label>Bulk</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={weapon.bulk ?? 0}
-                                onChange={(e) =>
-                                  updateWeapon(idx, { bulk: Number(e.target.value) || 0 })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label>Cost</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={weapon.cost ?? 0}
-                                onChange={(e) =>
-                                  updateWeapon(idx, { cost: Number(e.target.value) || 0 })
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label>Req</label>
-                              <input
-                                value={weapon.req ?? ""}
-                                onChange={(e) => updateWeapon(idx, { req: e.target.value })}
-                              />
-                            </div>
-                            <div className="span-2">
-                              <label>Keywords (comma)</label>
-                              <input
-                                value={(weapon.keywords ?? []).join(", ")}
-                                onChange={(e) =>
-                                  updateWeapon(idx, {
-                                    keywords: e.target.value
-                                      .split(",")
-                                      .map((kw) => kw.trim())
-                                      .filter(Boolean),
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="stack">
-                  <h3>Armour</h3>
-                  <div className="gear-picker">
-                    <div>
-                      <label>Search Armour</label>
-                      <input
-                        value={armourSearch}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          setArmourSearch(next);
-                          const options = buildArmourOptions(next);
-                          if (!options.find((opt) => opt.key === armourPickId)) {
-                            setArmourPickId(options[0]?.key ?? "");
-                          }
-                        }}
-                        placeholder="Search armour"
-                      />
-                    </div>
-                    <div>
-                      <label>Armour Catalog</label>
-                      <select
-                        value={armourPickId}
-                        onChange={(e) => setArmourPickId(e.target.value)}
-                      >
-                        {buildArmourOptions(armourSearch).map((opt) => (
-                          <option key={opt.key} value={opt.key}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="gear-actions">
-                      <label>&nbsp;</label>
-                      <button className="ghost" onClick={equipArmour}>
-                        Equip Armour
-                      </button>
-                    </div>
-                  </div>
-                  {activeArmour ? (
-                    <div className="gear-card">
-                      <div className="gear-header">
-                        <div>
-                          <strong>{activeArmour.name || "Armour"}</strong>
-                          <span className="muted">Protection {activeArmour.protection ?? 0}</span>
-                        </div>
-                        <button
-                          className="ghost danger"
-                          onClick={() => updateSheet({ ...sheet, armour: undefined })}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <div className="grid three">
-                        <div>
-                          <label>Name</label>
-                          <input
-                            value={activeArmour.name ?? ""}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: { ...activeArmour, name: e.target.value },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Protection</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={activeArmour.protection ?? 0}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: {
-                                  ...activeArmour,
-                                  protection: Number(e.target.value) || 0,
-                                },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Bulk</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={activeArmour.bulk ?? 0}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: { ...activeArmour, bulk: Number(e.target.value) || 0 },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Durability (current)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={activeArmour.durability?.current ?? 0}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: {
-                                  ...activeArmour,
-                                  durability: {
-                                    current: Number(e.target.value) || 0,
-                                    max: activeArmour.durability?.max ?? 0,
-                                  },
-                                },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Durability (max)</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={activeArmour.durability?.max ?? 0}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: {
-                                  ...activeArmour,
-                                  durability: {
-                                    current: activeArmour.durability?.current ?? 0,
-                                    max: Number(e.target.value) || 0,
-                                  },
-                                },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Cost</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={activeArmour.cost ?? 0}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: { ...activeArmour, cost: Number(e.target.value) || 0 },
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Req</label>
-                          <input
-                            value={activeArmour.req ?? ""}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: { ...activeArmour, req: e.target.value },
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="span-2">
-                          <label>Special</label>
-                          <textarea
-                            value={activeArmour.special ?? ""}
-                            onChange={(e) =>
-                              updateSheet({
-                                ...sheet,
-                                armour: { ...activeArmour, special: e.target.value },
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="muted">No armour equipped.</p>
-                  )}
-                </div>
-              </div>
             ) : null}
           </div>
         )}
@@ -3320,7 +3814,7 @@ export default function App() {
 
       {saveMenuOpen ? (
         <div className="modal" onClick={() => setSaveMenuOpen(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Save Character</h2>
               <button className="ghost" onClick={() => setSaveMenuOpen(false)}>
@@ -3354,7 +3848,7 @@ export default function App() {
 
       {authDialogOpen ? (
         <div className="modal" onClick={() => setAuthDialogOpen(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Log In / Sign Up</h2>
               <button className="ghost" onClick={() => setAuthDialogOpen(false)}>
@@ -3460,7 +3954,7 @@ export default function App() {
 
       {saveOptionsOpen ? (
         <div className="modal" onClick={() => setSaveOptionsOpen(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>{saveTarget === "cloud" ? "Save" : "Save (LocalStorage)"}</h2>
               <button className="ghost" onClick={() => setSaveOptionsOpen(false)}>
@@ -3509,7 +4003,7 @@ export default function App() {
 
       {importDialogOpen ? (
         <div className="modal" onClick={() => setImportDialogOpen(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Import Character</h2>
               <button className="ghost" onClick={() => setImportDialogOpen(false)}>
@@ -3549,7 +4043,7 @@ export default function App() {
 
       {unsavedPromptOpen ? (
         <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>You have unsaved changes</h2>
               <button className="ghost" onClick={() => setUnsavedPromptOpen(false)}>

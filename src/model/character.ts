@@ -13,6 +13,7 @@ export type Weapon = {
   bulk?: number;
   req?: string;
   cost?: number;
+  gameplayEffects?: string[];
 };
 
 export type Armour = {
@@ -25,6 +26,7 @@ export type Armour = {
   req?: string;
   cost?: number;
   special?: string;
+  gameplayEffects?: string[];
 };
 
 export type InventoryItem =
@@ -38,6 +40,7 @@ export type InventoryItem =
       effect?: string;
       cost?: number;
       statusEffects?: string;
+      gameplayEffects?: string[];
     }
   | {
       id?: string;
@@ -52,6 +55,7 @@ export type InventoryItem =
       effect?: string;
       cost?: number;
       statusEffects?: string;
+      gameplayEffects?: string[];
     }
   | {
       id?: string;
@@ -65,6 +69,7 @@ export type InventoryItem =
       effect?: string;
       cost?: number;
       statusEffects?: string;
+      gameplayEffects?: string[];
     }
   | {
       id?: string;
@@ -77,6 +82,7 @@ export type InventoryItem =
       systemTierAccess?: number;
       maxSoftwareTier?: number;
       tier?: number;
+      gameplayEffects?: string[];
     };
 
 export type CharacterSheet = {
@@ -94,7 +100,12 @@ export type CharacterSheet = {
   armour?: Armour;
   inventory: InventoryItem[];
   credits: number;
-  feats: Array<{ name?: string; description?: string; statusEffects?: string }>;
+  feats: Array<{
+    name?: string;
+    description?: string;
+    statusEffects?: string;
+    gameplayEffects?: string[];
+  }>;
   indomitable: boolean;
   notes: string;
   createdAt: string;

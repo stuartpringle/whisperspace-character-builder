@@ -85,7 +85,13 @@ npm run dev
 - [done] Logout from protected pages now returns to builder immediately.
 - [prototype] Strengthened augmented-ui visual intensity (larger cuts + brighter border accents) for clearer evaluation.
 - [done] Gear item and weapon cards now support drag-and-drop reordering.
-- [done] Gear cards include extra vertical breathing room (+10px top/bottom).
+- [done] Gear layout now prioritizes `Weapons` and `Armour` above `Items`, with clearer section grouping.
+- [done] Weapons and items now render as collapsed-by-default rows with click-to-expand details.
+- [done] Item and weapon rows now include explicit drag handles for reorder, plus inline qty/ammo controls.
+- [done] Gear catalog search now includes matching owned items as quick-add options.
+- [done] Added gameplay-effect editing UI for items, weapons, and armour (category + target + +/- amount + removable tags).
+- [done] Cut-corner components now share a consistent `25px` top/bottom padding treatment.
+- [done] Remove buttons now use a stronger hover state for clearer destructive affordance.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
@@ -121,3 +127,4 @@ npm run dev
 - Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.
 - Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
 - Public characters are intended for view-by-link; private characters are scoped to the owner.
+- Gameplay-effect tags are currently stored on gear entries as string tokens (`target+N` / `target-N`) and should be passed through unchanged by downstream clients.
