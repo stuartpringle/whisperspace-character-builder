@@ -1805,6 +1805,29 @@ export default function App() {
   }, [page, user]);
 
   useEffect(() => {
+    // augmented-ui v2 expects data attributes on elements.
+    const applyAugmented = () => {
+      document.querySelectorAll(".card").forEach((el) => {
+        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+      });
+      document.querySelectorAll(".modal-card").forEach((el) => {
+        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+      });
+      document.querySelectorAll(".gear-card").forEach((el) => {
+        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+      });
+      document.querySelectorAll(".step").forEach((el) => {
+        el.setAttribute("data-augmented-ui", "tr-clip bl-clip br-clip border");
+      });
+      document.querySelectorAll("button.primary").forEach((el) => {
+        el.setAttribute("data-augmented-ui", "tr-2-clip bl-2-clip border");
+      });
+    };
+    const frame = window.requestAnimationFrame(applyAugmented);
+    return () => window.cancelAnimationFrame(frame);
+  });
+
+  useEffect(() => {
     // Public pages: builder + character view.
     // Protected pages: characters + settings.
     if (user) return;

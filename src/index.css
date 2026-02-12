@@ -238,7 +238,6 @@ header p {
 
 .step {
   position: relative;
-  augmented-ui: tr-clip bl-clip br-clip border;
   --aug-border: 2px;
   --aug-border-bg: rgba(169, 203, 255, 0.75);
   --aug-tr: 20px;
@@ -281,7 +280,6 @@ header p {
 
 .card {
   position: relative;
-  augmented-ui: tl-clip tr-clip bl-clip br-clip border;
   --aug-border: 2px;
   --aug-border-bg: rgba(124, 162, 232, 0.72);
   --aug-tl: 22px;
@@ -383,7 +381,6 @@ label.ghost:hover {
 
 button.primary {
   position: relative;
-  augmented-ui: tr-2-clip bl-2-clip border;
   --aug-border: 2px;
   --aug-border-bg: rgba(209, 230, 255, 0.88);
   --aug-tr-1: 14px;
@@ -717,7 +714,6 @@ button:disabled {
 }
 
 .modal-card {
-  augmented-ui: tl-clip tr-clip bl-clip br-clip border;
   --aug-border: 2px;
   --aug-border-bg: rgba(152, 184, 236, 0.8);
   --aug-tl: 20px;
@@ -792,7 +788,6 @@ button:disabled {
 }
 
 .gear-card {
-  augmented-ui: tl-clip tr-clip bl-clip br-clip border;
   --aug-border: 2px;
   --aug-border-bg: rgba(134, 171, 230, 0.62);
   --aug-tl: 16px;
