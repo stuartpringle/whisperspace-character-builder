@@ -99,6 +99,7 @@ npm run dev
 - [done] Drag/reorder handlers now set HTML5 `dataTransfer` payloads for better browser compatibility.
 - [done] Builder flow now follows character-creation order: `Origin -> Archetype -> Feats -> Skills -> Attributes -> Equipment -> Review`.
 - [done] `Skills` and `Attributes` are now merged into a single `Skills & Attributes` step, with derived attributes shown at the top.
+- [done] `Skills & Attributes` now has explicit section headers and card-based metric display for Physique/Reflex/Social/Mental plus Cool Under Fire/Speed/Carrying Capacity.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.

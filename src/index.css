@@ -640,6 +640,33 @@ button:disabled {
   gap: 6px;
 }
 
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  border: 1px solid rgba(89, 113, 161, 0.34);
+  background: rgba(10, 20, 40, 0.82);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.metric-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  color: #9ab2da;
+}
+
+.metric-value {
+  font-size: 1.3rem;
+  color: #e6f0ff;
+}
+
 .budget-line {
   display: flex;
   justify-content: space-between;

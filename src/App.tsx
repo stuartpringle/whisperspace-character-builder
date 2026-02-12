@@ -25,6 +25,13 @@ const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
   ment: "Ment",
 };
 
+const ATTRIBUTE_FULL_LABELS: Record<AttributeKey, string> = {
+  phys: "Physique",
+  ref: "Reflex",
+  soc: "Social",
+  ment: "Mental",
+};
+
 const ATTRIBUTE_GROUP_META: Record<AttributeKey, { title: string; short: string }> = {
   phys: { title: "Physique Skills", short: "Physique" },
   ref: { title: "Reflex Skills", short: "Reflex" },
@@ -2670,28 +2677,30 @@ export default function App() {
 
         {step === "skills" && (
           <div className="stack">
-            <div className="grid three">
-              {Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => (
-                <div key={key} className="stat">
-                  <label>{label}</label>
-                  <input type="number" value={sheet.attributes[key as AttributeKey]} disabled />
+            <h3>Attributes</h3>
+            <div className="metric-cards">
+              {Object.entries(ATTRIBUTE_FULL_LABELS).map(([key, label]) => (
+                <div key={key} className="metric-card">
+                  <span className="metric-label">{label}</span>
+                  <strong className="metric-value">{sheet.attributes[key as AttributeKey]}</strong>
                 </div>
               ))}
             </div>
-            <div className="grid three">
-              <div className="stat">
-                <label>Cool Under Fire</label>
-                <input type="number" value={sheet.stress?.cuf ?? 0} disabled />
+            <div className="metric-cards">
+              <div className="metric-card">
+                <span className="metric-label">Cool Under Fire</span>
+                <strong className="metric-value">{sheet.stress?.cuf ?? 0}</strong>
               </div>
-              <div className="stat">
-                <label>Speed</label>
-                <input type="number" value={derivedStats.speed} disabled />
+              <div className="metric-card">
+                <span className="metric-label">Speed</span>
+                <strong className="metric-value">{derivedStats.speed}</strong>
               </div>
-              <div className="stat">
-                <label>Carrying Capacity</label>
-                <input type="number" value={derivedStats.capacity} disabled />
+              <div className="metric-card">
+                <span className="metric-label">Carrying Capacity</span>
+                <strong className="metric-value">{derivedStats.capacity}</strong>
               </div>
             </div>
+            <h3>Skills</h3>
             {skillsStatus === "loading" ? (
               <p className="muted">Loading skills from the Rules API...</p>
             ) : null}
