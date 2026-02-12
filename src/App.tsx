@@ -778,6 +778,11 @@ export default function App() {
             maxRankInherent: MAX_RANK_INHERENT,
             maxRankOnFocus: MAX_RANK_ON_FOCUS,
             maxRankOffFocus: MAX_RANK_OFF_FOCUS,
+            gameplayEffects: [],
+            weapons: sheet.weapons ?? [],
+            armour: sheet.armour ?? [],
+            items: sheet.inventory ?? [],
+            feats: sheet.feats ?? [],
           }),
         });
         if (!res.ok) throw new Error("bad response");
@@ -847,28 +852,57 @@ export default function App() {
               skills: sheet.skills ?? {},
               inherentSkills: skillsData.inherent,
               gameplayEffects,
+              weapons: sheet.weapons ?? [],
+              armour: sheet.armour ?? [],
+              items: sheet.inventory ?? [],
+              feats: sheet.feats ?? [],
             }),
           }),
           fetch(`${calcBase}/derive-cuf`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ skills: sheet.skills ?? {}, gameplayEffects }),
+            body: JSON.stringify({
+              skills: sheet.skills ?? {},
+              gameplayEffects,
+              weapons: sheet.weapons ?? [],
+              armour: sheet.armour ?? [],
+              items: sheet.inventory ?? [],
+              feats: sheet.feats ?? [],
+            }),
           }),
         ]);
         if (!attrsRes.ok || !cufRes.ok) return;
-        const attrs = (await attrsRes.json()) as CharacterSheet["attributes"];
-        const cufPayload = (await cufRes.json()) as { cuf: number };
+        const attrsPayload = (await attrsRes.json()) as
+          | CharacterSheet["attributes"]
+          | { attributes?: CharacterSheet["attributes"] };
+        const attrs = ((attrsPayload as { attributes?: CharacterSheet["attributes"] }).attributes ??
+          attrsPayload) as CharacterSheet["attributes"];
+        const cufPayload = (await cufRes.json()) as { cuf?: number; coolUnderFire?: number };
         const phys = attrs.phys ?? sheet.attributes.phys;
         const [speedRes, capacityRes] = await Promise.all([
           fetch(`${calcBase}/derive-speed`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phys, gameplayEffects }),
+            body: JSON.stringify({
+              phys,
+              gameplayEffects,
+              weapons: sheet.weapons ?? [],
+              armour: sheet.armour ?? [],
+              items: sheet.inventory ?? [],
+              feats: sheet.feats ?? [],
+            }),
           }),
           fetch(`${calcBase}/derive-capacity`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phys, gameplayEffects }),
+            body: JSON.stringify({
+              phys,
+              gameplayEffects,
+              weapons: sheet.weapons ?? [],
+              armour: sheet.armour ?? [],
+              items: sheet.inventory ?? [],
+              feats: sheet.feats ?? [],
+            }),
           }),
         ]);
         if (speedRes.ok && capacityRes.ok) {
@@ -892,7 +926,7 @@ export default function App() {
           },
           stress: {
             ...sheet.stress,
-            cuf: cufPayload.cuf ?? sheet.stress.cuf,
+            cuf: cufPayload.cuf ?? cufPayload.coolUnderFire ?? sheet.stress.cuf,
           },
         });
       } catch {

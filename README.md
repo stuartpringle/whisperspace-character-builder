@@ -108,6 +108,8 @@ npm run dev
 - [done] Tooltips are now loaded independently of skills data and cached separately; missing tooltip payloads no longer block skills loading.
 - [done] Drag handles now use dedicated draggable elements with explicit HTML5 transfer payload + drop parsing fallback for improved cross-browser reorder behavior.
 - [done] Review page UI refresh: hero header, compact stat pills, carded content sections (Attributes/Skills/Equipment/Health), cleaner list styling, and integrated notes card for better visual consistency.
+- [done] Calc compatibility hardening: derive/validate requests now include full equipment payloads (`weapons`, `armour`, `items`, `feats`) plus normalized `gameplayEffects` to align with current Rules API calc contracts.
+- [done] Derive response handling now accepts either top-level attribute fields or nested `attributes` payloads and supports `cuf`/`coolUnderFire` and `carryingCapacity` response variants.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
