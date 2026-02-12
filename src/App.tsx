@@ -1807,20 +1807,21 @@ export default function App() {
   useEffect(() => {
     // augmented-ui v2 expects data attributes on elements.
     const applyAugmented = () => {
+      const preset = "tl-clip tr-2-clip-y br-clip border";
       document.querySelectorAll(".card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+        el.setAttribute("data-augmented-ui", preset);
       });
       document.querySelectorAll(".modal-card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+        el.setAttribute("data-augmented-ui", preset);
       });
       document.querySelectorAll(".gear-card").forEach((el) => {
-        el.setAttribute("data-augmented-ui", "tl-clip tr-clip bl-clip br-clip border");
+        el.setAttribute("data-augmented-ui", preset);
       });
       document.querySelectorAll(".step").forEach((el) => {
-        el.setAttribute("data-augmented-ui", "tr-clip bl-clip br-clip border");
+        el.setAttribute("data-augmented-ui", preset);
       });
       document.querySelectorAll("button.primary").forEach((el) => {
-        el.setAttribute("data-augmented-ui", "tr-2-clip bl-2-clip border");
+        el.setAttribute("data-augmented-ui", preset);
       });
     };
     const frame = window.requestAnimationFrame(applyAugmented);
