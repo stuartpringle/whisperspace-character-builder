@@ -772,6 +772,40 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.derive-debug {
+  border: 1px solid rgba(90, 116, 168, 0.32);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(9, 19, 39, 0.7);
+}
+
+.derive-debug summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #cfe0ff;
+}
+
+.derive-debug-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.derive-debug h4 {
+  margin: 0 0 8px;
+}
+
+.derive-debug pre {
+  margin: 0;
+  border: 1px solid rgba(96, 124, 180, 0.3);
+  border-radius: 10px;
+  background: rgba(7, 14, 30, 0.9);
+  padding: 10px;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 0.74rem;
+}
+
 @media (max-width: 720px) {
   .skill-row {
     grid-template-columns: 1fr;

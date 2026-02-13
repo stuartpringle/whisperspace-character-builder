@@ -329,6 +329,28 @@ export default function App() {
     spent: number;
     remaining: number;
   } | null>(null);
+  const [deriveDebug, setDeriveDebug] = useState<{
+    lastRunAt: string;
+    request: {
+      attributes: unknown;
+      cuf: unknown;
+      speed: unknown;
+      capacity: unknown;
+    };
+    response: {
+      attributes?: unknown;
+      cuf?: unknown;
+      speed?: unknown;
+      capacity?: unknown;
+    };
+    applied: {
+      attributes: CharacterSheet["attributes"];
+      cuf: number;
+      speed: number;
+      capacity: number;
+    };
+    error?: string;
+  } | null>(null);
   const skillCalcTimer = useRef<number | null>(null);
   const deriveTimer = useRef<number | null>(null);
 
@@ -885,30 +907,32 @@ export default function App() {
           ...feat,
           gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
         }));
+        const attrsRequestBody = {
+          skills: sheet.skills ?? {},
+          inherentSkills: skillsData.inherent,
+          weapons: normalizedWeapons,
+          armour: normalizedArmour,
+          items: normalizedItems,
+          feats: normalizedFeats,
+        };
+        const cufRequestBody = {
+          skills: sheet.skills ?? {},
+          weapons: normalizedWeapons,
+          armour: normalizedArmour,
+          items: normalizedItems,
+          feats: normalizedFeats,
+        };
 
         const [attrsRes, cufRes] = await Promise.all([
           fetch(`${calcBase}/derive-attributes`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              skills: sheet.skills ?? {},
-              inherentSkills: skillsData.inherent,
-              weapons: normalizedWeapons,
-              armour: normalizedArmour,
-              items: normalizedItems,
-              feats: normalizedFeats,
-            }),
+            body: JSON.stringify(attrsRequestBody),
           }),
           fetch(`${calcBase}/derive-cuf`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              skills: sheet.skills ?? {},
-              weapons: normalizedWeapons,
-              armour: normalizedArmour,
-              items: normalizedItems,
-              feats: normalizedFeats,
-            }),
+            body: JSON.stringify(cufRequestBody),
           }),
         ]);
         if (!attrsRes.ok || !cufRes.ok) return;
@@ -919,62 +943,118 @@ export default function App() {
           attrsPayload) as CharacterSheet["attributes"];
         const cufPayload = (await cufRes.json()) as { cuf?: number; coolUnderFire?: number };
         const phys = attrs.phys ?? sheet.attributes.phys;
+        const speedRequestBody = {
+          phys,
+          weapons: normalizedWeapons,
+          armour: normalizedArmour,
+          items: normalizedItems,
+          feats: normalizedFeats,
+        };
+        const capacityRequestBody = {
+          phys,
+          weapons: normalizedWeapons,
+          armour: normalizedArmour,
+          items: normalizedItems,
+          feats: normalizedFeats,
+        };
         const [speedRes, capacityRes] = await Promise.all([
           fetch(`${calcBase}/derive-speed`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phys,
-              weapons: normalizedWeapons,
-              armour: normalizedArmour,
-              items: normalizedItems,
-              feats: normalizedFeats,
-            }),
+            body: JSON.stringify(speedRequestBody),
           }),
           fetch(`${calcBase}/derive-capacity`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phys,
-              weapons: normalizedWeapons,
-              armour: normalizedArmour,
-              items: normalizedItems,
-              feats: normalizedFeats,
-            }),
+            body: JSON.stringify(capacityRequestBody),
           }),
         ]);
+        let speedApplied = derivedStats.speed;
+        let capacityApplied = derivedStats.capacity;
+        let speedPayload: { speed?: number } = {};
+        let capacityPayload: { capacity?: number; carryingCapacity?: number } = {};
         if (speedRes.ok && capacityRes.ok) {
-          const speedPayload = (await speedRes.json()) as { speed: number };
-          const capacityPayload = (await capacityRes.json()) as {
+          speedPayload = (await speedRes.json()) as { speed: number };
+          capacityPayload = (await capacityRes.json()) as {
             capacity?: number;
             carryingCapacity?: number;
           };
+          speedApplied = speedPayload.speed ?? 0;
+          capacityApplied = capacityPayload.carryingCapacity ?? capacityPayload.capacity ?? 0;
           setDerivedStats({
-            speed: speedPayload.speed ?? 0,
-            capacity: capacityPayload.carryingCapacity ?? capacityPayload.capacity ?? 0,
+            speed: speedApplied,
+            capacity: capacityApplied,
           });
         }
+        const appliedAttrs = {
+          phys: attrs.phys ?? sheet.attributes.phys,
+          ref: attrs.ref ?? sheet.attributes.ref,
+          soc: attrs.soc ?? sheet.attributes.soc,
+          ment: attrs.ment ?? sheet.attributes.ment,
+        };
+        const appliedCuf = cufPayload.cuf ?? cufPayload.coolUnderFire ?? sheet.stress.cuf;
         updateSheet({
           ...sheet,
-          attributes: {
-            phys: attrs.phys ?? sheet.attributes.phys,
-            ref: attrs.ref ?? sheet.attributes.ref,
-            soc: attrs.soc ?? sheet.attributes.soc,
-            ment: attrs.ment ?? sheet.attributes.ment,
-          },
+          attributes: appliedAttrs,
           stress: {
             ...sheet.stress,
-            cuf: cufPayload.cuf ?? cufPayload.coolUnderFire ?? sheet.stress.cuf,
+            cuf: appliedCuf,
+          },
+        });
+        setDeriveDebug({
+          lastRunAt: new Date().toISOString(),
+          request: {
+            attributes: attrsRequestBody,
+            cuf: cufRequestBody,
+            speed: speedRequestBody,
+            capacity: capacityRequestBody,
+          },
+          response: {
+            attributes: attrsPayload,
+            cuf: cufPayload,
+            speed: speedPayload,
+            capacity: capacityPayload,
+          },
+          applied: {
+            attributes: appliedAttrs,
+            cuf: appliedCuf,
+            speed: speedApplied,
+            capacity: capacityApplied,
           },
         });
       } catch {
         // ignore derive failures
+        setDeriveDebug((prev) => ({
+          ...(prev ?? {
+            lastRunAt: new Date().toISOString(),
+            request: { attributes: {}, cuf: {}, speed: {}, capacity: {} },
+            response: {},
+            applied: {
+              attributes: sheet.attributes,
+              cuf: sheet.stress.cuf,
+              speed: derivedStats.speed,
+              capacity: derivedStats.capacity,
+            },
+          }),
+          error: "derive request failed",
+        }));
       }
     }, 400);
     return () => {
       if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     };
-  }, [skillsData, sheet.skills, sheet.weapons, sheet.inventory, sheet.armour, sheet.feats]);
+  }, [
+    skillsData,
+    sheet.skills,
+    sheet.weapons,
+    sheet.inventory,
+    sheet.armour,
+    sheet.feats,
+    sheet.attributes,
+    sheet.stress.cuf,
+    derivedStats.speed,
+    derivedStats.capacity,
+  ]);
 
  
 
@@ -2960,6 +3040,28 @@ export default function App() {
                     </ul>
                   </div>
                 ) : null}
+
+                <details className="derive-debug">
+                  <summary>Calc Debug Panel</summary>
+                  <p className="muted">
+                    Last run: {deriveDebug?.lastRunAt ? new Date(deriveDebug.lastRunAt).toLocaleString() : "n/a"}
+                  </p>
+                  {deriveDebug?.error ? <p className="error">{deriveDebug.error}</p> : null}
+                  <div className="derive-debug-grid">
+                    <div>
+                      <h4>Request</h4>
+                      <pre>{JSON.stringify(deriveDebug?.request ?? {}, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <h4>Response</h4>
+                      <pre>{JSON.stringify(deriveDebug?.response ?? {}, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <h4>Applied</h4>
+                      <pre>{JSON.stringify(deriveDebug?.applied ?? {}, null, 2)}</pre>
+                    </div>
+                  </div>
+                </details>
 
                 <div className="skills-section">
                   <h3>Inherent Skills</h3>
