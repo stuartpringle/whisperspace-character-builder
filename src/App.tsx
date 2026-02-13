@@ -1246,6 +1246,35 @@ export default function App() {
     if (hasGameplayDeltas) return "";
     return "Live calc response looks like the old contract (no gameplayDeltas). Gameplay effects may be ignored until rules-api calc is republished.";
   }, [deriveDebug]);
+  const gameplaySkillDeltas = useMemo<Record<string, number>>(() => {
+    if (!deriveDebug) return {};
+    const candidates = [
+      deriveDebug.response.attributes,
+      deriveDebug.response.cuf,
+      deriveDebug.response.speed,
+      deriveDebug.response.capacity,
+    ];
+    for (const candidate of candidates) {
+      if (!candidate || typeof candidate !== "object") continue;
+      const deltas = (candidate as { gameplayDeltas?: unknown }).gameplayDeltas;
+      if (!deltas || typeof deltas !== "object") continue;
+      const skills = (deltas as { skills?: unknown }).skills;
+      if (!skills || typeof skills !== "object" || Array.isArray(skills)) continue;
+      const mapped = Object.fromEntries(
+        Object.entries(skills as Record<string, unknown>)
+          .filter(([, amount]) => typeof amount === "number" && Number.isFinite(amount))
+          .map(([id, amount]) => [id, amount as number])
+      );
+      if (Object.keys(mapped).length) return mapped;
+    }
+    return {};
+  }, [deriveDebug]);
+  const displayedSkillRank = (id: string) => {
+    const base = sheet.skills?.[id] ?? 0;
+    const delta = gameplaySkillDeltas[id] ?? 0;
+    return Math.max(0, Math.min(MAX_RANK_INHERENT, base + delta));
+  };
+  const gameplaySkillDelta = (id: string) => gameplaySkillDeltas[id] ?? 0;
   const isDirty = useMemo(() => {
     if (!baselineSheetJson) return false;
     return JSON.stringify(sheet) !== baselineSheetJson;
@@ -3294,9 +3323,13 @@ export default function App() {
                                     type="number"
                                     min={0}
                                     max={MAX_RANK_INHERENT}
-                                    value={sheet.skills?.[skill.id] ?? 0}
+                                    value={displayedSkillRank(skill.id)}
                                     onChange={(e) =>
-                                      updateSkillRank(skill.id, Number(e.target.value) || 0, MAX_RANK_INHERENT)
+                                      updateSkillRank(
+                                        skill.id,
+                                        (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
+                                        MAX_RANK_INHERENT
+                                      )
                                     }
                                   />
                                     <button
@@ -3365,8 +3398,14 @@ export default function App() {
                                       type="number"
                                       min={0}
                                       max={maxRank}
-                                      value={sheet.skills?.[skill.id] ?? 0}
-                                      onChange={(e) => updateSkillRank(skill.id, Number(e.target.value) || 0, maxRank)}
+                                      value={displayedSkillRank(skill.id)}
+                                      onChange={(e) =>
+                                        updateSkillRank(
+                                          skill.id,
+                                          (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
+                                          maxRank
+                                        )
+                                      }
                                     />
                                     <button className="ghost" onClick={() => nudgeSkillRank(skill.id, 1, maxRank)}>
                                       +
@@ -3710,6 +3749,17 @@ export default function App() {
                                         >
                                           Add
                                         </button>
+                                        <button
+                                          className="ghost"
+                                          onClick={() =>
+                                            setWeaponGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }))
+                                          }
+                                        >
+                                          Cancel
+                                        </button>
                                       </div>
                                     ) : null}
                                     <button
@@ -3960,6 +4010,18 @@ export default function App() {
                                 }}
                               >
                                 Add
+                              </button>
+                              <button
+                                className="ghost"
+                                onClick={() =>
+                                  setArmourGameplayDraft((prev) => ({
+                                    ...prev,
+                                    open: false,
+                                    amount: 0,
+                                  }))
+                                }
+                              >
+                                Cancel
                               </button>
                             </div>
                           ) : null}
@@ -4456,6 +4518,17 @@ export default function App() {
                                           }}
                                         >
                                           Add
+                                        </button>
+                                        <button
+                                          className="ghost"
+                                          onClick={() =>
+                                            setInventoryGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }))
+                                          }
+                                        >
+                                          Cancel
                                         </button>
                                       </div>
                                     ) : null}
