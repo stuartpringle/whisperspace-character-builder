@@ -103,13 +103,14 @@ npm run dev
 - [done] Attribute metric cards are now centered and use subtle hover lighting; skill rows also use a subtle hover highlight.
 - [done] Skill tooltip resolution now uses Rules API `skill_tooltips.json` label matching (case-insensitive/id fallback) and only shows info icons when text exists.
 - [done] Background authoring/picker moved from `Archetype` to `Origin`; `Archetype` currently displays Rules API narrative intro text.
-- [done] Gameplay-effect tags are aggregated into a top-level `gameplayEffects` array for calc endpoints (`derive-attributes`, `derive-cuf`, `derive-speed`, `derive-capacity`) and gear payloads are omitted to avoid double-counting.
 - [done] Rules narrative extraction now reads direct `text` nodes in `rules.json` (not only paragraph-child structures), improving concept/archetype/credits copy rendering reliability.
 - [done] Tooltips are now loaded independently of skills data and cached separately; missing tooltip payloads no longer block skills loading.
 - [done] Drag handles now use dedicated draggable elements with explicit HTML5 transfer payload + drop parsing fallback for improved cross-browser reorder behavior.
 - [done] Review page UI refresh: hero header, compact stat pills, carded content sections (Attributes/Skills/Equipment/Health), cleaner list styling, and integrated notes card for better visual consistency.
 - [done] Calc compatibility hardening: derive/validate requests now include full equipment payloads (`weapons`, `armour`, `items`, `feats`) plus normalized `gameplayEffects` to align with current Rules API calc contracts.
 - [done] Derive response handling now accepts either top-level attribute fields or nested `attributes` payloads and supports `cuf`/`coolUnderFire` and `carryingCapacity` response variants.
+- [done] Gameplay-effects calc alignment now follows Rules API guidance: gameplay effects are passed via normalized per-entity payload fields (not duplicated in a top-level aggregate list), avoiding potential double-application.
+- [done] Tooltip lookup now supports current Rules API ID-based maps (`skillsById` / `skills`) as well as label-based compatibility maps.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
@@ -149,18 +150,4 @@ npm run dev
 - Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.
 - Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
 - Public characters are intended for view-by-link; private characters are scoped to the owner.
-- Gameplay-effect tags are stored on gear entries as string tokens (`target+N` / `target-N`) but are currently sent to calc endpoints via a top-level `gameplayEffects` array (gear payloads are omitted).
-
-## Gameplay Effects Status (2026-02-12)
-Current behavior:
-- User-added gameplay-effect tags are aggregated into `gameplayEffects` and sent to calc endpoints.
-- Gear payloads are not sent to calc endpoints to avoid double-counting or type mismatches.
-
-Known issue:
-- Live `builder.whisperspace.com` is still not reflecting gameplay-effect changes in derived stats, despite the calc API responding correctly to `gameplayEffects` inputs.
-
-Recommended next steps:
-1. Verify the deployed `dist/index.html` references the latest JS asset hash (current build: `dist/assets/index-D-kWTKn6.js`).
-2. In browser DevTools, confirm `/rules-api/calc/derive-capacity` request body includes `gameplayEffects` and that responses include the updated values.
-3. If requests are correct but UI does not update, add a temporary debug panel to surface the payload/response in-app.
-4. If requests are missing `gameplayEffects`, verify the active app bundle is the latest build and that no service worker or CDN cache is serving old assets.
+- Gameplay-effect tags are stored on gear/feat entries and sent through calc requests as normalized per-entity fields (`gameplayEffects` string) on `weapons`/`armour`/`items`/`feats`.

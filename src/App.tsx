@@ -61,6 +61,10 @@ type SkillsData = {
 type SkillTooltips = {
   attributes?: Record<string, string>;
   skills?: Record<string, string>;
+  attributesById?: Record<string, string>;
+  attributesByShort?: Record<string, string>;
+  skillsById?: Record<string, string>;
+  skillsByLabel?: Record<string, string>;
 };
 
 type BackgroundOption = {
@@ -764,6 +768,43 @@ export default function App() {
     if (skillCalcTimer.current) window.clearTimeout(skillCalcTimer.current);
     skillCalcTimer.current = window.setTimeout(async () => {
       try {
+        const normalizeTarget = (raw: string) => {
+          const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
+          if (key === "physique") return "phys";
+          if (key === "reflex") return "ref";
+          if (key === "social") return "soc";
+          if (key === "mental") return "ment";
+          if (key === "cool_under_fire" || key === "coolunderfire" || key === "cuf") return "cool_under_fire";
+          if (key === "carryingcapacity" || key === "inventoryslots" || key === "inventory_slots")
+            return "carrying_capacity";
+          return key;
+        };
+        const normalizeEffect = (effect: string) => {
+          const match = effect.trim().match(/^([a-zA-Z0-9 _-]+)\s*([+-]\d+)$/);
+          if (!match) return effect.trim();
+          return `${normalizeTarget(match[1])}${match[2]}`;
+        };
+        const normalizeEffectsField = (value?: string[] | string) => {
+          if (!value) return undefined;
+          const parts = Array.isArray(value) ? value : String(value).split(",");
+          const normalized = parts.map((p) => normalizeEffect(String(p))).filter(Boolean);
+          return normalized.length ? normalized.join(", ") : undefined;
+        };
+        const normalizedWeapons = (sheet.weapons ?? []).map((weapon) => ({
+          ...weapon,
+          gameplayEffects: normalizeEffectsField(weapon.gameplayEffects),
+        }));
+        const normalizedItems = (sheet.inventory ?? []).map((item) => ({
+          ...item,
+          gameplayEffects: normalizeEffectsField(item.gameplayEffects),
+        }));
+        const normalizedArmour = sheet.armour
+          ? { ...sheet.armour, gameplayEffects: normalizeEffectsField(sheet.armour.gameplayEffects) }
+          : undefined;
+        const normalizedFeats = (sheet.feats ?? []).map((feat) => ({
+          ...feat,
+          gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
+        }));
         const res = await fetch(`${calcBase}/validate-sheet`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -778,11 +819,10 @@ export default function App() {
             maxRankInherent: MAX_RANK_INHERENT,
             maxRankOnFocus: MAX_RANK_ON_FOCUS,
             maxRankOffFocus: MAX_RANK_OFF_FOCUS,
-            gameplayEffects: [],
-            weapons: sheet.weapons ?? [],
-            armour: sheet.armour ?? [],
-            items: sheet.inventory ?? [],
-            feats: sheet.feats ?? [],
+            weapons: normalizedWeapons,
+            armour: normalizedArmour,
+            items: normalizedItems,
+            feats: normalizedFeats,
           }),
         });
         if (!res.ok) throw new Error("bad response");
@@ -808,24 +848,43 @@ export default function App() {
     if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     deriveTimer.current = window.setTimeout(async () => {
       try {
-        const flatten = (value?: string[] | string) => {
-          if (!value) return [] as string[];
-          if (Array.isArray(value)) {
-            return value
-              .flatMap((v) => String(v).split(","))
-              .map((s) => s.trim())
-              .filter(Boolean);
-          }
-          return String(value)
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
+        const normalizeTarget = (raw: string) => {
+          const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
+          if (key === "physique") return "phys";
+          if (key === "reflex") return "ref";
+          if (key === "social") return "soc";
+          if (key === "mental") return "ment";
+          if (key === "cool_under_fire" || key === "coolunderfire" || key === "cuf") return "cool_under_fire";
+          if (key === "carryingcapacity" || key === "inventoryslots" || key === "inventory_slots")
+            return "carrying_capacity";
+          return key;
         };
-        const gameplayEffects: string[] = [];
-        (sheet.weapons ?? []).forEach((weapon) => gameplayEffects.push(...flatten(weapon.gameplayEffects)));
-        (sheet.inventory ?? []).forEach((item) => gameplayEffects.push(...flatten(item.gameplayEffects)));
-        if (sheet.armour) gameplayEffects.push(...flatten(sheet.armour.gameplayEffects));
-        (sheet.feats ?? []).forEach((feat) => gameplayEffects.push(...flatten(feat.gameplayEffects)));
+        const normalizeEffect = (effect: string) => {
+          const match = effect.trim().match(/^([a-zA-Z0-9 _-]+)\s*([+-]\d+)$/);
+          if (!match) return effect.trim();
+          return `${normalizeTarget(match[1])}${match[2]}`;
+        };
+        const normalizeEffectsField = (value?: string[] | string) => {
+          if (!value) return undefined;
+          const parts = Array.isArray(value) ? value : String(value).split(",");
+          const normalized = parts.map((p) => normalizeEffect(String(p))).filter(Boolean);
+          return normalized.length ? normalized.join(", ") : undefined;
+        };
+        const normalizedWeapons = (sheet.weapons ?? []).map((weapon) => ({
+          ...weapon,
+          gameplayEffects: normalizeEffectsField(weapon.gameplayEffects),
+        }));
+        const normalizedItems = (sheet.inventory ?? []).map((item) => ({
+          ...item,
+          gameplayEffects: normalizeEffectsField(item.gameplayEffects),
+        }));
+        const normalizedArmour = sheet.armour
+          ? { ...sheet.armour, gameplayEffects: normalizeEffectsField(sheet.armour.gameplayEffects) }
+          : undefined;
+        const normalizedFeats = (sheet.feats ?? []).map((feat) => ({
+          ...feat,
+          gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
+        }));
 
         const [attrsRes, cufRes] = await Promise.all([
           fetch(`${calcBase}/derive-attributes`, {
@@ -834,7 +893,10 @@ export default function App() {
             body: JSON.stringify({
               skills: sheet.skills ?? {},
               inherentSkills: skillsData.inherent,
-              gameplayEffects,
+              weapons: normalizedWeapons,
+              armour: normalizedArmour,
+              items: normalizedItems,
+              feats: normalizedFeats,
             }),
           }),
           fetch(`${calcBase}/derive-cuf`, {
@@ -842,7 +904,10 @@ export default function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               skills: sheet.skills ?? {},
-              gameplayEffects,
+              weapons: normalizedWeapons,
+              armour: normalizedArmour,
+              items: normalizedItems,
+              feats: normalizedFeats,
             }),
           }),
         ]);
@@ -860,7 +925,10 @@ export default function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               phys,
-              gameplayEffects,
+              weapons: normalizedWeapons,
+              armour: normalizedArmour,
+              items: normalizedItems,
+              feats: normalizedFeats,
             }),
           }),
           fetch(`${calcBase}/derive-capacity`, {
@@ -868,7 +936,10 @@ export default function App() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               phys,
-              gameplayEffects,
+              weapons: normalizedWeapons,
+              armour: normalizedArmour,
+              items: normalizedItems,
+              feats: normalizedFeats,
             }),
           }),
         ]);
@@ -1006,8 +1077,22 @@ export default function App() {
     return map;
   }, [skillsData]);
 
+  const tooltipBySkillId = useMemo(() => {
+    const map = new Map<string, string>();
+    Object.entries(skillTooltips?.skillsById ?? {}).forEach(([id, tooltip]) => {
+      map.set(id.toLowerCase(), tooltip);
+    });
+    Object.entries(skillTooltips?.skills ?? {}).forEach(([id, tooltip]) => {
+      map.set(id.toLowerCase(), tooltip);
+    });
+    return map;
+  }, [skillTooltips]);
+
   const tooltipByLowerLabel = useMemo(() => {
     const map = new Map<string, string>();
+    Object.entries(skillTooltips?.skillsByLabel ?? {}).forEach(([label, tooltip]) => {
+      map.set(label.toLowerCase(), tooltip);
+    });
     Object.entries(skillTooltips?.skills ?? {}).forEach(([label, tooltip]) => {
       map.set(label.toLowerCase(), tooltip);
     });
@@ -1015,6 +1100,8 @@ export default function App() {
   }, [skillTooltips]);
 
   const resolveSkillTooltip = (skill: { id: string; label: string }) => {
+    const byId = tooltipBySkillId.get(skill.id.toLowerCase());
+    if (byId) return byId;
     const direct = tooltipByLowerLabel.get(skill.label.toLowerCase());
     if (direct) return direct;
     const fromId = skill.id
@@ -3091,7 +3178,10 @@ export default function App() {
                             <div
                               className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
                               key={key}
-                              onDragOver={(event) => event.preventDefault()}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                              }}
                               onDrop={(event) => {
                                 const fromRaw = event.dataTransfer.getData("text/plain");
                                 const parsed = Number(fromRaw);
@@ -3702,7 +3792,10 @@ export default function App() {
                             <div
                               className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
                               key={key}
-                              onDragOver={(event) => event.preventDefault()}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                              }}
                               onDrop={(event) => {
                                 const fromRaw = event.dataTransfer.getData("text/plain");
                                 const parsed = Number(fromRaw);
