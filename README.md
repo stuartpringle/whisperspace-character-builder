@@ -115,6 +115,11 @@ npm run dev
 - [done] Skill rank inputs now show gameplay-adjusted effective ranks (clamped to max rank 5), while editing still updates underlying base invested ranks.
 - [done] Gameplay-effect editors for weapons, armour, and items now include `Cancel` actions next to `Add`.
 - [done] Cloud save compatibility fix: persistence payloads now strip transient `gameplayEffects` fields to satisfy current character schema validation; gameplay tags are rehydrated into the active editor state after save.
+- [done] Save-options checkbox copy updated to `Save as new character` (removed inline tooltip glyph).
+- [done] Builder step persistence now restores the `Review` tab on refresh (no forced fallback to `Origin`).
+- [done] Review-step navigation now swaps `Next` for `Save` and opens the save flow directly.
+- [done] Weapon/item drag-to-reorder now works by click-and-hold on the row/card area (not only a drag-handle icon).
+- [done] Skills now show rank pips (0-5) beside rank controls as a visual rank indicator.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Derive trigger matrix now runs on: entering `Skills & Attributes` / `Review`, skill-rank changes, gameplay-effect field changes (weapons/items/armour/feats), and save actions.
 - [done] Added `429` handling with cooldown backoff (15s) plus visible debug error messaging to avoid repeated rate-limit hammering.

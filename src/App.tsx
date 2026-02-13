@@ -406,12 +406,12 @@ export default function App() {
     const savedStep = localStorage.getItem(STEP_KEY) as BuilderStep | null;
     if (
       savedStep &&
-      savedStep !== "review" &&
       (savedStep === "origin" ||
         savedStep === "archetype" ||
         savedStep === "feats" ||
         savedStep === "skills" ||
-        savedStep === "equipment")
+        savedStep === "equipment" ||
+        savedStep === "review")
     ) {
       setStep(savedStep);
     }
@@ -1923,6 +1923,11 @@ export default function App() {
     updateSheet({ ...sheet, weapons: reorder(current, from, to) });
   };
 
+  const isInteractiveDragTarget = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest("button, input, select, textarea, a, [data-no-drag='true']"));
+  };
+
   const nudgeWeaponAmmo = (index: number, delta: number) => {
     const current = sheet.weapons?.[index];
     if (!current) return;
@@ -2765,6 +2770,18 @@ export default function App() {
     );
   };
 
+  const renderSkillPips = (rank: number) => {
+    const max = MAX_RANK_INHERENT;
+    const clamped = Math.max(0, Math.min(max, rank));
+    return (
+      <div className="skill-pips" aria-label={`Skill rank ${clamped} of ${max}`}>
+        {Array.from({ length: max }).map((_, idx) => (
+          <span key={idx} className={`skill-pip ${idx < clamped ? "filled" : ""}`} />
+        ))}
+      </div>
+    );
+  };
+
   if (page === "view" && viewId) {
     return (
       <div className="app">
@@ -3336,32 +3353,35 @@ export default function App() {
                                       i
                                     </button>
                                   </div>
-                                  <div className="skill-rank-controls">
-                                    <button
-                                      className="ghost"
-                                    onClick={() => nudgeSkillRank(skill.id, -1, MAX_RANK_INHERENT)}
-                                  >
-                                    -
-                                  </button>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={MAX_RANK_INHERENT}
-                                    value={displayedSkillRank(skill.id)}
-                                    onChange={(e) =>
-                                      updateSkillRank(
-                                        skill.id,
-                                        (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
-                                        MAX_RANK_INHERENT
-                                      )
-                                    }
-                                  />
-                                    <button
-                                      className="ghost"
-                                      onClick={() => nudgeSkillRank(skill.id, 1, MAX_RANK_INHERENT)}
-                                    >
-                                      +
-                                    </button>
+                                  <div className="skill-controls-wrap">
+                                    {renderSkillPips(displayedSkillRank(skill.id))}
+                                    <div className="skill-rank-controls">
+                                      <button
+                                        className="ghost"
+                                        onClick={() => nudgeSkillRank(skill.id, -1, MAX_RANK_INHERENT)}
+                                      >
+                                        -
+                                      </button>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={MAX_RANK_INHERENT}
+                                        value={displayedSkillRank(skill.id)}
+                                        onChange={(e) =>
+                                          updateSkillRank(
+                                            skill.id,
+                                            (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
+                                            MAX_RANK_INHERENT
+                                          )
+                                        }
+                                      />
+                                      <button
+                                        className="ghost"
+                                        onClick={() => nudgeSkillRank(skill.id, 1, MAX_RANK_INHERENT)}
+                                      >
+                                        +
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -3414,26 +3434,29 @@ export default function App() {
                                         i
                                       </button>
                                     </div>
-                                  <div className="skill-rank-controls">
-                                    <button className="ghost" onClick={() => nudgeSkillRank(skill.id, -1, maxRank)}>
-                                      -
-                                    </button>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={maxRank}
-                                      value={displayedSkillRank(skill.id)}
-                                      onChange={(e) =>
-                                        updateSkillRank(
-                                          skill.id,
-                                          (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
-                                          maxRank
-                                        )
-                                      }
-                                    />
-                                    <button className="ghost" onClick={() => nudgeSkillRank(skill.id, 1, maxRank)}>
-                                      +
-                                    </button>
+                                  <div className="skill-controls-wrap">
+                                    {renderSkillPips(displayedSkillRank(skill.id))}
+                                    <div className="skill-rank-controls">
+                                      <button className="ghost" onClick={() => nudgeSkillRank(skill.id, -1, maxRank)}>
+                                        -
+                                      </button>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={maxRank}
+                                        value={displayedSkillRank(skill.id)}
+                                        onChange={(e) =>
+                                          updateSkillRank(
+                                            skill.id,
+                                            (Number(e.target.value) || 0) - gameplaySkillDelta(skill.id),
+                                            maxRank
+                                          )
+                                        }
+                                      />
+                                      <button className="ghost" onClick={() => nudgeSkillRank(skill.id, 1, maxRank)}>
+                                        +
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                                 );
@@ -3508,7 +3531,6 @@ export default function App() {
                     ) : (
                       <div className="gear-list">
                         <div className="gear-row gear-row-header">
-                          <span>Move</span>
                           <span>Name</span>
                           <span>Skill</span>
                           <span>Use DC</span>
@@ -3540,27 +3562,23 @@ export default function App() {
                             >
                               <div
                                 className="gear-row"
+                                draggable
+                                onDragStart={(event) => {
+                                  if (isInteractiveDragTarget(event.target)) {
+                                    event.preventDefault();
+                                    return;
+                                  }
+                                  event.dataTransfer.effectAllowed = "move";
+                                  event.dataTransfer.setData("text/plain", String(weaponIndex));
+                                  setDraggingWeaponIndex(weaponIndex);
+                                }}
+                                onDragEnd={() => setDraggingWeaponIndex(null)}
                                 onClick={(event) => {
                                   const target = event.target as HTMLElement;
                                   if (target.closest("[data-no-expand='true']")) return;
                                   setWeaponExpanded((prev) => ({ ...prev, [key]: !expanded }));
                                 }}
                               >
-                                <div
-                                  data-no-expand="true"
-                                  className="drag-handle"
-                                  draggable
-                                  onDragStart={(event) => {
-                                    event.dataTransfer.effectAllowed = "move";
-                                    event.dataTransfer.setData("text/plain", String(weaponIndex));
-                                    setDraggingWeaponIndex(weaponIndex);
-                                  }}
-                                  onDragEnd={() => setDraggingWeaponIndex(null)}
-                                  aria-label="Drag to reorder weapon"
-                                  title="Drag to reorder"
-                                >
-                                  ::
-                                </div>
                                 <span>{weapon.name || "Unnamed"}</span>
                                 <span>{skillLabelById[weapon.skillId ?? ""] ?? weapon.skillId ?? "-"}</span>
                                 <span>{weapon.useDC ?? 0}</span>
@@ -4145,7 +4163,6 @@ export default function App() {
                     ) : (
                       <div className="gear-list">
                         <div className="gear-row gear-row-header">
-                          <span>Move</span>
                           <span>Name</span>
                           <span>Type</span>
                           <span>Bulk</span>
@@ -4177,27 +4194,23 @@ export default function App() {
                             >
                               <div
                                 className="gear-row"
+                                draggable
+                                onDragStart={(event) => {
+                                  if (isInteractiveDragTarget(event.target)) {
+                                    event.preventDefault();
+                                    return;
+                                  }
+                                  event.dataTransfer.effectAllowed = "move";
+                                  event.dataTransfer.setData("text/plain", String(inventoryIndex));
+                                  setDraggingInventoryIndex(inventoryIndex);
+                                }}
+                                onDragEnd={() => setDraggingInventoryIndex(null)}
                                 onClick={(event) => {
                                   const target = event.target as HTMLElement;
                                   if (target.closest("[data-no-expand='true']")) return;
                                   setInventoryExpanded((prev) => ({ ...prev, [key]: !expanded }));
                                 }}
                               >
-                                <div
-                                  data-no-expand="true"
-                                  className="drag-handle"
-                                  draggable
-                                  onDragStart={(event) => {
-                                    event.dataTransfer.effectAllowed = "move";
-                                    event.dataTransfer.setData("text/plain", String(inventoryIndex));
-                                    setDraggingInventoryIndex(inventoryIndex);
-                                  }}
-                                  onDragEnd={() => setDraggingInventoryIndex(null)}
-                                  aria-label="Drag to reorder item"
-                                  title="Drag to reorder"
-                                >
-                                  ::
-                                </div>
                                 <span>{gear.name || "Unnamed"}</span>
                                 <span>{gear.type}</span>
                                 <span>{gear.bulk ?? 0}</span>
@@ -4716,10 +4729,15 @@ export default function App() {
           </button>
           <button
             className="primary"
-            onClick={goNext}
-            disabled={currentStepIndex === STEPS.length - 1}
+            onClick={() => {
+              if (currentStepIndex === STEPS.length - 1) {
+                void openSaveMenu();
+                return;
+              }
+              goNext();
+            }}
           >
-            Next
+            {currentStepIndex === STEPS.length - 1 ? "Save" : "Next"}
           </button>
         </div>
       </section>
@@ -4901,10 +4919,7 @@ export default function App() {
                     checked={saveNew}
                     onChange={(e) => setSaveNew(e.target.checked)}
                   />
-                  <span>New copy</span>
-                  <span className="muted" title="Creates a new character instead of overwriting the existing one.">
-                    i
-                  </span>
+                  <span>Save as new character</span>
                 </label>
               ) : null}
               <button className="primary" onClick={() => void executeSave()}>
