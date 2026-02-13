@@ -303,6 +303,8 @@ export default function App() {
   const [armourSearch, setArmourSearch] = useState<string>("");
   const [draggingInventoryIndex, setDraggingInventoryIndex] = useState<number | null>(null);
   const [draggingWeaponIndex, setDraggingWeaponIndex] = useState<number | null>(null);
+  const [inventoryDragOverIndex, setInventoryDragOverIndex] = useState<number | null>(null);
+  const [weaponDragOverIndex, setWeaponDragOverIndex] = useState<number | null>(null);
   const [inventoryExpanded, setInventoryExpanded] = useState<Record<string, boolean>>({});
   const [weaponExpanded, setWeaponExpanded] = useState<Record<string, boolean>>({});
   const [inventoryGameplayDrafts, setInventoryGameplayDrafts] = useState<
@@ -437,6 +439,26 @@ export default function App() {
       setBaselineSheetJson(JSON.stringify(sheet));
     }
   }, [baselineSheetJson, sheet]);
+
+  useEffect(() => {
+    if (!motivationOptions.length) return;
+    const current = (sheet.motivation ?? "").trim();
+    if (!current) return;
+    const exact = motivationOptions.find((opt) => opt.name === current)?.name;
+    const firstPart = current.split(" + ")[0]?.trim();
+    const partial = motivationOptions.find((opt) => opt.name === firstPart)?.name;
+    const matched = exact ?? partial;
+    if (matched && matched !== motivationPick) setMotivationPick(matched);
+  }, [motivationOptions, motivationPick, sheet.motivation]);
+
+  useEffect(() => {
+    if (!backgroundOptions.length) return;
+    const current = (sheet.background ?? "").trim();
+    if (!current) return;
+    const normalized = current.split(" — ")[0]?.trim();
+    const matched = backgroundOptions.find((opt) => opt.name === normalized)?.name;
+    if (matched && matched !== backgroundPick) setBackgroundPick(matched);
+  }, [backgroundOptions, backgroundPick, sheet.background]);
 
   useEffect(() => {
     if (window.location.pathname !== "/") return;
@@ -1223,10 +1245,7 @@ export default function App() {
     () => STEPS.findIndex((s) => s.id === step),
     [step]
   );
-  const accountName = useMemo(() => {
-    if (!user?.email) return "";
-    return user.email.split("@")[0] || user.email;
-  }, [user]);
+  const accountName = useMemo(() => user?.email ?? "", [user]);
   const gameplaySkillDeltas = useMemo<Record<string, number>>(() => {
     if (!deriveDebug) return {};
     const candidates = [
@@ -1872,11 +1891,37 @@ export default function App() {
     });
   };
 
+  const getWeaponAmmoCap = (weapon: CharacterSheet["weapons"][number]): number | undefined => {
+    if (!gearData) return undefined;
+    const fromCatalog =
+      gearData.weapons.weapons.find((entry) => entry.id === weapon.id) ??
+      gearData.weapons.weapons.find((entry) => entry.name === weapon.name);
+    return typeof fromCatalog?.ammo === "number" ? fromCatalog.ammo : undefined;
+  };
+
+  const isMeleeWeapon = (weapon: CharacterSheet["weapons"][number]) =>
+    String(weapon.skillId ?? "").toLowerCase().includes("melee");
+
+  const isWeaponAmmoEditable = (weapon: CharacterSheet["weapons"][number]) => {
+    const cap = getWeaponAmmoCap(weapon);
+    if (typeof cap === "number") return true;
+    if (isMeleeWeapon(weapon)) return false;
+    return true;
+  };
+
   const updateWeapon = (index: number, next: Partial<CharacterSheet["weapons"][number]>) => {
     const nextWeapons = [...(sheet.weapons ?? [])];
     const current = nextWeapons[index];
     if (!current) return;
-    nextWeapons[index] = { ...current, ...next };
+    const candidate = { ...current, ...next };
+    const cap = getWeaponAmmoCap(candidate);
+    if (!isWeaponAmmoEditable(candidate)) {
+      candidate.ammo = undefined;
+    } else if (typeof candidate.ammo === "number") {
+      const max = typeof cap === "number" ? cap : Number.MAX_SAFE_INTEGER;
+      candidate.ammo = Math.max(0, Math.min(max, candidate.ammo));
+    }
+    nextWeapons[index] = candidate;
     updateSheet({ ...sheet, weapons: nextWeapons });
   };
 
@@ -1931,16 +1976,25 @@ export default function App() {
   const nudgeWeaponAmmo = (index: number, delta: number) => {
     const current = sheet.weapons?.[index];
     if (!current) return;
-    updateWeapon(index, { ammo: Math.max(0, (current.ammo ?? 0) + delta) });
+    if (!isWeaponAmmoEditable(current)) return;
+    const cap = getWeaponAmmoCap(current);
+    const max = typeof cap === "number" ? cap : Number.MAX_SAFE_INTEGER;
+    updateWeapon(index, { ammo: Math.max(0, Math.min(max, (current.ammo ?? 0) + delta)) });
   };
 
   const reloadWeaponAmmo = (index: number) => {
     const weapon = sheet.weapons?.[index];
     if (!weapon || !gearData) return;
+    if (!isWeaponAmmoEditable(weapon)) return;
     const fromCatalog =
       gearData.weapons.weapons.find((entry) => entry.id === weapon.id) ??
       gearData.weapons.weapons.find((entry) => entry.name === weapon.name);
-    updateWeapon(index, { ammo: Math.max(0, fromCatalog?.ammo ?? weapon.ammo ?? 0) });
+    const cap = fromCatalog?.ammo;
+    if (typeof cap === "number") {
+      updateWeapon(index, { ammo: Math.max(0, cap) });
+      return;
+    }
+    updateWeapon(index, { ammo: Math.max(0, weapon.ammo ?? 0) });
   };
 
   const equipArmour = () => {
@@ -2574,18 +2628,51 @@ export default function App() {
   }, [page, user]);
 
   const activeMenuPage = page === "view" ? "builder" : page;
-  const renderAccountMenu = () => {
+  const renderAccountMenu = (builderControls = false) => {
     if (!user) {
+      if (!builderControls) {
+        return (
+          <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
+            Log in / Sign up
+          </button>
+        );
+      }
       return (
-        <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
-          Log in / Sign up
-        </button>
+        <div className="account-block">
+          <div className="account-links">
+            <button className="primary" onClick={() => void openSaveMenu()}>
+              Save
+            </button>
+            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+              Import
+            </button>
+            <button className="ghost danger" onClick={() => void resetToLastSaved()}>
+              Reset
+            </button>
+            <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
+              Log in / Sign up
+            </button>
+          </div>
+        </div>
       );
     }
     return (
       <div className="account-block">
         <div className="account-name">{accountName}</div>
         <div className="account-links">
+          {builderControls ? (
+            <>
+              <button className="primary" onClick={() => void openSaveMenu()}>
+                Save
+              </button>
+              <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+                Import
+              </button>
+              <button className="ghost danger" onClick={() => void resetToLastSaved()}>
+                Reset
+              </button>
+            </>
+          ) : null}
           <button
             className={activeMenuPage === "builder" ? "primary" : "ghost"}
             onClick={() => navigate("/")}
@@ -2625,23 +2712,8 @@ export default function App() {
           ) : null}
           {subtitle ? <p className="status">{subtitle}</p> : null}
         </div>
-        <div className="auth-chip">{renderAccountMenu()}</div>
+        <div className="auth-chip">{renderAccountMenu(builderControls)}</div>
       </div>
-      {builderControls ? (
-        <div className="header-row">
-          <div className="header-actions">
-            <button className="primary" onClick={() => void openSaveMenu()}>
-              Save
-            </button>
-            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
-              Import
-            </button>
-            <button className="ghost danger" onClick={() => void resetToLastSaved()}>
-              Reset
-            </button>
-          </div>
-        </div>
-      ) : null}
       {builderControls && importError ? <p className="error">{importError}</p> : null}
       {builderControls && saveStatus ? <p className="muted">Save: {saveStatus}</p> : null}
       {builderControls && validationErrors.length > 0 ? (
@@ -3543,21 +3615,35 @@ export default function App() {
                           const key = weaponRowKey(weapon, weaponIndex);
                           const expanded = Boolean(weaponExpanded[key]);
                           const draft = weaponGameplayDrafts[key] ?? defaultDraft(false);
+                          const ammoEditable = isWeaponAmmoEditable(weapon);
+                          const ammoCap = getWeaponAmmoCap(weapon);
                           return (
                             <div
-                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
+                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}${
+                                draggingWeaponIndex === weaponIndex ? " dragging" : ""
+                              }${weaponDragOverIndex === weaponIndex ? " drag-over" : ""}`}
                               key={key}
                               onDragOver={(event) => {
                                 event.preventDefault();
                                 event.dataTransfer.dropEffect = "move";
+                                const fromRaw = event.dataTransfer.getData("text/plain");
+                                const parsed = Number(fromRaw);
+                                const from = Number.isFinite(parsed) ? parsed : draggingWeaponIndex;
+                                if (from === null) return;
+                                if (from !== weaponIndex) {
+                                  reorderWeapons(from, weaponIndex);
+                                  setDraggingWeaponIndex(weaponIndex);
+                                }
+                                setWeaponDragOverIndex(weaponIndex);
                               }}
+                              onDragLeave={() => setWeaponDragOverIndex(null)}
                               onDrop={(event) => {
                                 const fromRaw = event.dataTransfer.getData("text/plain");
                                 const parsed = Number(fromRaw);
                                 const from = Number.isFinite(parsed) ? parsed : draggingWeaponIndex;
                                 if (from === null) return;
-                                reorderWeapons(from, weaponIndex);
                                 setDraggingWeaponIndex(null);
+                                setWeaponDragOverIndex(null);
                               }}
                             >
                               <div
@@ -3572,7 +3658,10 @@ export default function App() {
                                   event.dataTransfer.setData("text/plain", String(weaponIndex));
                                   setDraggingWeaponIndex(weaponIndex);
                                 }}
-                                onDragEnd={() => setDraggingWeaponIndex(null)}
+                                onDragEnd={() => {
+                                  setDraggingWeaponIndex(null);
+                                  setWeaponDragOverIndex(null);
+                                }}
                                 onClick={(event) => {
                                   const target = event.target as HTMLElement;
                                   if (target.closest("[data-no-expand='true']")) return;
@@ -3584,29 +3673,33 @@ export default function App() {
                                 <span>{weapon.useDC ?? 0}</span>
                                 <span>{weapon.damage ?? 0}</span>
                                 <span>{weapon.range ?? "-"}</span>
-                                <div className="inline row-controls" data-no-expand="true">
-                                  <button className="ghost" onClick={() => nudgeWeaponAmmo(weaponIndex, -1)}>
-                                    -
-                                  </button>
-                                  <span>{weapon.ammo ?? 0}</span>
-                                  <button
-                                    className="ghost icon-only"
-                                    onClick={() => reloadWeaponAmmo(weaponIndex)}
-                                    title="Reload"
-                                    aria-label="Reload"
-                                  >
-                                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                                      <path
-                                        d="M20 12a8 8 0 1 1-2.4-5.7"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                      />
-                                      <path d="M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2" />
-                                    </svg>
-                                  </button>
-                                </div>
+                                {ammoEditable ? (
+                                  <div className="inline row-controls" data-no-expand="true">
+                                    <button className="ghost" onClick={() => nudgeWeaponAmmo(weaponIndex, -1)}>
+                                      -
+                                    </button>
+                                    <span>{weapon.ammo ?? 0}</span>
+                                    <button
+                                      className="ghost icon-only"
+                                      onClick={() => reloadWeaponAmmo(weaponIndex)}
+                                      title="Reload"
+                                      aria-label="Reload"
+                                    >
+                                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path
+                                          d="M20 12a8 8 0 1 1-2.4-5.7"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                        />
+                                        <path d="M20 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span>-</span>
+                                )}
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
@@ -3672,14 +3765,19 @@ export default function App() {
                                     </div>
                                     <div>
                                       <label>Ammo</label>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={weapon.ammo ?? 0}
-                                        onChange={(e) =>
-                                          updateWeapon(weaponIndex, { ammo: Number(e.target.value) || 0 })
-                                        }
-                                      />
+                                      {ammoEditable ? (
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          max={typeof ammoCap === "number" ? ammoCap : undefined}
+                                          value={weapon.ammo ?? 0}
+                                          onChange={(e) =>
+                                            updateWeapon(weaponIndex, { ammo: Number(e.target.value) || 0 })
+                                          }
+                                        />
+                                      ) : (
+                                        <input type="text" value="-" readOnly />
+                                      )}
                                     </div>
                                     <div>
                                       <label>Bulk</label>
@@ -3910,7 +4008,7 @@ export default function App() {
                             />
                           </div>
                           <div>
-                            <label>Durability (current)</label>
+                            <label>Durability</label>
                             <input
                               type="number"
                               min={0}
@@ -4177,19 +4275,31 @@ export default function App() {
                           const draft = inventoryGameplayDrafts[key] ?? defaultDraft(false);
                           return (
                             <div
-                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}`}
+                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}${
+                                draggingInventoryIndex === inventoryIndex ? " dragging" : ""
+                              }${inventoryDragOverIndex === inventoryIndex ? " drag-over" : ""}`}
                               key={key}
                               onDragOver={(event) => {
                                 event.preventDefault();
                                 event.dataTransfer.dropEffect = "move";
+                                const fromRaw = event.dataTransfer.getData("text/plain");
+                                const parsed = Number(fromRaw);
+                                const from = Number.isFinite(parsed) ? parsed : draggingInventoryIndex;
+                                if (from === null) return;
+                                if (from !== inventoryIndex) {
+                                  reorderInventory(from, inventoryIndex);
+                                  setDraggingInventoryIndex(inventoryIndex);
+                                }
+                                setInventoryDragOverIndex(inventoryIndex);
                               }}
+                              onDragLeave={() => setInventoryDragOverIndex(null)}
                               onDrop={(event) => {
                                 const fromRaw = event.dataTransfer.getData("text/plain");
                                 const parsed = Number(fromRaw);
                                 const from = Number.isFinite(parsed) ? parsed : draggingInventoryIndex;
                                 if (from === null) return;
-                                reorderInventory(from, inventoryIndex);
                                 setDraggingInventoryIndex(null);
+                                setInventoryDragOverIndex(null);
                               }}
                             >
                               <div
@@ -4204,7 +4314,10 @@ export default function App() {
                                   event.dataTransfer.setData("text/plain", String(inventoryIndex));
                                   setDraggingInventoryIndex(inventoryIndex);
                                 }}
-                                onDragEnd={() => setDraggingInventoryIndex(null)}
+                                onDragEnd={() => {
+                                  setDraggingInventoryIndex(null);
+                                  setInventoryDragOverIndex(null);
+                                }}
                                 onClick={(event) => {
                                   const target = event.target as HTMLElement;
                                   if (target.closest("[data-no-expand='true']")) return;

@@ -153,10 +153,10 @@ header p {
 
 .account-links {
   min-width: 220px;
-  border: 1px solid rgba(104, 136, 194, 0.55);
-  border-radius: 12px;
-  padding: 8px;
-  background: rgba(10, 20, 40, 0.96);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
   display: grid;
   gap: 6px;
 }
@@ -976,6 +976,17 @@ button:disabled {
   padding: 25px 41px;
   display: grid;
   gap: 12px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+}
+
+.gear-card.dragging {
+  opacity: 0.45;
+  transform: scale(0.995);
+}
+
+.gear-card.drag-over {
+  border-color: rgba(146, 179, 241, 0.86);
+  box-shadow: 0 0 0 2px rgba(115, 160, 238, 0.35);
 }
 
 .gear-section {
@@ -1014,6 +1025,11 @@ button:disabled {
   color: #9fb7de;
   padding: 0 6px;
   text-align: right;
+}
+
+.gear-row-header,
+.gear-row-header * {
+  cursor: default !important;
 }
 
 .gear-row-header span:last-child {

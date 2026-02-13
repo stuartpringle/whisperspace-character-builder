@@ -120,6 +120,12 @@ npm run dev
 - [done] Review-step navigation now swaps `Next` for `Save` and opens the save flow directly.
 - [done] Weapon/item drag-to-reorder now works by click-and-hold on the row/card area (not only a drag-handle icon).
 - [done] Skills now show rank pips (0-5) beside rank controls as a visual rank indicator.
+- [done] Origin Motivation/Background pickers now default to the current sheet-selected values when available.
+- [done] Weapon ammo edits are capped to catalog max ammo values; top-row +/- controls also enforce the max cap.
+- [done] Melee weapons without explicit ammo now show `-` ammo, hide top-row reload/decrement controls, and disable ammo editing.
+- [done] Drag-and-drop polish now adds drag/hover card states and live list reflow while dragging over targets.
+- [done] Builder right-column account menu now includes `Save`, `Import`, and `Reset`; menu frame border was removed.
+- [done] Account label now shows full user email.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Derive trigger matrix now runs on: entering `Skills & Attributes` / `Review`, skill-rank changes, gameplay-effect field changes (weapons/items/armour/feats), and save actions.
 - [done] Added `429` handling with cooldown backoff (15s) plus visible debug error messaging to avoid repeated rate-limit hammering.
