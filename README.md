@@ -111,8 +111,7 @@ npm run dev
 - [done] Derive response handling now accepts either top-level attribute fields or nested `attributes` payloads and supports `cuf`/`coolUnderFire` and `carryingCapacity` response variants.
 - [done] Gameplay-effects calc alignment now uses a normalized top-level `gameplayEffects` list for derive/validate calls, while per-entity payload objects are sent without embedded `gameplayEffects` to prevent double-application.
 - [done] Tooltip lookup now supports current Rules API ID-based maps (`skillsById` / `skills`) as well as label-based compatibility maps.
-- [done] Added an in-app Calc Debug Panel (Skills & Attributes step) that shows last derive request payloads, endpoint responses, and final applied values for fast gameplay-effect troubleshooting.
-- [done] Calc Debug Panel now shows a clear warning when responses match the older deployed calc contract (missing `gameplayDeltas`), so gameplay-effect deployment mismatches are explicit in-UI.
+- [done] Removed the temporary in-app Calc Debug Panel from the user-facing Skills & Attributes UI now that gameplay-effects deployment is stable.
 - [done] Skill rank inputs now show gameplay-adjusted effective ranks (clamped to max rank 5), while editing still updates underlying base invested ranks.
 - [done] Gameplay-effect editors for weapons, armour, and items now include `Cancel` actions next to `Add`.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
