@@ -1227,6 +1227,25 @@ export default function App() {
     if (!user?.email) return "";
     return user.email.split("@")[0] || user.email;
   }, [user]);
+  const deriveContractWarning = useMemo(() => {
+    if (!deriveDebug) return "";
+    const asRecord = (value: unknown): Record<string, unknown> | null =>
+      value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+    const attrsReq = asRecord(deriveDebug.request.attributes);
+    const gameplayEffects = attrsReq?.gameplayEffects;
+    const hasGameplayEffects =
+      Array.isArray(gameplayEffects) && gameplayEffects.some((entry) => typeof entry === "string" && entry.trim());
+    if (!hasGameplayEffects) return "";
+    const attrsRes = asRecord(deriveDebug.response.attributes);
+    const cufRes = asRecord(deriveDebug.response.cuf);
+    const speedRes = asRecord(deriveDebug.response.speed);
+    const capacityRes = asRecord(deriveDebug.response.capacity);
+    const hasGameplayDeltas = Boolean(
+      attrsRes?.gameplayDeltas || cufRes?.gameplayDeltas || speedRes?.gameplayDeltas || capacityRes?.gameplayDeltas
+    );
+    if (hasGameplayDeltas) return "";
+    return "Live calc response looks like the old contract (no gameplayDeltas). Gameplay effects may be ignored until rules-api calc is republished.";
+  }, [deriveDebug]);
   const isDirty = useMemo(() => {
     if (!baselineSheetJson) return false;
     return JSON.stringify(sheet) !== baselineSheetJson;
@@ -3209,6 +3228,7 @@ export default function App() {
                     Last run: {deriveDebug?.lastRunAt ? new Date(deriveDebug.lastRunAt).toLocaleString() : "n/a"}
                   </p>
                   {deriveDebug?.error ? <p className="error">{deriveDebug.error}</p> : null}
+                  {deriveContractWarning ? <p className="error">{deriveContractWarning}</p> : null}
                   <div className="derive-debug-grid">
                     <div>
                       <h4>Request</h4>
