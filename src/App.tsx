@@ -2032,6 +2032,70 @@ export default function App() {
     return token ? { "X-CSRF-Token": token } : {};
   };
 
+  const stripGameplayEffectsForCloud = (targetSheet: CharacterSheet): CharacterSheet => ({
+    ...targetSheet,
+    weapons: (targetSheet.weapons ?? []).map(({ gameplayEffects, ...weapon }) => weapon),
+    armour: targetSheet.armour
+      ? (({ gameplayEffects, ...armour }) => armour)(targetSheet.armour)
+      : undefined,
+    inventory: (targetSheet.inventory ?? []).map((item) => {
+      const { gameplayEffects, ...rest } = item as CharacterSheet["inventory"][number] & {
+        gameplayEffects?: string[];
+      };
+      return rest as CharacterSheet["inventory"][number];
+    }),
+    feats: (targetSheet.feats ?? []).map(({ gameplayEffects, ...feat }) => feat),
+  });
+
+  const mergeGameplayEffectsFromLocal = (
+    persistedSheet: CharacterSheet,
+    localSheet: CharacterSheet
+  ): CharacterSheet => {
+    const weaponEffectsByKey = new Map<string, string[]>();
+    (localSheet.weapons ?? []).forEach((weapon, index) => {
+      if (!weapon.gameplayEffects?.length) return;
+      const key = `${weapon.id ?? ""}|${weapon.name ?? ""}|${weapon.skillId ?? ""}|${index}`;
+      weaponEffectsByKey.set(key, weapon.gameplayEffects);
+    });
+    const inventoryEffectsByKey = new Map<string, string[]>();
+    (localSheet.inventory ?? []).forEach((item, index) => {
+      if (!item.gameplayEffects?.length) return;
+      const key = `${item.id ?? ""}|${item.type}|${item.name ?? ""}|${index}`;
+      inventoryEffectsByKey.set(key, item.gameplayEffects);
+    });
+    const featEffectsByKey = new Map<string, string[]>();
+    (localSheet.feats ?? []).forEach((feat, index) => {
+      if (!feat.gameplayEffects?.length) return;
+      const key = `${feat.name ?? ""}|${feat.description ?? ""}|${index}`;
+      featEffectsByKey.set(key, feat.gameplayEffects);
+    });
+
+    return {
+      ...persistedSheet,
+      weapons: (persistedSheet.weapons ?? []).map((weapon, index) => {
+        const key = `${weapon.id ?? ""}|${weapon.name ?? ""}|${weapon.skillId ?? ""}|${index}`;
+        const gameplayEffects = weaponEffectsByKey.get(key);
+        return gameplayEffects?.length ? { ...weapon, gameplayEffects } : weapon;
+      }),
+      armour: persistedSheet.armour
+        ? {
+            ...persistedSheet.armour,
+            gameplayEffects: localSheet.armour?.gameplayEffects,
+          }
+        : persistedSheet.armour,
+      inventory: (persistedSheet.inventory ?? []).map((item, index) => {
+        const key = `${item.id ?? ""}|${item.type}|${item.name ?? ""}|${index}`;
+        const gameplayEffects = inventoryEffectsByKey.get(key);
+        return gameplayEffects?.length ? { ...item, gameplayEffects } : item;
+      }),
+      feats: (persistedSheet.feats ?? []).map((feat, index) => {
+        const key = `${feat.name ?? ""}|${feat.description ?? ""}|${index}`;
+        const gameplayEffects = featEffectsByKey.get(key);
+        return gameplayEffects?.length ? { ...feat, gameplayEffects } : feat;
+      }),
+    };
+  };
+
   const readLocalSaves = (): Record<string, CharacterSheet> => {
     try {
       const raw = localStorage.getItem(LOCAL_SAVED_KEY);
@@ -2280,7 +2344,8 @@ export default function App() {
       weapons: sheet.weapons ?? [],
       inventory: sheet.inventory ?? [],
     };
-    const validation = validateCharacterRecordV1(normalized);
+    const persistedPayload = stripGameplayEffectsForCloud(normalized);
+    const validation = validateCharacterRecordV1(persistedPayload);
     if (!validation.ok) {
       setSaveStatus("invalid");
       setSaveError("Validation failed. See details below.");
@@ -2299,7 +2364,7 @@ export default function App() {
           method: targetMethod,
           headers: { "Content-Type": "application/json", ...csrfHeader() },
           credentials: "include",
-          body: JSON.stringify({ ...normalized, id }),
+          body: JSON.stringify({ ...persistedPayload, id }),
         });
 
       let res = await doRequest(url, method);
@@ -2319,7 +2384,8 @@ export default function App() {
         setSaveError(payload?.error || "Save failed");
         return false;
       }
-      const saved = (await res.json()) as CharacterSheet;
+      const savedPayload = (await res.json()) as CharacterSheet;
+      const saved = mergeGameplayEffectsFromLocal(savedPayload, normalized);
       updateSheet(saved);
       localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(saved));
       setBaselineSheetJson(JSON.stringify(saved));

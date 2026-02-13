@@ -114,6 +114,7 @@ npm run dev
 - [done] Removed the temporary in-app Calc Debug Panel from the user-facing Skills & Attributes UI now that gameplay-effects deployment is stable.
 - [done] Skill rank inputs now show gameplay-adjusted effective ranks (clamped to max rank 5), while editing still updates underlying base invested ranks.
 - [done] Gameplay-effect editors for weapons, armour, and items now include `Cancel` actions next to `Add`.
+- [done] Cloud save compatibility fix: persistence payloads now strip transient `gameplayEffects` fields to satisfy current character schema validation; gameplay tags are rehydrated into the active editor state after save.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Derive trigger matrix now runs on: entering `Skills & Attributes` / `Review`, skill-rank changes, gameplay-effect field changes (weapons/items/armour/feats), and save actions.
 - [done] Added `429` handling with cooldown backoff (15s) plus visible debug error messaging to avoid repeated rate-limit hammering.
@@ -157,3 +158,4 @@ npm run dev
 - Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
 - Public characters are intended for view-by-link; private characters are scoped to the owner.
 - Gameplay-effect tags are stored on gear/feat entries and normalized into a top-level `gameplayEffects` array for calc requests (`derive-*` and `validate-sheet`); entity payloads are sent without embedded `gameplayEffects` fields for compatibility with current deployed calc behavior.
+- Character API persistence schema currently rejects `gameplayEffects` on weapon/gear/feat records; cloud saves remove those transient UI fields before submit.

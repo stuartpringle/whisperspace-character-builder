@@ -54,17 +54,31 @@ export async function fetchCharacter(id: string): Promise<CharacterSheet> {
 }
 
 export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: boolean }): Promise<SaveResponse> {
-  const validation = validateCharacterRecordV1(sheet);
+  const sanitized: CharacterSheet = {
+    ...sheet,
+    weapons: (sheet.weapons ?? []).map(({ gameplayEffects, ...weapon }) => weapon),
+    armour: sheet.armour
+      ? (({ gameplayEffects, ...armour }) => armour)(sheet.armour)
+      : undefined,
+    inventory: (sheet.inventory ?? []).map((item) => {
+      const { gameplayEffects, ...rest } = item as CharacterSheet["inventory"][number] & {
+        gameplayEffects?: string[];
+      };
+      return rest as CharacterSheet["inventory"][number];
+    }),
+    feats: (sheet.feats ?? []).map(({ gameplayEffects, ...feat }) => feat),
+  };
+  const validation = validateCharacterRecordV1(sanitized);
   if (!validation.ok) {
     return { ok: false, error: `validation_failed: ${validation.errors[0]}` };
   }
-  const res = await fetch(`${API_BASE}/characters/${sheet.id}${opts?.force ? "?force=1" : ""}`, {
+  const res = await fetch(`${API_BASE}/characters/${sanitized.id}${opts?.force ? "?force=1" : ""}`, {
     method: "PUT",
     headers: {
       ...authHeaders(),
-      "If-Unmodified-Since": sheet.updatedAt,
+      "If-Unmodified-Since": sanitized.updatedAt,
     },
-    body: JSON.stringify(sheet),
+    body: JSON.stringify(sanitized),
   });
   if (res.status === 409) {
     const payload = await res.json();
