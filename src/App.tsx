@@ -351,10 +351,13 @@ export default function App() {
     };
     error?: string;
   } | null>(null);
+  const [deriveManualTick, setDeriveManualTick] = useState<number>(0);
   const skillCalcTimer = useRef<number | null>(null);
   const deriveTimer = useRef<number | null>(null);
   const deriveInFlight = useRef<boolean>(false);
   const deriveLastKey = useRef<string>("");
+  const deriveCooldownUntil = useRef<number>(0);
+  const deriveHandledManualTick = useRef<number>(0);
 
   useEffect(() => {
     let active = true;
@@ -787,6 +790,31 @@ export default function App() {
 
   // Cloud sync is now handled through the Save dialog and authenticated sessions.
 
+  const gameplayFieldSignature = useMemo(
+    () =>
+      JSON.stringify({
+        weapons: (sheet.weapons ?? []).map((weapon, idx) => ({
+          key: weapon.id ?? idx,
+          gameplayEffects: weapon.gameplayEffects ?? "",
+        })),
+        armour: sheet.armour
+          ? {
+              key: sheet.armour.name ?? "armour",
+              gameplayEffects: sheet.armour.gameplayEffects ?? "",
+            }
+          : null,
+        items: (sheet.inventory ?? []).map((item, idx) => ({
+          key: item.id ?? idx,
+          gameplayEffects: item.gameplayEffects ?? "",
+        })),
+        feats: (sheet.feats ?? []).map((feat, idx) => ({
+          key: feat.name ?? idx,
+          gameplayEffects: feat.gameplayEffects ?? "",
+        })),
+      }),
+    [sheet.weapons, sheet.armour, sheet.inventory, sheet.feats]
+  );
+
   useEffect(() => {
     if (!skillsData) return;
     if (skillCalcTimer.current) window.clearTimeout(skillCalcTimer.current);
@@ -869,9 +897,31 @@ export default function App() {
 
   useEffect(() => {
     if (!skillsData) return;
+    const activeStep = step === "skills" || step === "review";
+    const manualRequested = deriveManualTick > deriveHandledManualTick.current;
+    if (!activeStep && !manualRequested) return;
+    if (manualRequested) deriveHandledManualTick.current = deriveManualTick;
     if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     deriveTimer.current = window.setTimeout(async () => {
       if (deriveInFlight.current) return;
+      const now = Date.now();
+      if (now < deriveCooldownUntil.current) {
+        setDeriveDebug((prev) => ({
+          ...(prev ?? {
+            lastRunAt: new Date().toISOString(),
+            request: { attributes: {}, cuf: {}, speed: {}, capacity: {} },
+            response: {},
+            applied: {
+              attributes: sheet.attributes,
+              cuf: sheet.stress.cuf,
+              speed: derivedStats.speed,
+              capacity: derivedStats.capacity,
+            },
+          }),
+          error: `derive cooldown active until ${new Date(deriveCooldownUntil.current).toLocaleTimeString()}`,
+        }));
+        return;
+      }
       try {
         const normalizeTarget = (raw: string) => {
           const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
@@ -911,6 +961,7 @@ export default function App() {
           gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
         }));
         const deriveKey = JSON.stringify({
+          triggerStep: activeStep ? step : "manual",
           skills: sheet.skills ?? {},
           inherentSkills: skillsData.inherent,
           weapons: normalizedWeapons,
@@ -949,7 +1000,12 @@ export default function App() {
           }),
         ]);
         if (!attrsRes.ok || !cufRes.ok) {
-          deriveLastKey.current = deriveKey;
+          if (attrsRes.status === 429 || cufRes.status === 429) {
+            deriveCooldownUntil.current = Date.now() + 15000;
+            deriveLastKey.current = "";
+          } else {
+            deriveLastKey.current = deriveKey;
+          }
           setDeriveDebug({
             lastRunAt: new Date().toISOString(),
             request: {
@@ -965,7 +1021,9 @@ export default function App() {
               speed: derivedStats.speed,
               capacity: derivedStats.capacity,
             },
-            error: `derive status: attributes=${attrsRes.status}, cuf=${cufRes.status}`,
+            error: `derive status: attributes=${attrsRes.status}, cuf=${cufRes.status}${
+              attrsRes.status === 429 || cufRes.status === 429 ? " (cooldown 15s)" : ""
+            }`,
           });
           return;
         }
@@ -1019,7 +1077,12 @@ export default function App() {
             capacity: capacityApplied,
           });
         } else {
-          deriveLastKey.current = deriveKey;
+          if (speedRes.status === 429 || capacityRes.status === 429) {
+            deriveCooldownUntil.current = Date.now() + 15000;
+            deriveLastKey.current = "";
+          } else {
+            deriveLastKey.current = deriveKey;
+          }
           setDeriveDebug({
             lastRunAt: new Date().toISOString(),
             request: {
@@ -1038,7 +1101,9 @@ export default function App() {
               speed: derivedStats.speed,
               capacity: derivedStats.capacity,
             },
-            error: `derive status: speed=${speedRes.status}, capacity=${capacityRes.status}`,
+            error: `derive status: speed=${speedRes.status}, capacity=${capacityRes.status}${
+              speedRes.status === 429 || capacityRes.status === 429 ? " (cooldown 15s)" : ""
+            }`,
           });
         }
         const appliedAttrs = {
@@ -1112,11 +1177,10 @@ export default function App() {
     };
   }, [
     skillsData,
+    step,
     sheet.skills,
-    sheet.weapons,
-    sheet.inventory,
-    sheet.armour,
-    sheet.feats,
+    gameplayFieldSignature,
+    deriveManualTick,
   ]);
 
  
@@ -2232,6 +2296,7 @@ export default function App() {
   };
 
   const executeSave = async () => {
+    setDeriveManualTick((tick) => tick + 1);
     if (saveTarget === "cloud") {
       const creatingNew = saveNew || !saveExistingRecord;
       if (creatingNew) {
