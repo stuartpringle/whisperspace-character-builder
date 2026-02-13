@@ -353,6 +353,8 @@ export default function App() {
   } | null>(null);
   const skillCalcTimer = useRef<number | null>(null);
   const deriveTimer = useRef<number | null>(null);
+  const deriveInFlight = useRef<boolean>(false);
+  const deriveLastKey = useRef<string>("");
 
   useEffect(() => {
     let active = true;
@@ -869,6 +871,7 @@ export default function App() {
     if (!skillsData) return;
     if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     deriveTimer.current = window.setTimeout(async () => {
+      if (deriveInFlight.current) return;
       try {
         const normalizeTarget = (raw: string) => {
           const key = raw.trim().toLowerCase().replace(/\s+/g, "_");
@@ -907,6 +910,16 @@ export default function App() {
           ...feat,
           gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
         }));
+        const deriveKey = JSON.stringify({
+          skills: sheet.skills ?? {},
+          inherentSkills: skillsData.inherent,
+          weapons: normalizedWeapons,
+          armour: normalizedArmour ?? null,
+          items: normalizedItems,
+          feats: normalizedFeats,
+        });
+        if (deriveKey === deriveLastKey.current) return;
+        deriveInFlight.current = true;
         const attrsRequestBody = {
           skills: sheet.skills ?? {},
           inherentSkills: skillsData.inherent,
@@ -935,7 +948,27 @@ export default function App() {
             body: JSON.stringify(cufRequestBody),
           }),
         ]);
-        if (!attrsRes.ok || !cufRes.ok) return;
+        if (!attrsRes.ok || !cufRes.ok) {
+          deriveLastKey.current = deriveKey;
+          setDeriveDebug({
+            lastRunAt: new Date().toISOString(),
+            request: {
+              attributes: attrsRequestBody,
+              cuf: cufRequestBody,
+              speed: {},
+              capacity: {},
+            },
+            response: {},
+            applied: {
+              attributes: sheet.attributes,
+              cuf: sheet.stress.cuf,
+              speed: derivedStats.speed,
+              capacity: derivedStats.capacity,
+            },
+            error: `derive status: attributes=${attrsRes.status}, cuf=${cufRes.status}`,
+          });
+          return;
+        }
         const attrsPayload = (await attrsRes.json()) as
           | CharacterSheet["attributes"]
           | { attributes?: CharacterSheet["attributes"] };
@@ -985,6 +1018,28 @@ export default function App() {
             speed: speedApplied,
             capacity: capacityApplied,
           });
+        } else {
+          deriveLastKey.current = deriveKey;
+          setDeriveDebug({
+            lastRunAt: new Date().toISOString(),
+            request: {
+              attributes: attrsRequestBody,
+              cuf: cufRequestBody,
+              speed: speedRequestBody,
+              capacity: capacityRequestBody,
+            },
+            response: {
+              attributes: attrsPayload,
+              cuf: cufPayload,
+            },
+            applied: {
+              attributes: attrs,
+              cuf: cufPayload.cuf ?? cufPayload.coolUnderFire ?? sheet.stress.cuf,
+              speed: derivedStats.speed,
+              capacity: derivedStats.capacity,
+            },
+            error: `derive status: speed=${speedRes.status}, capacity=${capacityRes.status}`,
+          });
         }
         const appliedAttrs = {
           phys: attrs.phys ?? sheet.attributes.phys,
@@ -993,14 +1048,22 @@ export default function App() {
           ment: attrs.ment ?? sheet.attributes.ment,
         };
         const appliedCuf = cufPayload.cuf ?? cufPayload.coolUnderFire ?? sheet.stress.cuf;
-        updateSheet({
-          ...sheet,
-          attributes: appliedAttrs,
-          stress: {
-            ...sheet.stress,
-            cuf: appliedCuf,
-          },
-        });
+        const attrsChanged =
+          appliedAttrs.phys !== sheet.attributes.phys ||
+          appliedAttrs.ref !== sheet.attributes.ref ||
+          appliedAttrs.soc !== sheet.attributes.soc ||
+          appliedAttrs.ment !== sheet.attributes.ment;
+        const cufChanged = appliedCuf !== sheet.stress.cuf;
+        if (attrsChanged || cufChanged) {
+          updateSheet({
+            ...sheet,
+            attributes: appliedAttrs,
+            stress: {
+              ...sheet.stress,
+              cuf: appliedCuf,
+            },
+          });
+        }
         setDeriveDebug({
           lastRunAt: new Date().toISOString(),
           request: {
@@ -1022,8 +1085,10 @@ export default function App() {
             capacity: capacityApplied,
           },
         });
+        deriveLastKey.current = deriveKey;
       } catch {
         // ignore derive failures
+        deriveLastKey.current = "";
         setDeriveDebug((prev) => ({
           ...(prev ?? {
             lastRunAt: new Date().toISOString(),
@@ -1038,8 +1103,10 @@ export default function App() {
           }),
           error: "derive request failed",
         }));
+      } finally {
+        deriveInFlight.current = false;
       }
-    }, 400);
+    }, 900);
     return () => {
       if (deriveTimer.current) window.clearTimeout(deriveTimer.current);
     };
@@ -1050,10 +1117,6 @@ export default function App() {
     sheet.inventory,
     sheet.armour,
     sheet.feats,
-    sheet.attributes,
-    sheet.stress.cuf,
-    derivedStats.speed,
-    derivedStats.capacity,
   ]);
 
  
@@ -3041,7 +3104,7 @@ export default function App() {
                   </div>
                 ) : null}
 
-                <details className="derive-debug">
+                <details className="derive-debug" open>
                   <summary>Calc Debug Panel</summary>
                   <p className="muted">
                     Last run: {deriveDebug?.lastRunAt ? new Date(deriveDebug.lastRunAt).toLocaleString() : "n/a"}

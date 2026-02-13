@@ -112,6 +112,7 @@ npm run dev
 - [done] Gameplay-effects calc alignment now follows Rules API guidance: gameplay effects are passed via normalized per-entity payload fields (not duplicated in a top-level aggregate list), avoiding potential double-application.
 - [done] Tooltip lookup now supports current Rules API ID-based maps (`skillsById` / `skills`) as well as label-based compatibility maps.
 - [done] Added an in-app Calc Debug Panel (Skills & Attributes step) that shows last derive request payloads, endpoint responses, and final applied values for fast gameplay-effect troubleshooting.
+- [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Origin step now displays concept and starting-credits guidance text sourced dynamically from `rules.json`.
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
