@@ -109,7 +109,7 @@ npm run dev
 - [done] Review page UI refresh: hero header, compact stat pills, carded content sections (Attributes/Skills/Equipment/Health), cleaner list styling, and integrated notes card for better visual consistency.
 - [done] Calc compatibility hardening: derive/validate requests now include full equipment payloads (`weapons`, `armour`, `items`, `feats`) plus normalized `gameplayEffects` to align with current Rules API calc contracts.
 - [done] Derive response handling now accepts either top-level attribute fields or nested `attributes` payloads and supports `cuf`/`coolUnderFire` and `carryingCapacity` response variants.
-- [done] Gameplay-effects calc alignment now follows Rules API guidance: gameplay effects are passed via normalized per-entity payload fields (not duplicated in a top-level aggregate list), avoiding potential double-application.
+- [done] Gameplay-effects calc alignment now uses a normalized top-level `gameplayEffects` list for derive/validate calls, while per-entity payload objects are sent without embedded `gameplayEffects` to prevent double-application.
 - [done] Tooltip lookup now supports current Rules API ID-based maps (`skillsById` / `skills`) as well as label-based compatibility maps.
 - [done] Added an in-app Calc Debug Panel (Skills & Attributes step) that shows last derive request payloads, endpoint responses, and final applied values for fast gameplay-effect troubleshooting.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
@@ -154,4 +154,4 @@ npm run dev
 - Rules/skills/gear data are cached in `localStorage`; UI can run in cached/offline mode with stale data.
 - Save may return conflict (`409`) if remote is newer; UI exposes overwrite/new-save behavior.
 - Public characters are intended for view-by-link; private characters are scoped to the owner.
-- Gameplay-effect tags are stored on gear/feat entries and sent through calc requests as normalized per-entity fields (`gameplayEffects` string) on `weapons`/`armour`/`items`/`feats`.
+- Gameplay-effect tags are stored on gear/feat entries and normalized into a top-level `gameplayEffects` array for calc requests (`derive-*` and `validate-sheet`); entity payloads are sent without embedded `gameplayEffects` fields for compatibility with current deployed calc behavior.

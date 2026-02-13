@@ -842,21 +842,35 @@ export default function App() {
           const normalized = parts.map((p) => normalizeEffect(String(p))).filter(Boolean);
           return normalized.length ? normalized.join(", ") : undefined;
         };
+        const collectEffects = (value?: string[] | string) => {
+          const normalized = normalizeEffectsField(value);
+          if (!normalized) return [] as string[];
+          return normalized
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean);
+        };
         const normalizedWeapons = (sheet.weapons ?? []).map((weapon) => ({
           ...weapon,
-          gameplayEffects: normalizeEffectsField(weapon.gameplayEffects),
+          gameplayEffects: undefined,
         }));
         const normalizedItems = (sheet.inventory ?? []).map((item) => ({
           ...item,
-          gameplayEffects: normalizeEffectsField(item.gameplayEffects),
+          gameplayEffects: undefined,
         }));
         const normalizedArmour = sheet.armour
-          ? { ...sheet.armour, gameplayEffects: normalizeEffectsField(sheet.armour.gameplayEffects) }
+          ? { ...sheet.armour, gameplayEffects: undefined }
           : undefined;
         const normalizedFeats = (sheet.feats ?? []).map((feat) => ({
           ...feat,
-          gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
+          gameplayEffects: undefined,
         }));
+        const gameplayEffects = [
+          ...(sheet.weapons ?? []).flatMap((weapon) => collectEffects(weapon.gameplayEffects)),
+          ...(sheet.inventory ?? []).flatMap((item) => collectEffects(item.gameplayEffects)),
+          ...collectEffects(sheet.armour?.gameplayEffects),
+          ...(sheet.feats ?? []).flatMap((feat) => collectEffects(feat.gameplayEffects)),
+        ];
         const res = await fetch(`${calcBase}/validate-sheet`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -871,6 +885,7 @@ export default function App() {
             maxRankInherent: MAX_RANK_INHERENT,
             maxRankOnFocus: MAX_RANK_ON_FOCUS,
             maxRankOffFocus: MAX_RANK_OFF_FOCUS,
+            gameplayEffects,
             weapons: normalizedWeapons,
             armour: normalizedArmour,
             items: normalizedItems,
@@ -945,21 +960,35 @@ export default function App() {
           const normalized = parts.map((p) => normalizeEffect(String(p))).filter(Boolean);
           return normalized.length ? normalized.join(", ") : undefined;
         };
+        const collectEffects = (value?: string[] | string) => {
+          const normalized = normalizeEffectsField(value);
+          if (!normalized) return [] as string[];
+          return normalized
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean);
+        };
         const normalizedWeapons = (sheet.weapons ?? []).map((weapon) => ({
           ...weapon,
-          gameplayEffects: normalizeEffectsField(weapon.gameplayEffects),
+          gameplayEffects: undefined,
         }));
         const normalizedItems = (sheet.inventory ?? []).map((item) => ({
           ...item,
-          gameplayEffects: normalizeEffectsField(item.gameplayEffects),
+          gameplayEffects: undefined,
         }));
         const normalizedArmour = sheet.armour
-          ? { ...sheet.armour, gameplayEffects: normalizeEffectsField(sheet.armour.gameplayEffects) }
+          ? { ...sheet.armour, gameplayEffects: undefined }
           : undefined;
         const normalizedFeats = (sheet.feats ?? []).map((feat) => ({
           ...feat,
-          gameplayEffects: normalizeEffectsField(feat.gameplayEffects),
+          gameplayEffects: undefined,
         }));
+        const gameplayEffects = [
+          ...(sheet.weapons ?? []).flatMap((weapon) => collectEffects(weapon.gameplayEffects)),
+          ...(sheet.inventory ?? []).flatMap((item) => collectEffects(item.gameplayEffects)),
+          ...collectEffects(sheet.armour?.gameplayEffects),
+          ...(sheet.feats ?? []).flatMap((feat) => collectEffects(feat.gameplayEffects)),
+        ];
         const deriveKey = JSON.stringify({
           triggerStep: activeStep ? step : "manual",
           skills: sheet.skills ?? {},
@@ -968,6 +997,7 @@ export default function App() {
           armour: normalizedArmour ?? null,
           items: normalizedItems,
           feats: normalizedFeats,
+          gameplayEffects,
         });
         if (deriveKey === deriveLastKey.current) return;
         deriveInFlight.current = true;
@@ -978,6 +1008,7 @@ export default function App() {
           armour: normalizedArmour,
           items: normalizedItems,
           feats: normalizedFeats,
+          gameplayEffects,
         };
         const cufRequestBody = {
           skills: sheet.skills ?? {},
@@ -985,6 +1016,7 @@ export default function App() {
           armour: normalizedArmour,
           items: normalizedItems,
           feats: normalizedFeats,
+          gameplayEffects,
         };
 
         const [attrsRes, cufRes] = await Promise.all([
@@ -1040,6 +1072,7 @@ export default function App() {
           armour: normalizedArmour,
           items: normalizedItems,
           feats: normalizedFeats,
+          gameplayEffects,
         };
         const capacityRequestBody = {
           phys,
@@ -1047,6 +1080,7 @@ export default function App() {
           armour: normalizedArmour,
           items: normalizedItems,
           feats: normalizedFeats,
+          gameplayEffects,
         };
         const [speedRes, capacityRes] = await Promise.all([
           fetch(`${calcBase}/derive-speed`, {
