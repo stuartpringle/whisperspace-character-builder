@@ -112,6 +112,7 @@ npm run dev
 - [done] Gameplay-effects calc alignment now uses a normalized top-level `gameplayEffects` list for derive/validate calls, while per-entity payload objects are sent without embedded `gameplayEffects` to prevent double-application.
 - [done] Tooltip lookup now supports current Rules API ID-based maps (`skillsById` / `skills`) as well as label-based compatibility maps.
 - [done] Added an in-app Calc Debug Panel (Skills & Attributes step) that shows last derive request payloads, endpoint responses, and final applied values for fast gameplay-effect troubleshooting.
+- [done] Calc Debug Panel now shows a clear warning when responses match the older deployed calc contract (missing `gameplayDeltas`), so gameplay-effect deployment mismatches are explicit in-UI.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Derive trigger matrix now runs on: entering `Skills & Attributes` / `Review`, skill-rank changes, gameplay-effect field changes (weapons/items/armour/feats), and save actions.
 - [done] Added `429` handling with cooldown backoff (15s) plus visible debug error messaging to avoid repeated rate-limit hammering.
