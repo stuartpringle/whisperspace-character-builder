@@ -124,6 +124,7 @@ npm run dev
 - [done] Weapon ammo edits are capped to catalog max ammo values; top-row +/- controls also enforce the max cap.
 - [done] Melee weapons without explicit ammo now show `-` ammo, hide top-row reload/decrement controls, and disable ammo editing.
 - [done] Drag-and-drop polish now adds drag/hover card states and live list reflow while dragging over targets.
+- [done] Drag-and-drop flicker reduction: live reordering on hover is now rate-limited and deduped per target index to avoid rapid jitter.
 - [done] Builder right-column account menu now includes `Save`, `Import`, and `Reset`; menu frame border was removed.
 - [done] Account label now shows full user email.
 - [done] Builder header now integrates shared Whisperspace nav JSON from `https://whisperspace.com/nav/main-menu.v1.json` with fallback data and active-link styling.

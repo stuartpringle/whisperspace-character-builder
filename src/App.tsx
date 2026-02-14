@@ -380,6 +380,8 @@ export default function App() {
   const deriveLastKey = useRef<string>("");
   const deriveCooldownUntil = useRef<number>(0);
   const deriveHandledManualTick = useRef<number>(0);
+  const weaponDragReorderAt = useRef<number>(0);
+  const inventoryDragReorderAt = useRef<number>(0);
 
   useEffect(() => {
     let active = true;
@@ -1942,7 +1944,7 @@ export default function App() {
 
   const isWeaponAmmoEditable = (weapon: CharacterSheet["weapons"][number]) => {
     const cap = getWeaponAmmoCap(weapon);
-    if (typeof cap === "number") return true;
+    if (typeof cap === "number" && cap > 0) return true;
     if (isMeleeWeapon(weapon)) return false;
     return true;
   };
@@ -3695,9 +3697,15 @@ export default function App() {
                                 const parsed = Number(fromRaw);
                                 const from = Number.isFinite(parsed) ? parsed : draggingWeaponIndex;
                                 if (from === null) return;
-                                if (from !== weaponIndex) {
+                                const now = Date.now();
+                                if (
+                                  from !== weaponIndex &&
+                                  weaponDragOverIndex !== weaponIndex &&
+                                  now - weaponDragReorderAt.current > 80
+                                ) {
                                   reorderWeapons(from, weaponIndex);
                                   setDraggingWeaponIndex(weaponIndex);
+                                  weaponDragReorderAt.current = now;
                                 }
                                 setWeaponDragOverIndex(weaponIndex);
                               }}
@@ -4351,9 +4359,15 @@ export default function App() {
                                 const parsed = Number(fromRaw);
                                 const from = Number.isFinite(parsed) ? parsed : draggingInventoryIndex;
                                 if (from === null) return;
-                                if (from !== inventoryIndex) {
+                                const now = Date.now();
+                                if (
+                                  from !== inventoryIndex &&
+                                  inventoryDragOverIndex !== inventoryIndex &&
+                                  now - inventoryDragReorderAt.current > 80
+                                ) {
                                   reorderInventory(from, inventoryIndex);
                                   setDraggingInventoryIndex(inventoryIndex);
+                                  inventoryDragReorderAt.current = now;
                                 }
                                 setInventoryDragOverIndex(inventoryIndex);
                               }}
