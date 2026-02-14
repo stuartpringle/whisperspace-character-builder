@@ -1544,7 +1544,22 @@ export default function App() {
   };
 
   const learningFocus = (sheet.learningFocus ?? "combat") as LearningFocus;
-  const activeArmour = sheet.armour;
+  const armourCollection = useMemo(() => {
+    const existing = sheet.armours ?? [];
+    if (existing.length) return existing;
+    if (sheet.armour) {
+      return [{ ...sheet.armour, id: sheet.armour.id ?? "equipped" }];
+    }
+    return [];
+  }, [sheet.armour, sheet.armours]);
+  const activeArmour = useMemo(() => {
+    const equippedId = sheet.equippedArmourId;
+    if (equippedId) {
+      const matched = armourCollection.find((entry) => entry.id === equippedId);
+      if (matched) return matched;
+    }
+    return sheet.armour ?? armourCollection[0];
+  }, [armourCollection, sheet.armour, sheet.equippedArmourId]);
   const authFeedback = useMemo(() => {
     if (!authError) return null;
     if (authError === "reset_email_sent") {
@@ -1997,9 +2012,47 @@ export default function App() {
     updateWeapon(index, { gameplayEffects: effects });
   };
 
+  const setEquippedArmourById = (id: string | undefined) => {
+    const armours = armourCollection ?? [];
+    const equipped = id ? armours.find((entry) => entry.id === id) : undefined;
+    updateSheet({
+      ...sheet,
+      armours,
+      equippedArmourId: equipped?.id,
+      armour: equipped,
+    });
+  };
+
+  const updateActiveArmour = (next: Partial<NonNullable<CharacterSheet["armour"]>>) => {
+    if (!activeArmour) return;
+    const targetId = activeArmour.id;
+    const armours = (armourCollection ?? []).map((entry) =>
+      entry.id === targetId ? ({ ...entry, ...next }) : entry
+    );
+    const equipped = armours.find((entry) => entry.id === (sheet.equippedArmourId ?? targetId));
+    updateSheet({
+      ...sheet,
+      armours,
+      armour: equipped,
+      equippedArmourId: equipped?.id,
+    });
+  };
+
+  const removeArmourById = (id: string | undefined) => {
+    if (!id) return;
+    const armours = (armourCollection ?? []).filter((entry) => entry.id !== id);
+    const nextEquippedId = sheet.equippedArmourId === id ? armours[0]?.id : sheet.equippedArmourId;
+    const equipped = armours.find((entry) => entry.id === nextEquippedId);
+    updateSheet({
+      ...sheet,
+      armours,
+      equippedArmourId: equipped?.id,
+      armour: equipped,
+    });
+  };
+
   const setArmourGameplayEffects = (effects: string[]) => {
-    if (!sheet.armour) return;
-    updateSheet({ ...sheet, armour: { ...sheet.armour, gameplayEffects: effects } });
+    updateActiveArmour({ gameplayEffects: effects });
   };
 
   const reorderWeapons = (from: number, to: number) => {
@@ -2043,20 +2096,31 @@ export default function App() {
       gearData.armour.armor.find((armor) => armor.id === armourPickId) ??
       gearData.armour.armor.find((armor) => armor.name === armourPickId);
     if (!entry) return;
+    const id = entry.id ?? crypto.randomUUID();
+    const candidate = {
+      id,
+      name: entry.name,
+      protection: entry.protection,
+      durability: entry.durability
+        ? { current: entry.durability, max: entry.durability }
+        : undefined,
+      bulk: entry.bulk,
+      req: entry.req,
+      cost: entry.cost,
+      special: entry.special,
+      keywords: entry.keywords,
+    };
+    const current = armourCollection ?? [];
+    const exists = current.find((armor) => armor.id === id || (armor.name && armor.name === candidate.name));
+    const armours = exists
+      ? current.map((armor) => (armor.id === exists.id ? { ...armor, ...candidate } : armor))
+      : [...current, candidate];
+    const equipped = armours.find((armor) => armor.id === (exists?.id ?? id)) ?? armours[0];
     updateSheet({
       ...sheet,
-      armour: {
-        name: entry.name,
-        protection: entry.protection,
-        durability: entry.durability
-          ? { current: entry.durability, max: entry.durability }
-          : undefined,
-        bulk: entry.bulk,
-        req: entry.req,
-        cost: entry.cost,
-        special: entry.special,
-        keywords: entry.keywords,
-      },
+      armours,
+      equippedArmourId: equipped?.id,
+      armour: equipped,
     });
   };
 
@@ -2137,6 +2201,7 @@ export default function App() {
     armour: targetSheet.armour
       ? (({ gameplayEffects, ...armour }) => armour)(targetSheet.armour)
       : undefined,
+    armours: (targetSheet.armours ?? []).map(({ gameplayEffects, ...armour }) => armour),
     inventory: (targetSheet.inventory ?? []).map((item) => {
       const { gameplayEffects, ...rest } = item as CharacterSheet["inventory"][number] & {
         gameplayEffects?: string[];
@@ -2162,6 +2227,12 @@ export default function App() {
       const key = `${item.id ?? ""}|${item.type}|${item.name ?? ""}|${index}`;
       inventoryEffectsByKey.set(key, item.gameplayEffects);
     });
+    const armourEffectsByKey = new Map<string, string[]>();
+    (localSheet.armours ?? []).forEach((armour, index) => {
+      if (!armour.gameplayEffects?.length) return;
+      const key = `${armour.id ?? ""}|${armour.name ?? ""}|${index}`;
+      armourEffectsByKey.set(key, armour.gameplayEffects);
+    });
     const featEffectsByKey = new Map<string, string[]>();
     (localSheet.feats ?? []).forEach((feat, index) => {
       if (!feat.gameplayEffects?.length) return;
@@ -2182,6 +2253,11 @@ export default function App() {
             gameplayEffects: localSheet.armour?.gameplayEffects,
           }
         : persistedSheet.armour,
+      armours: (persistedSheet.armours ?? []).map((armour, index) => {
+        const key = `${armour.id ?? ""}|${armour.name ?? ""}|${index}`;
+        const gameplayEffects = armourEffectsByKey.get(key);
+        return gameplayEffects?.length ? { ...armour, gameplayEffects } : armour;
+      }),
       inventory: (persistedSheet.inventory ?? []).map((item, index) => {
         const key = `${item.id ?? ""}|${item.type}|${item.name ?? ""}|${index}`;
         const gameplayEffects = inventoryEffectsByKey.get(key);
@@ -4031,6 +4107,26 @@ export default function App() {
                         </button>
                       </div>
                     </div>
+                    {(armourCollection ?? []).length ? (
+                      <div className="stack">
+                        <label>Carried Armour</label>
+                        <div className="inline wrap">
+                          {(armourCollection ?? []).map((armor) => (
+                            <div key={armor.id ?? armor.name} className="inline">
+                              <button
+                                className={sheet.equippedArmourId === armor.id ? "primary" : "ghost"}
+                                onClick={() => setEquippedArmourById(armor.id)}
+                              >
+                                {armor.name || "Armour"}
+                              </button>
+                              <button className="ghost danger" onClick={() => removeArmourById(armor.id)}>
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {activeArmour && armourMatchesSearch ? (
                       <div className="gear-card expanded cut-corner-padded">
                         <div className="gear-header">
@@ -4040,7 +4136,7 @@ export default function App() {
                           </div>
                           <button
                             className="ghost danger"
-                            onClick={() => updateSheet({ ...sheet, armour: undefined })}
+                            onClick={() => removeArmourById(activeArmour?.id)}
                           >
                             Remove
                           </button>
@@ -4051,7 +4147,7 @@ export default function App() {
                             <input
                               value={activeArmour.name ?? ""}
                               onChange={(e) =>
-                                updateSheet({ ...sheet, armour: { ...activeArmour, name: e.target.value } })
+                                updateActiveArmour({ name: e.target.value })
                               }
                             />
                           </div>
@@ -4062,10 +4158,7 @@ export default function App() {
                               min={0}
                               value={activeArmour.protection ?? 0}
                               onChange={(e) =>
-                                updateSheet({
-                                  ...sheet,
-                                  armour: { ...activeArmour, protection: Number(e.target.value) || 0 },
-                                })
+                                updateActiveArmour({ protection: Number(e.target.value) || 0 })
                               }
                             />
                           </div>
@@ -4076,7 +4169,7 @@ export default function App() {
                               min={0}
                               value={activeArmour.bulk ?? 0}
                               onChange={(e) =>
-                                updateSheet({ ...sheet, armour: { ...activeArmour, bulk: Number(e.target.value) || 0 } })
+                                updateActiveArmour({ bulk: Number(e.target.value) || 0 })
                               }
                             />
                           </div>
@@ -4087,14 +4180,10 @@ export default function App() {
                               min={0}
                               value={activeArmour.durability?.current ?? 0}
                               onChange={(e) =>
-                                updateSheet({
-                                  ...sheet,
-                                  armour: {
-                                    ...activeArmour,
-                                    durability: {
-                                      current: Number(e.target.value) || 0,
-                                      max: activeArmour.durability?.max ?? 0,
-                                    },
+                                updateActiveArmour({
+                                  durability: {
+                                    current: Number(e.target.value) || 0,
+                                    max: activeArmour.durability?.max ?? 0,
                                   },
                                 })
                               }
@@ -4107,14 +4196,10 @@ export default function App() {
                               min={0}
                               value={activeArmour.durability?.max ?? 0}
                               onChange={(e) =>
-                                updateSheet({
-                                  ...sheet,
-                                  armour: {
-                                    ...activeArmour,
-                                    durability: {
-                                      current: activeArmour.durability?.current ?? 0,
-                                      max: Number(e.target.value) || 0,
-                                    },
+                                updateActiveArmour({
+                                  durability: {
+                                    current: activeArmour.durability?.current ?? 0,
+                                    max: Number(e.target.value) || 0,
                                   },
                                 })
                               }
@@ -4127,7 +4212,7 @@ export default function App() {
                               min={0}
                               value={activeArmour.cost ?? 0}
                               onChange={(e) =>
-                                updateSheet({ ...sheet, armour: { ...activeArmour, cost: Number(e.target.value) || 0 } })
+                                updateActiveArmour({ cost: Number(e.target.value) || 0 })
                               }
                             />
                           </div>
@@ -4136,7 +4221,7 @@ export default function App() {
                             <input
                               value={activeArmour.req ?? ""}
                               onChange={(e) =>
-                                updateSheet({ ...sheet, armour: { ...activeArmour, req: e.target.value } })
+                                updateActiveArmour({ req: e.target.value })
                               }
                             />
                           </div>
@@ -4145,7 +4230,7 @@ export default function App() {
                             <textarea
                               value={activeArmour.special ?? ""}
                               onChange={(e) =>
-                                updateSheet({ ...sheet, armour: { ...activeArmour, special: e.target.value } })
+                                updateActiveArmour({ special: e.target.value })
                               }
                             />
                           </div>

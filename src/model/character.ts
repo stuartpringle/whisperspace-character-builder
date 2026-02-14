@@ -17,6 +17,7 @@ export type Weapon = {
 };
 
 export type Armour = {
+  id?: string;
   name?: string;
   keywords?: string[];
   keywordParams?: Record<string, string | number | boolean>;
@@ -98,6 +99,8 @@ export type CharacterSheet = {
   wounds: { light: number; moderate: number; heavy: number };
   weapons: Weapon[];
   armour?: Armour;
+  armours?: Armour[];
+  equippedArmourId?: string;
   inventory: InventoryItem[];
   credits: number;
   feats: Array<{
@@ -141,6 +144,8 @@ export function createBlankCharacter(): CharacterSheet {
     wounds: { light: 0, moderate: 0, heavy: 0 },
     weapons: [],
     armour: undefined,
+    armours: [],
+    equippedArmourId: undefined,
     inventory: [],
     credits: 0,
     feats: [],

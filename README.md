@@ -8,11 +8,12 @@ Uses the authoritative storage schema from the SDK:
 
 ## Flow
 
-1. Basics
-2. Attributes
-3. Skills
-4. Gear
-5. Review
+1. Origin
+2. Archetype
+3. Feats
+4. Skills & Attributes
+5. Equipment
+6. Review
 
 ## Persistence
 
@@ -135,6 +136,7 @@ npm run dev
 - [done] Origin step now includes starting credits generation (`1d12 * 50 + 800`) and manual credit override.
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
 - [done] Adding an inventory entry now merges into quantity when an equivalent gear record already exists.
+- [done] Armour now supports carried sets via `armours[]` with a single equipped selector via `equippedArmourId`.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
@@ -172,3 +174,4 @@ npm run dev
 - Public characters are intended for view-by-link; private characters are scoped to the owner.
 - Gameplay-effect tags are stored on gear/feat entries and normalized into a top-level `gameplayEffects` array for calc requests (`derive-*` and `validate-sheet`); entity payloads are sent without embedded `gameplayEffects` fields for compatibility with current deployed calc behavior.
 - Character API persistence schema currently rejects `gameplayEffects` on weapon/gear/feat records; cloud saves remove those transient UI fields before submit.
+- During schema migration, the builder can read/write legacy `armour` and new `armours` + `equippedArmourId` fields.
