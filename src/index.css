@@ -136,6 +136,42 @@ header p {
   flex-wrap: wrap;
 }
 
+.shared-nav-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.shared-nav-link {
+  color: #9fb7de;
+  text-decoration: none;
+  font-size: 0.88rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(104, 136, 194, 0.38);
+  background: rgba(10, 20, 40, 0.66);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.shared-nav-link:hover {
+  color: #e5f0ff;
+  border-color: rgba(150, 184, 247, 0.68);
+  background: rgba(18, 34, 62, 0.88);
+}
+
+.shared-nav-link.active {
+  color: #ffffff;
+  border-color: rgba(164, 200, 255, 0.9);
+  background: rgba(38, 74, 126, 0.94);
+}
+
+.shared-nav-link.cta {
+  color: #ffffff;
+  border-color: rgba(80, 141, 255, 0.85);
+  background: rgba(52, 118, 234, 0.92);
+}
+
 .auth-chip {
   justify-content: flex-end;
 }

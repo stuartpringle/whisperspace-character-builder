@@ -79,6 +79,15 @@ type MotivationOption = {
 type AuthUser = { id: string; email: string };
 type SaveTarget = "cloud" | "local";
 type AppPage = "builder" | "view" | "characters" | "settings";
+type SharedNavItem = {
+  id: string;
+  label: string;
+  href: string;
+  hosts?: string[];
+  path?: string;
+  hash?: string;
+  cta?: boolean;
+};
 type SortDirection = "asc" | "desc";
 type CharacterSortKey =
   | "name"
@@ -97,6 +106,16 @@ const MAX_RANK_OFF_FOCUS = 2;
 const STEP_KEY = "ws_builder_step";
 const LOCAL_SAVED_KEY = "ws_character_saved_local_v1";
 const LAST_SAVED_KEY = "ws_character_last_saved_v1";
+const SHARED_NAV_SRC = "https://whisperspace.com/nav/main-menu.v1.json";
+const SHARED_NAV_FALLBACK: SharedNavItem[] = [
+  { id: "home", label: "Home", href: "https://whisperspace.com/#home" },
+  { id: "about", label: "About", href: "https://whisperspace.com/#about" },
+  { id: "rules", label: "Rules", href: "https://whisperspace.com/#system" },
+  { id: "archetypes", label: "Archetypes", href: "https://whisperspace.com/#archetypes" },
+  { id: "faq", label: "FAQ", href: "https://whisperspace.com/#faq" },
+  { id: "builder", label: "Builder", href: "https://builder.whisperspace.com/", hosts: ["builder.whisperspace.com"] },
+  { id: "contact", label: "Get In Touch", href: "https://whisperspace.com/#contact", cta: true },
+];
 
 type GearType = "item" | "cyberware" | "narcotics" | "hacker_gear";
 type GameplayCategory = "attribute" | "inherent_skill" | "learning_focus_skill" | "other";
@@ -290,6 +309,7 @@ export default function App() {
   const [viewId, setViewId] = useState<string>("");
   const [viewSheet, setViewSheet] = useState<CharacterSheet | null>(null);
   const [viewError, setViewError] = useState<string>("");
+  const [sharedNavItems, setSharedNavItems] = useState<SharedNavItem[]>(SHARED_NAV_FALLBACK);
   const [gearData, setGearData] = useState<GearData | null>(null);
   const [gearStatus, setGearStatus] = useState<string>("idle");
   const [gearError, setGearError] = useState<string>("");
@@ -466,6 +486,24 @@ export default function App() {
       navigate("/characters");
     }
   }, [settingsLandingPage, user]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(SHARED_NAV_SRC)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("bad response"))))
+      .then((payload) => {
+        if (!active) return;
+        const items = Array.isArray(payload?.items) ? (payload.items as SharedNavItem[]) : null;
+        if (items?.length) setSharedNavItems(items);
+      })
+      .catch(() => {
+        if (!active) return;
+        setSharedNavItems(SHARED_NAV_FALLBACK);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchSession = async (force = false) => {
     const cached = localStorage.getItem("ws_auth_session");
@@ -2628,6 +2666,22 @@ export default function App() {
   }, [page, user]);
 
   const activeMenuPage = page === "view" ? "builder" : page;
+  const normalizeHost = (host: string) => host.toLowerCase().replace(/^www\./, "");
+  const normalizePath = (path: string) => {
+    const trimmed = path.replace(/\/+$/, "");
+    return trimmed || "/";
+  };
+  const isSharedNavActive = (item: SharedNavItem) => {
+    const currentHost = normalizeHost(window.location.hostname || "");
+    const currentPath = normalizePath(window.location.pathname || "/");
+    const currentHash = window.location.hash || "";
+    const hosts = (item.hosts ?? []).map(normalizeHost);
+    if (hosts.length && !hosts.includes(currentHost)) return false;
+    if (item.id === "builder" && hosts.includes(currentHost)) return true;
+    if (item.path && normalizePath(item.path) !== currentPath) return false;
+    if (item.hash) return item.hash === currentHash;
+    return Boolean(hosts.length && hosts.includes(currentHost));
+  };
   const renderAccountMenu = (builderControls = false) => {
     if (!user) {
       if (!builderControls) {
@@ -2701,6 +2755,17 @@ export default function App() {
 
   const renderHeader = (title: string, subtitle?: string, builderControls = false) => (
     <header className="header cut-corner-padded">
+      <nav className="shared-nav-strip" aria-label="Whisperspace navigation">
+        {sharedNavItems.map((item) => (
+          <a
+            key={item.id}
+            href={item.href}
+            className={`shared-nav-link${item.cta ? " cta" : ""}${isSharedNavActive(item) ? " active" : ""}`}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
       <div className="eyebrow">Whisperspace</div>
       <div className="header-row">
         <div className="header-title-stack">

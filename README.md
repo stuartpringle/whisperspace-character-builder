@@ -126,6 +126,7 @@ npm run dev
 - [done] Drag-and-drop polish now adds drag/hover card states and live list reflow while dragging over targets.
 - [done] Builder right-column account menu now includes `Save`, `Import`, and `Reset`; menu frame border was removed.
 - [done] Account label now shows full user email.
+- [done] Builder header now integrates shared Whisperspace nav JSON from `https://whisperspace.com/nav/main-menu.v1.json` with fallback data and active-link styling.
 - [done] Derive calls are now de-duplicated by request signature and in-flight gated to avoid repeat calc polling / rate-limit loops.
 - [done] Derive trigger matrix now runs on: entering `Skills & Attributes` / `Review`, skill-rank changes, gameplay-effect field changes (weapons/items/armour/feats), and save actions.
 - [done] Added `429` handling with cooldown backoff (15s) plus visible debug error messaging to avoid repeated rate-limit hammering.
