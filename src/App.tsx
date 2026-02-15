@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
@@ -7,6 +7,13 @@ import { validateCharacterRecordV1 } from "./model/validate";
 import { loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
 import { fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
+import {
+  createAnimated3dProvider,
+  createMathRollProvider,
+  ModularDiceRoller,
+  type DiceRollRequest,
+  type DiceRollResult,
+} from "./ui/dice";
  
 
 const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
@@ -99,6 +106,14 @@ type CharacterSortKey =
   | "ment"
   | "weapon"
   | "armour";
+
+type DiceUiState = {
+  open: boolean;
+  rolling: boolean;
+  notation: string;
+  label: string;
+  value: number;
+};
 
 const MAX_RANK_INHERENT = 5;
 const MAX_RANK_ON_FOCUS = 5;
@@ -374,6 +389,14 @@ export default function App() {
     error?: string;
   } | null>(null);
   const [deriveManualTick, setDeriveManualTick] = useState<number>(0);
+  const [diceUi, setDiceUi] = useState<DiceUiState>({
+    open: false,
+    rolling: false,
+    notation: "",
+    label: "",
+    value: 1,
+  });
+  const [diceBusy, setDiceBusy] = useState<boolean>(false);
   const skillCalcTimer = useRef<number | null>(null);
   const deriveTimer = useRef<number | null>(null);
   const deriveInFlight = useRef<boolean>(false);
@@ -382,6 +405,45 @@ export default function App() {
   const deriveHandledManualTick = useRef<number>(0);
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
+
+  const animateDiceRoll = useCallback(
+    async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
+      const shown = plannedRolls[0] ?? 1;
+      setDiceUi({
+        open: true,
+        rolling: true,
+        notation,
+        label: _request.label ?? "Roll",
+        value: shown,
+      });
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      setDiceUi((prev) => ({ ...prev, rolling: false }));
+      await new Promise((resolve) => window.setTimeout(resolve, 260));
+      setDiceUi((prev) => ({ ...prev, open: false }));
+    },
+    []
+  );
+
+  const diceRoller = useMemo(() => {
+    const roller = new ModularDiceRoller();
+    roller.register(createMathRollProvider());
+    roller.register(createAnimated3dProvider(animateDiceRoll));
+    roller.use("css-3d");
+    return roller;
+  }, [animateDiceRoll]);
+
+  const runDiceRoll = useCallback(
+    async (request: DiceRollRequest): Promise<DiceRollResult | null> => {
+      if (diceBusy) return null;
+      try {
+        setDiceBusy(true);
+        return await diceRoller.roll(request);
+      } finally {
+        setDiceBusy(false);
+      }
+    },
+    [diceBusy, diceRoller]
+  );
 
   useEffect(() => {
     let active = true;
@@ -2131,9 +2193,15 @@ export default function App() {
     updateSheet({ ...sheet, background: text });
   };
 
-  const rollBackground = () => {
+  const rollBackground = async () => {
     if (!backgroundOptions.length) return;
-    const index = Math.floor(Math.random() * backgroundOptions.length);
+    const outcome = await runDiceRoll({
+      count: 1,
+      sides: backgroundOptions.length,
+      label: "Background",
+    });
+    if (!outcome) return;
+    const index = ((outcome.rolls[0] ?? 1) - 1) % backgroundOptions.length;
     const entry = backgroundOptions[index];
     setBackgroundPick(entry.name);
     applyBackground(entry.name);
@@ -2144,21 +2212,46 @@ export default function App() {
     updateSheet({ ...sheet, motivation: name });
   };
 
-  const rollMotivation = () => {
+  const rollMotivation = async () => {
     if (!motivationOptions.length) return;
-    const roll = () => motivationOptions[Math.floor(Math.random() * motivationOptions.length)].name;
-    const first = roll();
+    const firstResult = await runDiceRoll({
+      count: 1,
+      sides: motivationOptions.length,
+      label: "Motivation",
+    });
+    if (!firstResult) return;
+    const firstIndex = ((firstResult.rolls[0] ?? 1) - 1) % motivationOptions.length;
+    const first = motivationOptions[firstIndex].name;
     let result = first;
-    const d12 = Math.floor(Math.random() * 12) + 1;
-    if (d12 === 12) {
-      let second = roll();
-      while (second === first && motivationOptions.length > 1) {
-        second = roll();
+
+    const twiceCheck = await runDiceRoll({ count: 1, sides: 12, label: "Roll Twice Check" });
+    if (twiceCheck?.total === 12) {
+      const secondResult = await runDiceRoll({
+        count: 1,
+        sides: motivationOptions.length,
+        label: "Motivation (Second Roll)",
+      });
+      if (secondResult) {
+        let secondIndex = ((secondResult.rolls[0] ?? 1) - 1) % motivationOptions.length;
+        if (motivationOptions.length > 1 && secondIndex === firstIndex) {
+          secondIndex = (secondIndex + 1) % motivationOptions.length;
+        }
+        const second = motivationOptions[secondIndex].name;
+        result = `${first} + ${second}`;
       }
-      result = `${first} + ${second}`;
     }
+
     setMotivationPick(first);
     updateSheet({ ...sheet, motivation: result });
+  };
+
+  const rollStartingCredits = async () => {
+    const outcome = await runDiceRoll({ count: 1, sides: 12, label: "Starting Money" });
+    if (!outcome) return;
+    updateSheet({
+      ...sheet,
+      credits: outcome.total * 50 + 800,
+    });
   };
 
   const addFeat = () => {
@@ -3193,7 +3286,30 @@ export default function App() {
           </div>
         </section>
         {renderFooter()}
-        {unsavedPromptOpen ? (
+        {diceUi.open ? (
+        <div className="modal dice-modal" onClick={() => undefined}>
+          <div className="modal-card cut-corner-padded dice-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="dice-stage" aria-live="polite">
+              <div
+                className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
+                data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
+              >
+                <div className="face face-1">1</div>
+                <div className="face face-2">2</div>
+                <div className="face face-3">3</div>
+                <div className="face face-4">4</div>
+                <div className="face face-5">5</div>
+                <div className="face face-6">6</div>
+              </div>
+            </div>
+            <h2>{diceUi.label || "Roll"}</h2>
+            <p className="muted">{diceUi.notation}</p>
+            <p className="dice-result">{diceUi.rolling ? "Rolling..." : `Result: ${diceUi.value}`}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
             <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
               <div className="modal-header">
@@ -3283,15 +3399,7 @@ export default function App() {
             {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
             {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
             <div className="span-2 inline wrap">
-              <button
-                className="ghost"
-                onClick={() =>
-                  updateSheet({
-                    ...sheet,
-                    credits: (Math.floor(Math.random() * 12) + 1) * 50 + 800,
-                  })
-                }
-              >
+              <button className="ghost" onClick={() => void rollStartingCredits()} disabled={diceBusy}>
                 Generate Starting Money
               </button>
             </div>
@@ -3326,7 +3434,11 @@ export default function App() {
                 </div>
                 <div className="stack">
                   <label>&nbsp;</label>
-                  <button className="ghost" onClick={rollMotivation} disabled={rulesStatus !== "ready"}>
+                  <button
+                    className="ghost"
+                    onClick={() => void rollMotivation()}
+                    disabled={rulesStatus !== "ready" || diceBusy}
+                  >
                     Roll Motivation
                   </button>
                 </div>
@@ -3364,7 +3476,11 @@ export default function App() {
                 </div>
                 <div className="stack">
                   <label>&nbsp;</label>
-                  <button className="ghost" onClick={rollBackground} disabled={rulesStatus !== "ready"}>
+                  <button
+                    className="ghost"
+                    onClick={() => void rollBackground()}
+                    disabled={rulesStatus !== "ready" || diceBusy}
+                  >
                     Roll Background
                   </button>
                 </div>

@@ -1207,3 +1207,74 @@ button:disabled {
     transform: translateY(-18px) scale(1.02);
   }
 }
+
+.dice-modal {
+  backdrop-filter: blur(4px);
+}
+
+.dice-modal-card {
+  width: min(360px, 100%);
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.dice-stage {
+  width: 108px;
+  height: 108px;
+  perspective: 700px;
+  display: grid;
+  place-items: center;
+}
+
+.dice-cube {
+  --cube-size: 72px;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 360ms ease-out;
+}
+
+.dice-cube.rolling {
+  animation: dice-spin 700ms cubic-bezier(0.2, 0.72, 0.14, 1.02);
+}
+
+.dice-cube .face {
+  position: absolute;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(155, 189, 248, 0.72);
+  background: linear-gradient(155deg, rgba(17, 39, 79, 0.98), rgba(8, 22, 49, 0.95));
+  color: #d8e7ff;
+  font-weight: 700;
+  font-size: 1.15rem;
+  box-shadow: inset 0 0 22px rgba(122, 169, 255, 0.18);
+}
+
+.dice-cube .face-1 { transform: rotateY(0deg) translateZ(calc(var(--cube-size) / 2)); }
+.dice-cube .face-2 { transform: rotateY(90deg) translateZ(calc(var(--cube-size) / 2)); }
+.dice-cube .face-3 { transform: rotateY(180deg) translateZ(calc(var(--cube-size) / 2)); }
+.dice-cube .face-4 { transform: rotateY(-90deg) translateZ(calc(var(--cube-size) / 2)); }
+.dice-cube .face-5 { transform: rotateX(90deg) translateZ(calc(var(--cube-size) / 2)); }
+.dice-cube .face-6 { transform: rotateX(-90deg) translateZ(calc(var(--cube-size) / 2)); }
+
+.dice-cube[data-value="1"] { transform: rotateX(-12deg) rotateY(-24deg); }
+.dice-cube[data-value="2"] { transform: rotateX(-12deg) rotateY(-114deg); }
+.dice-cube[data-value="3"] { transform: rotateX(-12deg) rotateY(-204deg); }
+.dice-cube[data-value="4"] { transform: rotateX(-12deg) rotateY(66deg); }
+.dice-cube[data-value="5"] { transform: rotateX(-102deg) rotateY(-24deg); }
+.dice-cube[data-value="6"] { transform: rotateX(78deg) rotateY(-24deg); }
+
+.dice-result {
+  margin: 0;
+  font-weight: 700;
+  color: #d8e7ff;
+}
+
+@keyframes dice-spin {
+  0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  100% { transform: rotateX(720deg) rotateY(540deg) rotateZ(360deg); }
+}

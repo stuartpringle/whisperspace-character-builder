@@ -137,6 +137,7 @@ npm run dev
 - [done] Equipment summary now shows current `Credits` balance instead of total item cost.
 - [done] Adding an inventory entry now merges into quantity when an equivalent gear record already exists.
 - [done] Armour now supports carried sets via `armours[]` with a single equipped selector via `equippedArmourId`.
+- [done] Added a modular dice-roller service (`src/ui/dice.ts`) with pluggable providers and a default CSS 3D animation provider; Origin roll actions now use this contract.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
