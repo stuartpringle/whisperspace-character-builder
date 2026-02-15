@@ -141,6 +141,7 @@ npm run dev
 - [done] Armour management now uses carried-armour cards with equip actions and equipped highlighting; `Equip Armour` action is now `Add Armour`.
 - [done] Skills budget controls now group `Remaining`, editable `Total`, and an `Add` increment field/action.
 - [done] Credits controls now support amount-based `Add`/`Remove`, plus equipment acquisition modes: `Buy` (enforces credits and auto-deducts costs) or `Acquire` (no cost checks).
+- [done] Equipment add actions now show live cost previews (and projected remaining credits in `Buy` mode) for selected weapon/armour/gear entries.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 

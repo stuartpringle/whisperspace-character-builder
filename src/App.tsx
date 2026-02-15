@@ -1887,6 +1887,62 @@ export default function App() {
     );
   };
 
+  const selectedWeaponEntry = useMemo(() => {
+    if (!gearData || !weaponPickId) return null;
+    return (
+      gearData.weapons.weapons.find((weapon) => weapon.id === weaponPickId) ??
+      gearData.weapons.weapons.find((weapon) => weapon.name === weaponPickId) ??
+      null
+    );
+  }, [gearData, weaponPickId]);
+
+  const selectedArmourEntry = useMemo(() => {
+    if (!gearData || !armourPickId) return null;
+    return (
+      gearData.armour.armor.find((armor) => armor.id === armourPickId) ??
+      gearData.armour.armor.find((armor) => armor.name === armourPickId) ??
+      null
+    );
+  }, [gearData, armourPickId]);
+
+  const selectedGearEntry = useMemo(() => {
+    if (!gearData || !gearPickName) return null as null | { cost?: number; label: string };
+    if (gearPickType === "item") {
+      const entry = gearData.items.items.find((item) => item.name === gearPickName);
+      return entry ? { cost: entry.cost, label: entry.name } : null;
+    }
+    if (gearPickType === "cyberware") {
+      const entry = gearData.cyberware.cyberware.find((item) => item.name === gearPickName);
+      return entry ? { cost: entry.cost, label: entry.name } : null;
+    }
+    if (gearPickType === "narcotics") {
+      const entry = gearData.narcotics.narcotics.find((item) => item.name === gearPickName);
+      return entry ? { cost: entry.cost, label: entry.name } : null;
+    }
+    if (gearPickName.startsWith("rig:")) {
+      const name = gearPickName.replace("rig:", "");
+      const entry = gearData.hacking.rigs.find((item) => item.name === name);
+      return entry ? { cost: entry.cost, label: entry.name } : null;
+    }
+    if (gearPickName.startsWith("software:")) {
+      const name = gearPickName.replace("software:", "");
+      const entry = gearData.hacking.software.find((item) => item.name === name);
+      return entry ? { cost: entry.cost, label: entry.name } : null;
+    }
+    return null;
+  }, [gearData, gearPickName, gearPickType]);
+
+  const purchasePreview = useCallback(
+    (costValue: number | undefined) => {
+      const cost = normalizeCost(costValue);
+      const credits = sheet.credits ?? 0;
+      const remaining = Math.max(0, credits - cost);
+      const affordable = credits >= cost;
+      return { cost, credits, remaining, affordable };
+    },
+    [sheet.credits]
+  );
+
   const addSelectedGear = () => {
     if (!gearData || !gearPickName) return;
     if (gearPickType === "item") {
@@ -3977,6 +4033,21 @@ export default function App() {
                         <button className="ghost" onClick={addSelectedWeapon}>
                           Add Weapon
                         </button>
+                        {selectedWeaponEntry ? (() => {
+                          const preview = purchasePreview(selectedWeaponEntry.cost);
+                          return (
+                            <p
+                              className={`muted add-preview ${
+                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
+                              }`}
+                            >
+                              Cost: {preview.cost}c
+                              {gearAcquisitionMode === "buy"
+                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
+                                : ""}
+                            </p>
+                          );
+                        })() : null}
                       </div>
                     </div>
                     {filteredWeaponRows.length === 0 ? (
@@ -4347,6 +4418,21 @@ export default function App() {
                         <button className="ghost" onClick={equipArmour}>
                           Add Armour
                         </button>
+                        {selectedArmourEntry ? (() => {
+                          const preview = purchasePreview(selectedArmourEntry.cost);
+                          return (
+                            <p
+                              className={`muted add-preview ${
+                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
+                              }`}
+                            >
+                              Cost: {preview.cost}c
+                              {gearAcquisitionMode === "buy"
+                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
+                                : ""}
+                            </p>
+                          );
+                        })() : null}
                       </div>
                     </div>
                     {(armourCollection ?? []).length ? (
@@ -4650,6 +4736,21 @@ export default function App() {
                         <button className="ghost" onClick={addSelectedGear}>
                           Add Gear
                         </button>
+                        {selectedGearEntry ? (() => {
+                          const preview = purchasePreview(selectedGearEntry.cost);
+                          return (
+                            <p
+                              className={`muted add-preview ${
+                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
+                              }`}
+                            >
+                              Cost: {preview.cost}c
+                              {gearAcquisitionMode === "buy"
+                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
+                                : ""}
+                            </p>
+                          );
+                        })() : null}
                       </div>
                     </div>
                     <div className="gear-tools">

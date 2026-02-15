@@ -1319,3 +1319,9 @@ button:disabled {
   border-color: rgba(140, 178, 246, 0.92);
   box-shadow: 0 0 0 2px rgba(91, 150, 244, 0.3);
 }
+
+.add-preview {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
