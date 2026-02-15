@@ -1278,3 +1278,44 @@ button:disabled {
   0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
   100% { transform: rotateX(720deg) rotateY(540deg) rotateZ(360deg); }
 }
+
+.skill-points-panel {
+  border: 1px solid rgba(96, 124, 176, 0.34);
+  background: rgba(10, 20, 39, 0.62);
+  border-radius: 14px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.gear-economy {
+  align-items: center;
+}
+
+.gear-mode-toggle {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.gear-credit-adjust {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.gear-credit-adjust input {
+  width: 120px;
+}
+
+.armour-row {
+  grid-template-columns: 1.5fr 0.7fr 0.7fr 0.8fr auto;
+}
+
+.armour-summary-card {
+  cursor: pointer;
+}
+
+.armour-summary-card.equipped {
+  border-color: rgba(140, 178, 246, 0.92);
+  box-shadow: 0 0 0 2px rgba(91, 150, 244, 0.3);
+}

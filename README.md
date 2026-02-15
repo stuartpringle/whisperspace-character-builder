@@ -138,6 +138,9 @@ npm run dev
 - [done] Adding an inventory entry now merges into quantity when an equivalent gear record already exists.
 - [done] Armour now supports carried sets via `armours[]` with a single equipped selector via `equippedArmourId`.
 - [done] Added a modular dice-roller service (`src/ui/dice.ts`) with pluggable providers and a default CSS 3D animation provider; Origin roll actions now use this contract.
+- [done] Armour management now uses carried-armour cards with equip actions and equipped highlighting; `Equip Armour` action is now `Add Armour`.
+- [done] Skills budget controls now group `Remaining`, editable `Total`, and an `Add` increment field/action.
+- [done] Credits controls now support amount-based `Add`/`Remove`, plus equipment acquisition modes: `Buy` (enforces credits and auto-deducts costs) or `Acquire` (no cost checks).
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 

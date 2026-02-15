@@ -107,6 +107,8 @@ type CharacterSortKey =
   | "weapon"
   | "armour";
 
+type GearAcquisitionMode = "buy" | "acquire";
+
 type DiceUiState = {
   open: boolean;
   rolling: boolean;
@@ -267,6 +269,8 @@ export default function App() {
   const [rulesCacheNote, setRulesCacheNote] = useState<string>("");
   const [backgroundPick, setBackgroundPick] = useState<string>("");
   const [motivationPick, setMotivationPick] = useState<string>("");
+  const [skillPointAddAmount, setSkillPointAddAmount] = useState<number>(0);
+  const [creditsAdjustAmount, setCreditsAdjustAmount] = useState<number>(0);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authError, setAuthError] = useState<string>("");
   const [authLoading, setAuthLoading] = useState<boolean>(false);
@@ -329,6 +333,8 @@ export default function App() {
   const [gearStatus, setGearStatus] = useState<string>("idle");
   const [gearError, setGearError] = useState<string>("");
   const [gearPickType, setGearPickType] = useState<GearType>("item");
+  const [gearAcquisitionMode, setGearAcquisitionMode] = useState<GearAcquisitionMode>("acquire");
+  const [gearActionError, setGearActionError] = useState<string>("");
   const [gearPickName, setGearPickName] = useState<string>("");
   const [gearSearch, setGearSearch] = useState<string>("");
   const [customGearType, setCustomGearType] = useState<GearType>("item");
@@ -1707,7 +1713,45 @@ export default function App() {
     setSkillGroupsCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const addInventoryItem = (item: CharacterSheet["inventory"][number]) => {
+  const normalizeCost = (value: number | undefined) => Math.max(0, Number(value) || 0);
+
+  const canAffordCost = (cost: number) => (sheet.credits ?? 0) >= cost;
+
+  const ensurePurchasable = (cost: number, label: string) => {
+    if (gearAcquisitionMode !== "buy") return true;
+    if (cost <= 0) return true;
+    if (canAffordCost(cost)) return true;
+    setGearActionError(`Not enough credits to buy ${label}.`);
+    return false;
+  };
+
+  const spendCreditsForPurchase = (cost: number) =>
+    gearAcquisitionMode === "buy" ? Math.max(0, (sheet.credits ?? 0) - cost) : (sheet.credits ?? 0);
+
+  const addSkillPointTotal = () => {
+    const delta = Math.max(0, Number(skillPointAddAmount) || 0);
+    if (!delta) return;
+    updateSheet({ ...sheet, skillPoints: Math.max(0, (sheet.skillPoints ?? 0) + delta) });
+    setSkillPointAddAmount(0);
+  };
+
+  const adjustCredits = (direction: "add" | "remove") => {
+    const delta = Math.max(0, Number(creditsAdjustAmount) || 0);
+    if (!delta) return;
+    const next =
+      direction === "add"
+        ? (sheet.credits ?? 0) + delta
+        : Math.max(0, (sheet.credits ?? 0) - delta);
+    updateSheet({ ...sheet, credits: next });
+    setCreditsAdjustAmount(0);
+  };
+
+  const addInventoryItem = (
+    item: CharacterSheet["inventory"][number],
+    options?: { purchaseCost?: number }
+  ): boolean => {
+    const purchaseCost = normalizeCost(options?.purchaseCost);
+    if (!ensurePurchasable(purchaseCost, item.name || "gear")) return false;
     const current = [...(sheet.inventory ?? [])];
     const signature = (entry: CharacterSheet["inventory"][number]) => {
       const clone: Record<string, unknown> = { ...entry };
@@ -1717,16 +1761,23 @@ export default function App() {
     };
     const targetSignature = signature(item);
     const matchIndex = current.findIndex((entry) => signature(entry) === targetSignature);
+    const nextInventory = [...current];
     if (matchIndex >= 0) {
-      const existing = current[matchIndex];
-      current[matchIndex] = {
+      const existing = nextInventory[matchIndex];
+      nextInventory[matchIndex] = {
         ...existing,
         quantity: (existing.quantity ?? 1) + (item.quantity ?? 1),
       } as CharacterSheet["inventory"][number];
-      updateSheet({ ...sheet, inventory: current });
-      return;
+    } else {
+      nextInventory.push(item);
     }
-    updateSheet({ ...sheet, inventory: [...current, item] });
+    setGearActionError("");
+    updateSheet({
+      ...sheet,
+      inventory: nextInventory,
+      credits: spendCreditsForPurchase(purchaseCost),
+    });
+    return true;
   };
 
   const inventoryRowKey = (item: CharacterSheet["inventory"][number], idx: number) =>
@@ -1850,7 +1901,7 @@ export default function App() {
         bulk: entry.bulk,
         effect: entry.effect,
         cost: entry.cost,
-      });
+      }, { purchaseCost: entry.cost });
       return;
     }
     if (gearPickType === "cyberware") {
@@ -1868,7 +1919,7 @@ export default function App() {
         bulk: entry.bulk,
         effect: entry.effect,
         cost: entry.cost,
-      });
+      }, { purchaseCost: entry.cost });
       return;
     }
     if (gearPickType === "narcotics") {
@@ -1885,7 +1936,7 @@ export default function App() {
         bulk: entry.bulk,
         effect: entry.effect,
         cost: entry.cost,
-      });
+      }, { purchaseCost: entry.cost });
       return;
     }
     if (gearPickType === "hacker_gear") {
@@ -1898,11 +1949,11 @@ export default function App() {
           type: "hacker_gear",
           name: entry.name,
           quantity: 1,
-        systemTierAccess: entry.systemTierAccess,
-        maxSoftwareTier: entry.maxSoftwareTier,
-        bulk: entry.bulk,
-        cost: entry.cost,
-      });
+          systemTierAccess: entry.systemTierAccess,
+          maxSoftwareTier: entry.maxSoftwareTier,
+          bulk: entry.bulk,
+          cost: entry.cost,
+        }, { purchaseCost: entry.cost });
       return;
     }
       if (gearPickName.startsWith("software:")) {
@@ -1913,16 +1964,17 @@ export default function App() {
           id: crypto.randomUUID(),
           type: "hacker_gear",
           name: entry.name,
-        quantity: 1,
-        tier: entry.tier,
-        notes: entry.notes,
-        cost: entry.cost,
-      });
+          quantity: 1,
+          tier: entry.tier,
+          notes: entry.notes,
+          cost: entry.cost,
+        }, { purchaseCost: entry.cost });
       }
     }
   };
 
   const addCustomGear = () => {
+    setGearActionError("");
     if (customGearType === "item") {
       addInventoryItem({
         id: crypto.randomUUID(),
@@ -1987,6 +2039,9 @@ export default function App() {
       gearData.weapons.weapons.find((weapon) => weapon.id === weaponPickId) ??
       gearData.weapons.weapons.find((weapon) => weapon.name === weaponPickId);
     if (!entry) return;
+    const purchaseCost = normalizeCost(entry.cost);
+    if (!ensurePurchasable(purchaseCost, entry.name)) return;
+    setGearActionError("");
     updateSheet({
       ...sheet,
       weapons: [
@@ -2005,6 +2060,7 @@ export default function App() {
           keywords: entry.keywords,
         },
       ],
+      credits: spendCreditsForPurchase(purchaseCost),
     });
   };
 
@@ -2158,6 +2214,8 @@ export default function App() {
       gearData.armour.armor.find((armor) => armor.id === armourPickId) ??
       gearData.armour.armor.find((armor) => armor.name === armourPickId);
     if (!entry) return;
+    const purchaseCost = normalizeCost(entry.cost);
+    if (!ensurePurchasable(purchaseCost, entry.name)) return;
     const id = entry.id ?? crypto.randomUUID();
     const candidate = {
       id,
@@ -2178,11 +2236,13 @@ export default function App() {
       ? current.map((armor) => (armor.id === exists.id ? { ...armor, ...candidate } : armor))
       : [...current, candidate];
     const equipped = armours.find((armor) => armor.id === (exists?.id ?? id)) ?? armours[0];
+    setGearActionError("");
     updateSheet({
       ...sheet,
       armours,
       equippedArmourId: equipped?.id,
       armour: equipped,
+      credits: spendCreditsForPurchase(purchaseCost),
     });
   };
 
@@ -3395,6 +3455,21 @@ export default function App() {
                   })
                 }
               />
+              <div className="inline">
+                <input
+                  type="number"
+                  min={0}
+                  value={creditsAdjustAmount}
+                  onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
+                  placeholder="Amount"
+                />
+                <button className="ghost" onClick={() => adjustCredits("add")}>
+                  Add
+                </button>
+                <button className="ghost" onClick={() => adjustCredits("remove")}>
+                  Remove
+                </button>
+              </div>
             </div>
             {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
             {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
@@ -3565,42 +3640,57 @@ export default function App() {
             {skillsStatus === "error" ? <p className="error">{skillsError}</p> : null}
             {skillsStatus === "ready" && skillsData ? (
               <>
-                <div className="grid three">
-                  <div>
-                    <label>Learning Focus</label>
-                    <select
-                      value={learningFocus}
-                      onChange={(e) =>
-                        updateSheet({
-                          ...sheet,
-                          learningFocus: e.target.value as LearningFocus,
-                        })
-                      }
-                    >
-                      <option value="combat">Combat</option>
-                      <option value="education">Education</option>
-                      <option value="vehicles">Vehicles</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label>Skill Points</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={sheet.skillPoints ?? 0}
-                      onChange={(e) =>
-                        updateSheet({
-                          ...sheet,
-                          skillPoints: Math.max(0, Number(e.target.value) || 0),
-                        })
-                      }
-                    />
+                <div className="skill-points-panel">
+                  <div className="grid three">
+                    <div>
+                      <label>Learning Focus</label>
+                      <select
+                        value={learningFocus}
+                        onChange={(e) =>
+                          updateSheet({
+                            ...sheet,
+                            learningFocus: e.target.value as LearningFocus,
+                          })
+                        }
+                      >
+                        <option value="combat">Combat</option>
+                        <option value="education">Education</option>
+                        <option value="vehicles">Vehicles</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Total</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={sheet.skillPoints ?? 0}
+                        onChange={(e) =>
+                          updateSheet({
+                            ...sheet,
+                            skillPoints: Math.max(0, Number(e.target.value) || 0),
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label>Add</label>
+                      <div className="inline">
+                        <input
+                          type="number"
+                          min={0}
+                          value={skillPointAddAmount}
+                          onChange={(e) => setSkillPointAddAmount(Math.max(0, Number(e.target.value) || 0))}
+                        />
+                        <button className="ghost" onClick={addSkillPointTotal}>Add</button>
+                      </div>
+                    </div>
                   </div>
                   <div className="skill-budget">
                     <label>Budget</label>
                     <div className="budget-line">
+                      <span><strong>Remaining: {skillValidation?.remaining ?? "-"}</strong></span>
+                      <span>Total: {sheet.skillPoints ?? 0}</span>
                       <span>Spent: {skillValidation?.spent ?? "-"}</span>
-                      <span>Remaining: {skillValidation?.remaining ?? "-"}</span>
                     </div>
                     {skillValidation ? (
                       skillValidation.valid ? (
@@ -3812,10 +3902,46 @@ export default function App() {
             {gearStatus === "error" ? <p className="error">{gearError}</p> : null}
             {gearStatus === "ready" && gearData ? (
               <>
-                <div className="gear-summary">
+                <div className="gear-summary gear-economy">
                   <span>Total Bulk: {gearTotals.bulk}</span>
                   <span>Credits: {sheet.credits ?? 0}</span>
+                  <div className="gear-mode-toggle" role="group" aria-label="Gear mode">
+                    <button
+                      className={gearAcquisitionMode === "buy" ? "primary" : "ghost"}
+                      onClick={() => {
+                        setGearAcquisitionMode("buy");
+                        setGearActionError("");
+                      }}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      className={gearAcquisitionMode === "acquire" ? "primary" : "ghost"}
+                      onClick={() => {
+                        setGearAcquisitionMode("acquire");
+                        setGearActionError("");
+                      }}
+                    >
+                      Acquire
+                    </button>
+                  </div>
+                  <div className="gear-credit-adjust">
+                    <input
+                      type="number"
+                      min={0}
+                      value={creditsAdjustAmount}
+                      onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
+                      placeholder="Amount"
+                    />
+                    <button className="ghost" onClick={() => adjustCredits("add")}>
+                      Add
+                    </button>
+                    <button className="ghost" onClick={() => adjustCredits("remove")}>
+                      Remove
+                    </button>
+                  </div>
                 </div>
+                {gearActionError ? <p className="error">{gearActionError}</p> : null}
 
                 <div className="gear-arsenal">
                   <div className="gear-section stack">
@@ -4219,27 +4345,62 @@ export default function App() {
                       <div className="gear-actions">
                         <label>&nbsp;</label>
                         <button className="ghost" onClick={equipArmour}>
-                          Equip Armour
+                          Add Armour
                         </button>
                       </div>
                     </div>
                     {(armourCollection ?? []).length ? (
                       <div className="stack">
                         <label>Carried Armour</label>
-                        <div className="inline wrap">
-                          {(armourCollection ?? []).map((armor) => (
-                            <div key={armor.id ?? armor.name} className="inline">
-                              <button
-                                className={sheet.equippedArmourId === armor.id ? "primary" : "ghost"}
+                        <div className="gear-list">
+                          <div className="gear-row gear-row-header armour-row">
+                            <span>Name</span>
+                            <span>Protection</span>
+                            <span>Bulk</span>
+                            <span>Cost</span>
+                            <span>Actions</span>
+                          </div>
+                          {(armourCollection ?? []).map((armor) => {
+                            const isEquipped =
+                              sheet.equippedArmourId === armor.id ||
+                              (!sheet.equippedArmourId && activeArmour?.id === armor.id);
+                            return (
+                              <div
+                                key={armor.id ?? armor.name}
+                                className={`gear-card armour-summary-card cut-corner-padded ${
+                                  isEquipped ? "equipped" : ""
+                                }`}
                                 onClick={() => setEquippedArmourById(armor.id)}
                               >
-                                {armor.name || "Armour"}
-                              </button>
-                              <button className="ghost danger" onClick={() => removeArmourById(armor.id)}>
-                                Remove
-                              </button>
-                            </div>
-                          ))}
+                                <div className="gear-row armour-row">
+                                  <span>{armor.name || "Armour"}</span>
+                                  <span>{armor.protection ?? 0}</span>
+                                  <span>{armor.bulk ?? 0}</span>
+                                  <span>{armor.cost ?? 0}</span>
+                                  <div className="row-controls">
+                                    <button
+                                      className={isEquipped ? "primary" : "ghost"}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setEquippedArmourById(armor.id);
+                                      }}
+                                    >
+                                      {isEquipped ? "Equipped" : "Equip"}
+                                    </button>
+                                    <button
+                                      className="ghost danger"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        removeArmourById(armor.id);
+                                      }}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : null}
