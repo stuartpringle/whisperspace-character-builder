@@ -348,23 +348,16 @@ export default function App() {
   const [weaponDragOverIndex, setWeaponDragOverIndex] = useState<number | null>(null);
   const [inventoryExpanded, setInventoryExpanded] = useState<Record<string, boolean>>({});
   const [weaponExpanded, setWeaponExpanded] = useState<Record<string, boolean>>({});
+  const [armourExpanded, setArmourExpanded] = useState<Record<string, boolean>>({});
   const [inventoryGameplayDrafts, setInventoryGameplayDrafts] = useState<
     Record<string, { open: boolean; category: GameplayCategory; target: string; amount: number }>
   >({});
   const [weaponGameplayDrafts, setWeaponGameplayDrafts] = useState<
     Record<string, { open: boolean; category: GameplayCategory; target: string; amount: number }>
   >({});
-  const [armourGameplayDraft, setArmourGameplayDraft] = useState<{
-    open: boolean;
-    category: GameplayCategory;
-    target: string;
-    amount: number;
-  }>({
-    open: false,
-    category: "attribute",
-    target: "phys",
-    amount: 0,
-  });
+  const [armourGameplayDrafts, setArmourGameplayDrafts] = useState<
+    Record<string, { open: boolean; category: GameplayCategory; target: string; amount: number }>
+  >({});
   const [skillValidation, setSkillValidation] = useState<{
     valid: boolean;
     errors: string[];
@@ -1613,7 +1606,10 @@ export default function App() {
 
   const learningFocus = (sheet.learningFocus ?? "combat") as LearningFocus;
   const armourCollection = useMemo(() => {
-    const existing = sheet.armours ?? [];
+    const existing = (sheet.armours ?? []).map((entry, index) => ({
+      ...entry,
+      id: entry.id ?? `armour-${index}`,
+    }));
     if (existing.length) return existing;
     if (sheet.armour) {
       return [{ ...sheet.armour, id: sheet.armour.id ?? "equipped" }];
@@ -2197,13 +2193,12 @@ export default function App() {
     });
   };
 
-  const updateActiveArmour = (next: Partial<NonNullable<CharacterSheet["armour"]>>) => {
-    if (!activeArmour) return;
-    const targetId = activeArmour.id;
+  const updateArmourById = (id: string | undefined, next: Partial<NonNullable<CharacterSheet["armour"]>>) => {
+    if (!id) return;
     const armours = (armourCollection ?? []).map((entry) =>
-      entry.id === targetId ? ({ ...entry, ...next }) : entry
+      entry.id === id ? ({ ...entry, ...next }) : entry
     );
-    const equipped = armours.find((entry) => entry.id === (sheet.equippedArmourId ?? targetId));
+    const equipped = armours.find((entry) => entry.id === (sheet.equippedArmourId ?? id));
     updateSheet({
       ...sheet,
       armours,
@@ -2225,8 +2220,8 @@ export default function App() {
     });
   };
 
-  const setArmourGameplayEffects = (effects: string[]) => {
-    updateActiveArmour({ gameplayEffects: effects });
+  const setArmourGameplayEffectsById = (id: string | undefined, effects: string[]) => {
+    updateArmourById(id, { gameplayEffects: effects });
   };
 
   const reorderWeapons = (from: number, to: number) => {
@@ -3147,12 +3142,15 @@ export default function App() {
       });
   }, [sheet.weapons, weaponSearch, skillLabelById]);
 
-  const armourMatchesSearch = useMemo(() => {
-    if (!activeArmour) return false;
+  const filteredArmourRows = useMemo(() => {
     const q = armourSearch.trim().toLowerCase();
-    if (!q) return true;
-    return (activeArmour.name ?? "").toLowerCase().includes(q);
-  }, [activeArmour, armourSearch]);
+    return armourCollection
+      .map((armor, index) => ({ armor, index, key: `${armor.id ?? "armour"}-${index}` }))
+      .filter(({ armor }) => {
+        if (!q) return true;
+        return `${armor.name ?? ""}`.toLowerCase().includes(q);
+      });
+  }, [armourCollection, armourSearch]);
 
   const categoryTargetOptions = (category: GameplayCategory) => {
     if (category === "attribute") return gameplayTargets.attribute;
@@ -4030,24 +4028,18 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button className="ghost" onClick={addSelectedWeapon}>
-                          Add Weapon
+                        <button
+                          className="ghost"
+                          onClick={addSelectedWeapon}
+                          disabled={
+                            gearAcquisitionMode === "buy" &&
+                            !purchasePreview(selectedWeaponEntry?.cost).affordable
+                          }
+                        >
+                          {gearAcquisitionMode === "buy"
+                            ? `Buy Weapon (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
+                            : "Add Weapon"}
                         </button>
-                        {selectedWeaponEntry ? (() => {
-                          const preview = purchasePreview(selectedWeaponEntry.cost);
-                          return (
-                            <p
-                              className={`muted add-preview ${
-                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
-                              }`}
-                            >
-                              Cost: {preview.cost}c
-                              {gearAcquisitionMode === "buy"
-                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
-                                : ""}
-                            </p>
-                          );
-                        })() : null}
                       </div>
                     </div>
                     {filteredWeaponRows.length === 0 ? (
@@ -4415,289 +4407,281 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button className="ghost" onClick={equipArmour}>
-                          Add Armour
+                        <button
+                          className="ghost"
+                          onClick={equipArmour}
+                          disabled={
+                            gearAcquisitionMode === "buy" &&
+                            !purchasePreview(selectedArmourEntry?.cost).affordable
+                          }
+                        >
+                          {gearAcquisitionMode === "buy"
+                            ? `Buy Armour (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
+                            : "Add Armour"}
                         </button>
-                        {selectedArmourEntry ? (() => {
-                          const preview = purchasePreview(selectedArmourEntry.cost);
-                          return (
-                            <p
-                              className={`muted add-preview ${
-                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
-                              }`}
-                            >
-                              Cost: {preview.cost}c
-                              {gearAcquisitionMode === "buy"
-                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
-                                : ""}
-                            </p>
-                          );
-                        })() : null}
                       </div>
                     </div>
-                    {(armourCollection ?? []).length ? (
-                      <div className="stack">
-                        <label>Carried Armour</label>
-                        <div className="gear-list">
-                          <div className="gear-row gear-row-header armour-row">
-                            <span>Name</span>
-                            <span>Protection</span>
-                            <span>Bulk</span>
-                            <span>Cost</span>
-                            <span>Actions</span>
-                          </div>
-                          {(armourCollection ?? []).map((armor) => {
-                            const isEquipped =
-                              sheet.equippedArmourId === armor.id ||
-                              (!sheet.equippedArmourId && activeArmour?.id === armor.id);
-                            return (
-                              <div
-                                key={armor.id ?? armor.name}
-                                className={`gear-card armour-summary-card cut-corner-padded ${
-                                  isEquipped ? "equipped" : ""
-                                }`}
-                                onClick={() => setEquippedArmourById(armor.id)}
-                              >
-                                <div className="gear-row armour-row">
-                                  <span>{armor.name || "Armour"}</span>
-                                  <span>{armor.protection ?? 0}</span>
-                                  <span>{armor.bulk ?? 0}</span>
-                                  <span>{armor.cost ?? 0}</span>
-                                  <div className="row-controls">
+                    {filteredArmourRows.length === 0 ? (
+                      <p className="muted">
+                        {(armourCollection ?? []).length === 0
+                          ? "No armour equipped."
+                          : "No armour matches your search."}
+                      </p>
+                    ) : (
+                      <div className="gear-list">
+                        <div className="gear-row gear-row-header armour-row">
+                          <span>Name</span>
+                          <span>Protection</span>
+                          <span>Bulk</span>
+                          <span>Cost</span>
+                          <span>Actions</span>
+                        </div>
+                        {filteredArmourRows.map(({ armor, key }) => {
+                          const expanded = Boolean(armourExpanded[key]);
+                          const isEquipped =
+                            sheet.equippedArmourId === armor.id ||
+                            (!sheet.equippedArmourId && activeArmour?.id === armor.id);
+                          const draft = armourGameplayDrafts[key] ?? defaultDraft(false);
+                          return (
+                            <div
+                              key={key}
+                              className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}${
+                                isEquipped ? " equipped" : ""
+                              }`}
+                              onClick={() =>
+                                setArmourExpanded((prev) => ({ ...prev, [key]: !expanded }))
+                              }
+                            >
+                              <div className="gear-row armour-row">
+                                <span>{armor.name || "Armour"}</span>
+                                <span>{armor.protection ?? 0}</span>
+                                <span>{armor.bulk ?? 0}</span>
+                                <span>{armor.cost ?? 0}</span>
+                                <div className="row-controls" data-no-expand="true">
+                                  <button
+                                    className={`${isEquipped ? "primary" : "ghost"} armour-action-btn`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setEquippedArmourById(armor.id);
+                                    }}
+                                  >
+                                    {isEquipped ? "Equipped" : "Equip"}
+                                  </button>
+                                  <button
+                                    className="ghost danger armour-action-btn"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      removeArmourById(armor.id);
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                              {expanded ? (
+                                <div className="gear-expand" onClick={(event) => event.stopPropagation()}>
+                                  <div className="grid three">
+                                    <div>
+                                      <label>Name</label>
+                                      <input
+                                        value={armor.name ?? ""}
+                                        onChange={(e) => updateArmourById(armor.id, { name: e.target.value })}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Protection</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={armor.protection ?? 0}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, {
+                                            protection: Number(e.target.value) || 0,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Bulk</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={armor.bulk ?? 0}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, { bulk: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Durability</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={armor.durability?.current ?? 0}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, {
+                                            durability: {
+                                              current: Number(e.target.value) || 0,
+                                              max: armor.durability?.max ?? 0,
+                                            },
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Durability (max)</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={armor.durability?.max ?? 0}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, {
+                                            durability: {
+                                              current: armor.durability?.current ?? 0,
+                                              max: Number(e.target.value) || 0,
+                                            },
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Cost</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={armor.cost ?? 0}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, { cost: Number(e.target.value) || 0 })
+                                        }
+                                      />
+                                    </div>
+                                    <div>
+                                      <label>Req</label>
+                                      <input
+                                        value={armor.req ?? ""}
+                                        onChange={(e) => updateArmourById(armor.id, { req: e.target.value })}
+                                      />
+                                    </div>
+                                    <div className="span-2">
+                                      <label>Special</label>
+                                      <textarea
+                                        value={armor.special ?? ""}
+                                        onChange={(e) =>
+                                          updateArmourById(armor.id, { special: e.target.value })
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="gameplay-block">
+                                    {renderGameplayTags(armor.gameplayEffects, (effectIndex) => {
+                                      const next = [...(armor.gameplayEffects ?? [])];
+                                      next.splice(effectIndex, 1);
+                                      setArmourGameplayEffectsById(armor.id, next);
+                                    })}
+                                    {draft.open ? (
+                                      <div className="gameplay-editor">
+                                        <select
+                                          value={draft.category}
+                                          onChange={(e) => {
+                                            const category = e.target.value as GameplayCategory;
+                                            const target = categoryTargetOptions(category)[0]?.key ?? "";
+                                            setArmourGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, category, target },
+                                            }));
+                                          }}
+                                        >
+                                          <option value="attribute">Attribute</option>
+                                          <option value="inherent_skill">Inherent Skill</option>
+                                          <option value="learning_focus_skill">Learning Focus Skill</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <select
+                                          value={draft.target}
+                                          onChange={(e) =>
+                                            setArmourGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, target: e.target.value },
+                                            }))
+                                          }
+                                        >
+                                          {categoryTargetOptions(draft.category).map((opt) => (
+                                            <option key={opt.key} value={opt.key}>
+                                              {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <div className="skill-rank-controls">
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setArmourGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.max(-5, draft.amount - 1) },
+                                              }))
+                                            }
+                                          >
+                                            -
+                                          </button>
+                                          <input type="number" min={-5} max={5} value={draft.amount} readOnly />
+                                          <button
+                                            className="ghost"
+                                            onClick={() =>
+                                              setArmourGameplayDrafts((prev) => ({
+                                                ...prev,
+                                                [key]: { ...draft, amount: Math.min(5, draft.amount + 1) },
+                                              }))
+                                            }
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                        <button
+                                          className="ghost"
+                                          onClick={() => {
+                                            setArmourGameplayEffectsById(armor.id, [
+                                              ...(armor.gameplayEffects ?? []),
+                                              toGameplayEffect(draft.target, draft.amount),
+                                            ]);
+                                            setArmourGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }));
+                                          }}
+                                        >
+                                          Add
+                                        </button>
+                                        <button
+                                          className="ghost"
+                                          onClick={() =>
+                                            setArmourGameplayDrafts((prev) => ({
+                                              ...prev,
+                                              [key]: { ...draft, open: false, amount: 0 },
+                                            }))
+                                          }
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : null}
                                     <button
-                                      className={isEquipped ? "primary" : "ghost"}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setEquippedArmourById(armor.id);
-                                      }}
+                                      className="ghost"
+                                      onClick={() =>
+                                        setArmourGameplayDrafts((prev) => ({
+                                          ...prev,
+                                          [key]: defaultDraft(true),
+                                        }))
+                                      }
                                     >
-                                      {isEquipped ? "Equipped" : "Equip"}
-                                    </button>
-                                    <button
-                                      className="ghost danger"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        removeArmourById(armor.id);
-                                      }}
-                                    >
-                                      Remove
+                                      Add Gameplay Effect
                                     </button>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                    {activeArmour && armourMatchesSearch ? (
-                      <div className="gear-card expanded cut-corner-padded">
-                        <div className="gear-header">
-                          <div>
-                            <strong>{activeArmour.name || "Armour"}</strong>
-                            <span className="muted">Protection {activeArmour.protection ?? 0}</span>
-                          </div>
-                          <button
-                            className="ghost danger"
-                            onClick={() => removeArmourById(activeArmour?.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="grid three">
-                          <div>
-                            <label>Name</label>
-                            <input
-                              value={activeArmour.name ?? ""}
-                              onChange={(e) =>
-                                updateActiveArmour({ name: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Protection</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={activeArmour.protection ?? 0}
-                              onChange={(e) =>
-                                updateActiveArmour({ protection: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Bulk</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={activeArmour.bulk ?? 0}
-                              onChange={(e) =>
-                                updateActiveArmour({ bulk: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Durability</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={activeArmour.durability?.current ?? 0}
-                              onChange={(e) =>
-                                updateActiveArmour({
-                                  durability: {
-                                    current: Number(e.target.value) || 0,
-                                    max: activeArmour.durability?.max ?? 0,
-                                  },
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Durability (max)</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={activeArmour.durability?.max ?? 0}
-                              onChange={(e) =>
-                                updateActiveArmour({
-                                  durability: {
-                                    current: activeArmour.durability?.current ?? 0,
-                                    max: Number(e.target.value) || 0,
-                                  },
-                                })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Cost</label>
-                            <input
-                              type="number"
-                              min={0}
-                              value={activeArmour.cost ?? 0}
-                              onChange={(e) =>
-                                updateActiveArmour({ cost: Number(e.target.value) || 0 })
-                              }
-                            />
-                          </div>
-                          <div>
-                            <label>Req</label>
-                            <input
-                              value={activeArmour.req ?? ""}
-                              onChange={(e) =>
-                                updateActiveArmour({ req: e.target.value })
-                              }
-                            />
-                          </div>
-                          <div className="span-2">
-                            <label>Special</label>
-                            <textarea
-                              value={activeArmour.special ?? ""}
-                              onChange={(e) =>
-                                updateActiveArmour({ special: e.target.value })
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="gameplay-block">
-                          {renderGameplayTags(activeArmour.gameplayEffects, (effectIndex) => {
-                            const next = [...(activeArmour.gameplayEffects ?? [])];
-                            next.splice(effectIndex, 1);
-                            setArmourGameplayEffects(next);
-                          })}
-                          {armourGameplayDraft.open ? (
-                            <div className="gameplay-editor">
-                              <select
-                                value={armourGameplayDraft.category}
-                                onChange={(e) => {
-                                  const category = e.target.value as GameplayCategory;
-                                  const target = categoryTargetOptions(category)[0]?.key ?? "";
-                                  setArmourGameplayDraft((prev) => ({ ...prev, category, target }));
-                                }}
-                              >
-                                <option value="attribute">Attribute</option>
-                                <option value="inherent_skill">Inherent Skill</option>
-                                <option value="learning_focus_skill">Learning Focus Skill</option>
-                                <option value="other">Other</option>
-                              </select>
-                              <select
-                                value={armourGameplayDraft.target}
-                                onChange={(e) =>
-                                  setArmourGameplayDraft((prev) => ({ ...prev, target: e.target.value }))
-                                }
-                              >
-                                {categoryTargetOptions(armourGameplayDraft.category).map((opt) => (
-                                  <option key={opt.key} value={opt.key}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="skill-rank-controls">
-                                <button
-                                  className="ghost"
-                                  onClick={() =>
-                                    setArmourGameplayDraft((prev) => ({
-                                      ...prev,
-                                      amount: Math.max(-5, prev.amount - 1),
-                                    }))
-                                  }
-                                >
-                                  -
-                                </button>
-                                <input type="number" min={-5} max={5} value={armourGameplayDraft.amount} readOnly />
-                                <button
-                                  className="ghost"
-                                  onClick={() =>
-                                    setArmourGameplayDraft((prev) => ({
-                                      ...prev,
-                                      amount: Math.min(5, prev.amount + 1),
-                                    }))
-                                  }
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <button
-                                className="ghost"
-                                onClick={() => {
-                                  setArmourGameplayEffects([
-                                    ...(activeArmour.gameplayEffects ?? []),
-                                    toGameplayEffect(armourGameplayDraft.target, armourGameplayDraft.amount),
-                                  ]);
-                                  setArmourGameplayDraft((prev) => ({
-                                    ...prev,
-                                    open: false,
-                                    amount: 0,
-                                  }));
-                                }}
-                              >
-                                Add
-                              </button>
-                              <button
-                                className="ghost"
-                                onClick={() =>
-                                  setArmourGameplayDraft((prev) => ({
-                                    ...prev,
-                                    open: false,
-                                    amount: 0,
-                                  }))
-                                }
-                              >
-                                Cancel
-                              </button>
+                              ) : null}
                             </div>
-                          ) : null}
-                          <button
-                            className="ghost"
-                            onClick={() => setArmourGameplayDraft(defaultDraft(true))}
-                          >
-                            Add Gameplay Effect
-                          </button>
-                        </div>
+                          );
+                        })}
                       </div>
-                    ) : (
-                      <p className="muted">
-                        {activeArmour ? "No armour matches your search." : "No armour equipped."}
-                      </p>
                     )}
                   </div>
 
@@ -4733,24 +4717,18 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button className="ghost" onClick={addSelectedGear}>
-                          Add Gear
+                        <button
+                          className="ghost"
+                          onClick={addSelectedGear}
+                          disabled={
+                            gearAcquisitionMode === "buy" &&
+                            !purchasePreview(selectedGearEntry?.cost).affordable
+                          }
+                        >
+                          {gearAcquisitionMode === "buy"
+                            ? `Buy Gear (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
+                            : "Add Gear"}
                         </button>
-                        {selectedGearEntry ? (() => {
-                          const preview = purchasePreview(selectedGearEntry.cost);
-                          return (
-                            <p
-                              className={`muted add-preview ${
-                                gearAcquisitionMode === "buy" && !preview.affordable ? "error" : ""
-                              }`}
-                            >
-                              Cost: {preview.cost}c
-                              {gearAcquisitionMode === "buy"
-                                ? ` · After: ${preview.remaining}c${preview.affordable ? "" : " (insufficient)"}`
-                                : ""}
-                            </p>
-                          );
-                        })() : null}
                       </div>
                     </div>
                     <div className="gear-tools">
