@@ -161,6 +161,7 @@ npm run dev
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
 - [done] `/characters` polish pass: primary CTA label is now `New Character`, the account submenu stays expanded with correct active highlighting on submenu routes (`/characters`, `/settings`), and character rows now use the same hover highlight treatment as other equipment/list rows.
 - [done] Non-builder headers now label the builder return action as `Continue Building`; default landing preference fallback is now `My Characters`; and Skills now include an `Add / Remove` modal (mirroring credits adjustments) with guardrails that block removing points already spent and show an inline warning.
+- [done] Skills layout polish: removed the large direct `Total` points input, added a `Skill Points` heading for the budget block, and moved `Learning Focus` to sit just below the skill-points section.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

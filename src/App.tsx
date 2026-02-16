@@ -4025,38 +4025,7 @@ export default function App() {
             {skillsStatus === "ready" && skillsData ? (
               <>
                 <div className="skill-points-panel">
-                  <div className="grid two">
-                    <div>
-                      <label>Learning Focus</label>
-                      <select
-                        value={learningFocus}
-                        onChange={(e) =>
-                          updateSheet({
-                            ...sheet,
-                            learningFocus: e.target.value as LearningFocus,
-                          })
-                        }
-                      >
-                        <option value="combat">Combat</option>
-                        <option value="education">Education</option>
-                        <option value="vehicles">Vehicles</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label>Total</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={sheet.skillPoints ?? 0}
-                        onChange={(e) =>
-                          updateSheet({
-                            ...sheet,
-                            skillPoints: Math.max(0, Number(e.target.value) || 0),
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
+                  <h4>Skill Points</h4>
                   <div className="skill-budget">
                     <label>Budget</label>
                     <div className="budget-line inline wrap">
@@ -4085,6 +4054,22 @@ export default function App() {
                   </div>
                 </div>
                 <div className="grid two">
+                  <div>
+                    <label>Learning Focus</label>
+                    <select
+                      value={learningFocus}
+                      onChange={(e) =>
+                        updateSheet({
+                          ...sheet,
+                          learningFocus: e.target.value as LearningFocus,
+                        })
+                      }
+                    >
+                      <option value="combat">Combat</option>
+                      <option value="education">Education</option>
+                      <option value="vehicles">Vehicles</option>
+                    </select>
+                  </div>
                   <div>
                     <label>Search Skills</label>
                     <input
