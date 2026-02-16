@@ -186,11 +186,6 @@ header p {
   justify-items: end;
 }
 
-.account-name {
-  font-weight: 600;
-  color: #c3d8ff;
-}
-
 .account-links {
   min-width: 220px;
   border: none;
@@ -208,32 +203,14 @@ header p {
   padding: 10px 12px;
 }
 
-.account-user-menu {
-  display: grid;
-  gap: 6px;
-}
-
-.account-user-trigger.active {
-  border-color: rgba(148, 183, 245, 0.82);
-  background: rgba(25, 43, 75, 0.88);
-}
-
-.account-dropdown {
-  min-width: 100%;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  padding: 0 0 0 16px;
-  display: grid;
-  gap: 6px;
-  border-left: 1px solid rgba(99, 130, 185, 0.45);
-}
-
-.account-submenu button {
+.account-submenu-item {
   min-height: 36px;
   font-size: 0.92rem;
   padding: 8px 10px;
+  margin-left: 16px;
+  border-left: 1px solid rgba(99, 130, 185, 0.45);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .builder-title-actions {

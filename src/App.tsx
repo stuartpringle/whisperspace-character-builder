@@ -304,7 +304,6 @@ export default function App() {
   const [saveMenuOpen, setSaveMenuOpen] = useState<boolean>(false);
   const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
   const [authPostLoginAction, setAuthPostLoginAction] = useState<"none" | "save">("none");
-  const [accountDropdownOpen, setAccountDropdownOpen] = useState<boolean>(false);
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
   const [creditsModalOpen, setCreditsModalOpen] = useState<boolean>(false);
@@ -429,7 +428,6 @@ export default function App() {
   const deriveHandledManualTick = useRef<number>(0);
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
-  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
   const previousUserRef = useRef<AuthUser | null>(null);
 
   const animateDiceRoll = useCallback(
@@ -1406,7 +1404,6 @@ export default function App() {
     () => STEPS.findIndex((s) => s.id === step),
     [step]
   );
-  const accountName = useMemo(() => user?.email ?? "", [user]);
   const gameplaySkillDeltas = useMemo<Record<string, number>>(() => {
     if (!deriveDebug) return {};
     const candidates = [
@@ -3223,9 +3220,6 @@ export default function App() {
   }, [page, user]);
 
   const activeMenuPage = page === "view" ? "builder" : page;
-  const accountSubmenuPage =
-    activeMenuPage === "characters" || activeMenuPage === "settings";
-  const accountMenuExpanded = accountDropdownOpen || accountSubmenuPage;
   const normalizeHost = (host: string) => host.toLowerCase().replace(/^www\./, "");
   const normalizePath = (path: string) => {
     const trimmed = path.replace(/\/+$/, "");
@@ -3267,18 +3261,6 @@ export default function App() {
     [weaponKeywordTooltips]
   );
 
-  useEffect(() => {
-    if (!accountDropdownOpen) return;
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (accountDropdownRef.current?.contains(target)) return;
-      setAccountDropdownOpen(false);
-    };
-    document.addEventListener("mousedown", onDocumentMouseDown);
-    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
-  }, [accountDropdownOpen]);
-
   const renderAccountMenu = (builderControls = false) => {
     const builderIsActive = activeMenuPage === "builder";
     const builderLabelClass = builderIsActive ? "primary" : "ghost";
@@ -3311,46 +3293,25 @@ export default function App() {
           <button className={builderLabelClass} onClick={() => navigate("/")}>
             {builderLabel}
           </button>
-          <div className="account-user-menu" ref={accountDropdownRef}>
-            <button
-              className={`ghost account-user-trigger${accountMenuExpanded ? " active" : ""}`}
-              onClick={() => setAccountDropdownOpen((prev) => !prev)}
-              aria-expanded={accountMenuExpanded}
-            >
-              {accountName}
-            </button>
-            {accountMenuExpanded ? (
-              <div className="account-dropdown account-submenu">
-                <button
-                  className={activeMenuPage === "characters" ? "primary" : "ghost"}
-                  onClick={() => {
-                    navigate("/characters");
-                    setAccountDropdownOpen(false);
-                  }}
-                >
-                  My Characters
-                </button>
-                <button
-                  className={activeMenuPage === "settings" ? "primary" : "ghost"}
-                  onClick={() => {
-                    navigate("/settings");
-                    setAccountDropdownOpen(false);
-                  }}
-                >
-                  Settings
-                </button>
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    setAccountDropdownOpen(false);
-                    void handleLogout();
-                  }}
-                >
-                  Log out
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <button
+            className={activeMenuPage === "characters" ? "primary account-submenu-item" : "ghost account-submenu-item"}
+            onClick={() => {
+              navigate("/characters");
+            }}
+          >
+            My Characters
+          </button>
+          <button
+            className={activeMenuPage === "settings" ? "primary account-submenu-item" : "ghost account-submenu-item"}
+            onClick={() => {
+              navigate("/settings");
+            }}
+          >
+            Settings
+          </button>
+          <button className="ghost account-submenu-item" onClick={() => void handleLogout()}>
+            Log out
+          </button>
         </div>
       </div>
     );
