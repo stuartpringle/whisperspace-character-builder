@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
@@ -8,7 +8,6 @@ import { clearDraft, loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
 import { deleteCharacter, fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
 import {
-  createAnimated3dProvider,
   createMathRollProvider,
   ModularDiceRoller,
   type DiceRollRequest,
@@ -112,23 +111,6 @@ type CharacterSortKey =
   | "armour";
 
 type GearAcquisitionMode = "buy" | "acquire";
-
-type DiceUiState = {
-  open: boolean;
-  rolling: boolean;
-  notation: string;
-  label: string;
-  value: number;
-  total: number;
-  detail: string;
-  sides: number;
-  launchX: number;
-  launchY: number;
-  spinX: number;
-  spinY: number;
-  spinZ: number;
-  startFace: number;
-};
 
 type CatalogPreviewState = {
   title: string;
@@ -453,22 +435,6 @@ export default function App() {
     error?: string;
   } | null>(null);
   const [deriveManualTick, setDeriveManualTick] = useState<number>(0);
-  const [diceUi, setDiceUi] = useState<DiceUiState>({
-    open: false,
-    rolling: false,
-    notation: "",
-    label: "",
-    value: 1,
-    total: 1,
-    detail: "",
-    sides: 6,
-    launchX: 56,
-    launchY: -54,
-    spinX: 720,
-    spinY: 540,
-    spinZ: 360,
-    startFace: 1,
-  });
   const [diceBusy, setDiceBusy] = useState<boolean>(false);
   const skillCalcTimer = useRef<number | null>(null);
   const deriveTimer = useRef<number | null>(null);
@@ -479,56 +445,12 @@ export default function App() {
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
   const previousUserRef = useRef<AuthUser | null>(null);
-  const diceHideTimer = useRef<number | null>(null);
-
-  const animateDiceRoll = useCallback(
-    async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
-      const shown = Math.max(1, plannedRolls[0] ?? 1);
-      const total = plannedRolls.reduce((sum, value) => sum + value, 0) + (_request.modifier ?? 0);
-      const visualSides = _request.sides <= 6 ? 6 : _request.sides <= 10 ? 10 : 12;
-      const startFace = Math.floor(Math.random() * visualSides) + 1;
-      const launchX = 46 + Math.random() * 24;
-      const launchY = -22 - Math.random() * 62;
-      const spinX = 520 + Math.floor(Math.random() * 540);
-      const spinY = 420 + Math.floor(Math.random() * 720);
-      const spinZ = 260 + Math.floor(Math.random() * 620);
-      if (diceHideTimer.current) {
-        window.clearTimeout(diceHideTimer.current);
-        diceHideTimer.current = null;
-      }
-      setDiceUi({
-        open: true,
-        rolling: true,
-        notation,
-        label: _request.label ?? "Roll",
-        value: startFace,
-        total,
-        detail: "",
-        sides: visualSides,
-        launchX,
-        launchY,
-        spinX,
-        spinY,
-        spinZ,
-        startFace,
-      });
-      await new Promise((resolve) => window.setTimeout(resolve, 700));
-      const endFace = ((shown - 1) % visualSides) + 1;
-      setDiceUi((prev) => ({ ...prev, rolling: false, value: endFace }));
-      diceHideTimer.current = window.setTimeout(() => {
-        setDiceUi((prev) => ({ ...prev, open: false }));
-      }, 3200);
-    },
-    []
-  );
 
   const diceRoller = useMemo(() => {
     const roller = new ModularDiceRoller();
     roller.register(createMathRollProvider());
-    roller.register(createAnimated3dProvider(animateDiceRoll));
-    roller.use("css-3d");
     return roller;
-  }, [animateDiceRoll]);
+  }, []);
 
   const runDiceRoll = useCallback(
     async (request: DiceRollRequest): Promise<DiceRollResult | null> => {
@@ -542,14 +464,6 @@ export default function App() {
     },
     [diceBusy, diceRoller]
   );
-
-  useEffect(() => {
-    return () => {
-      if (diceHideTimer.current) {
-        window.clearTimeout(diceHideTimer.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2638,7 +2552,6 @@ export default function App() {
     const entry = backgroundOptions[index];
     setBackgroundPick(entry.name);
     applyBackground(entry.name);
-    setDiceUi((prev) => ({ ...prev, detail: entry.name }));
   };
 
   const applyMotivation = (name: string) => {
@@ -2657,8 +2570,6 @@ export default function App() {
     const firstIndex = ((firstResult.rolls[0] ?? 1) - 1) % motivationOptions.length;
     const first = motivationOptions[firstIndex].name;
     let result = first;
-    let detail = first;
-
     const twiceCheck = await runDiceRoll({ count: 1, sides: 12, label: "Roll Twice Check" });
     if (twiceCheck?.total === 12) {
       const secondResult = await runDiceRoll({
@@ -2673,13 +2584,11 @@ export default function App() {
         }
         const second = motivationOptions[secondIndex].name;
         result = `${first} + ${second}`;
-        detail = result;
       }
     }
 
     setMotivationPick(result);
     updateSheet({ ...sheet, motivation: result });
-    setDiceUi((prev) => ({ ...prev, detail }));
   };
 
   const rollStartingCredits = async () => {
@@ -2690,7 +2599,6 @@ export default function App() {
       ...sheet,
       credits,
     });
-    setDiceUi((prev) => ({ ...prev, detail: `${credits} credits` }));
   };
 
   const addFeat = () => {
@@ -5828,91 +5736,6 @@ export default function App() {
 
 
       {renderFooter()}
-
-      {diceUi.open ? (
-        <div className={`dice-overlay${diceUi.rolling ? " rolling" : ""}`} aria-live="polite">
-          <div
-            className="dice-float"
-            style={
-              {
-                "--launch-x": `${diceUi.launchX}vw`,
-                "--launch-y": `${diceUi.launchY}px`,
-                "--spin-x": `${diceUi.spinX}deg`,
-                "--spin-y": `${diceUi.spinY}deg`,
-                "--spin-z": `${diceUi.spinZ}deg`,
-              } as CSSProperties
-            }
-          >
-            <div className="dice-stage">
-              {diceUi.sides === 6 ? (
-                <div
-                  className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
-                  data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
-                >
-                  <div className="face face-1">1</div>
-                  <div className="face face-2">2</div>
-                  <div className="face face-3">3</div>
-                  <div className="face face-4">4</div>
-                  <div className="face face-5">5</div>
-                  <div className="face face-6">6</div>
-                </div>
-              ) : diceUi.sides === 10 ? (
-                <div className={`dice-poly dice-d10 ${diceUi.rolling ? "rolling" : ""}`} data-value={Math.max(1, diceUi.value)}>
-                  {Array.from({ length: 10 }, (_, index) => {
-                    const ringIndex = index < 5 ? index : index - 5;
-                    const ringClass = index < 5 ? "upper" : "lower";
-                    return (
-                      <div
-                        key={`d10-face-${index + 1}`}
-                        className={`poly-face d10-face ${ringClass}`}
-                        style={{ "--face-index": String(ringIndex) } as CSSProperties}
-                      >
-                        {String(index + 1)}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className={`dice-poly dice-d12 ${diceUi.rolling ? "rolling" : ""}`} data-value={Math.max(1, diceUi.value)}>
-                  <div className="poly-face d12-face top">11</div>
-                  {Array.from({ length: 5 }, (_, index) => (
-                    <div
-                      key={`d12-upper-${index + 1}`}
-                      className="poly-face d12-face upper"
-                      style={{ "--face-index": String(index) } as CSSProperties}
-                    >
-                      {String(index + 1)}
-                    </div>
-                  ))}
-                  {Array.from({ length: 5 }, (_, index) => (
-                    <div
-                      key={`d12-lower-${index + 1}`}
-                      className="poly-face d12-face lower"
-                      style={{ "--face-index": String(index) } as CSSProperties}
-                    >
-                      {String(index + 6)}
-                    </div>
-                  ))}
-                  <div className="poly-face d12-face bottom">12</div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="dice-toast">
-            <p className="dice-toast-label">{diceUi.label || "Roll"}</p>
-            <p className="dice-result-line">
-              {diceUi.rolling ? (
-                <>Rolling {diceUi.notation}...</>
-              ) : (
-                <>
-                  Rolled {diceUi.notation}: <strong>{diceUi.total}</strong>
-                  {diceUi.detail ? ` (${diceUi.detail})` : ""}
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-      ) : null}
 
       {saveMenuOpen ? (
         <div className="modal" onClick={() => setSaveMenuOpen(false)}>
