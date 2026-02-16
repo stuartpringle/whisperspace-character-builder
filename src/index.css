@@ -1297,15 +1297,6 @@ button:disabled {
   gap: 8px;
 }
 
-.gear-credit-adjust {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.gear-credit-adjust input {
-  width: 120px;
-}
 
 .armour-row {
   grid-template-columns: 1.5fr 0.7fr 0.7fr 0.8fr auto;
@@ -1386,4 +1377,24 @@ input:checked + .slider:before {
 
 .slider.round:before {
   border-radius: 50%;
+}
+
+.row-controls button.armour-action-btn {
+  min-width: auto;
+  height: auto;
+  padding: 7px 12px;
+}
+
+
+.credits-modal-card {
+  width: min(420px, 100%);
+}
+
+.credits-modal-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.credits-modal-grid p {
+  margin: 0;
 }

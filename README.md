@@ -140,9 +140,11 @@ npm run dev
 - [done] Added a modular dice-roller service (`src/ui/dice.ts`) with pluggable providers and a default CSS 3D animation provider; Origin roll actions now use this contract.
 - [done] Armour management now uses carried-armour cards with equip actions and equipped highlighting; `Equip Armour` action is now `Add Armour`.
 - [done] Armour now follows the same row/card interaction model as weapons/items: click row to expand/edit details, while `Equip` is the only action that changes equipped armour.
+- [done] Armour row `Equip` / `Remove` action buttons now use standard button padding/height for visual consistency with other controls.
 - [done] Buying the same armour again now creates a new carried armour instance (no merge/quantity behavior), preserving independent durability tracking per armour piece.
 - [done] Skills budget controls now group `Remaining`, editable `Total`, and an `Add` increment field/action.
 - [done] Credits controls now support amount-based `Add`/`Remove`, plus equipment acquisition modes: `Buy` (enforces credits and auto-deducts costs) or `Acquire` (no cost checks).
+- [done] Credits adjustment controls moved into a dedicated modal (`Add/Remove`) opened beside the credits display in Equipment; modal uses vertical/grid layout with current balance, amount input, and Add/Remove actions.
 - [done] In `Buy` mode, item quantity controls become buy/sell actions (`+` buys one with credit checks, `-` sells one), and gear remove actions become sell actions that credit back item/weapon/armour value.
 - [done] Equipment add buttons now switch labels in `Buy` mode (`Buy Weapon/Armour/Gear (<cost> credits)`) and disable when credits are insufficient; `Acquire` mode keeps standard `Add` labels and the mode selector now uses a switch-style toggle.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.

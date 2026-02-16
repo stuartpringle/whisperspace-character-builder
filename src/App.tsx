@@ -285,6 +285,7 @@ export default function App() {
   const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
+  const [creditsModalOpen, setCreditsModalOpen] = useState<boolean>(false);
   const [saveVisibility, setSaveVisibility] = useState<"private" | "public">(
     () => ((localStorage.getItem("ws_pref_visibility") as "private" | "public") || "private")
   );
@@ -3477,6 +3478,35 @@ export default function App() {
         </div>
       ) : null}
 
+      {creditsModalOpen ? (
+        <div className="modal" onClick={() => setCreditsModalOpen(false)}>
+          <div className="modal-card cut-corner-padded credits-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Adjust Credits</h2>
+              <button className="ghost" onClick={() => setCreditsModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="credits-modal-grid">
+              <p><strong>Credits:</strong> {sheet.credits ?? 0}</p>
+              <input
+                type="number"
+                min={0}
+                value={creditsAdjustAmount}
+                onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
+                placeholder="Amount"
+              />
+              <button className="ghost" onClick={() => adjustCredits("add")}>
+                Add
+              </button>
+              <button className="ghost" onClick={() => adjustCredits("remove")}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
             <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
@@ -3563,21 +3593,6 @@ export default function App() {
                   })
                 }
               />
-              <div className="inline">
-                <input
-                  type="number"
-                  min={0}
-                  value={creditsAdjustAmount}
-                  onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
-                  placeholder="Amount"
-                />
-                <button className="ghost" onClick={() => adjustCredits("add")}>
-                  Add
-                </button>
-                <button className="ghost" onClick={() => adjustCredits("remove")}>
-                  Remove
-                </button>
-              </div>
             </div>
             {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
             {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
@@ -4012,7 +4027,12 @@ export default function App() {
               <>
                 <div className="gear-summary gear-economy">
                   <span>Total Bulk: {gearTotals.bulk}</span>
-                  <span>Credits: {sheet.credits ?? 0}</span>
+                  <div className="inline wrap">
+                    <span>Credits: {sheet.credits ?? 0}</span>
+                    <button className="ghost" onClick={() => setCreditsModalOpen(true)}>
+                      Add/Remove
+                    </button>
+                  </div>
                   <div className="gear-mode-toggle switch-wrap" aria-label="Gear mode">
                     <span className={gearAcquisitionMode === "acquire" ? "mode-active" : "muted"}>Acquire</span>
                     <label className="switch">
@@ -4027,21 +4047,6 @@ export default function App() {
                       <span className="slider round" />
                     </label>
                     <span className={gearAcquisitionMode === "buy" ? "mode-active" : "muted"}>Buy</span>
-                  </div>
-                  <div className="gear-credit-adjust">
-                    <input
-                      type="number"
-                      min={0}
-                      value={creditsAdjustAmount}
-                      onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
-                      placeholder="Amount"
-                    />
-                    <button className="ghost" onClick={() => adjustCredits("add")}>
-                      Add
-                    </button>
-                    <button className="ghost" onClick={() => adjustCredits("remove")}>
-                      Remove
-                    </button>
                   </div>
                 </div>
                 {gearActionError ? <p className="error">{gearActionError}</p> : null}
