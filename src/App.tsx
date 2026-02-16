@@ -119,6 +119,8 @@ type DiceUiState = {
   notation: string;
   label: string;
   value: number;
+  total: number;
+  detail: string;
 };
 
 type CatalogPreviewState = {
@@ -450,6 +452,8 @@ export default function App() {
     notation: "",
     label: "",
     value: 1,
+    total: 1,
+    detail: "",
   });
   const [diceBusy, setDiceBusy] = useState<boolean>(false);
   const skillCalcTimer = useRef<number | null>(null);
@@ -461,19 +465,30 @@ export default function App() {
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
   const previousUserRef = useRef<AuthUser | null>(null);
+  const diceHideTimer = useRef<number | null>(null);
 
   const animateDiceRoll = useCallback(
     async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
       const shown = plannedRolls[0] ?? 1;
+      const total = plannedRolls.reduce((sum, value) => sum + value, 0) + (_request.modifier ?? 0);
+      if (diceHideTimer.current) {
+        window.clearTimeout(diceHideTimer.current);
+        diceHideTimer.current = null;
+      }
       setDiceUi({
         open: true,
         rolling: true,
         notation,
         label: _request.label ?? "Roll",
         value: shown,
+        total,
+        detail: "",
       });
       await new Promise((resolve) => window.setTimeout(resolve, 700));
       setDiceUi((prev) => ({ ...prev, rolling: false }));
+      diceHideTimer.current = window.setTimeout(() => {
+        setDiceUi((prev) => ({ ...prev, open: false }));
+      }, 2200);
     },
     []
   );
@@ -498,6 +513,14 @@ export default function App() {
     },
     [diceBusy, diceRoller]
   );
+
+  useEffect(() => {
+    return () => {
+      if (diceHideTimer.current) {
+        window.clearTimeout(diceHideTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2586,6 +2609,7 @@ export default function App() {
     const entry = backgroundOptions[index];
     setBackgroundPick(entry.name);
     applyBackground(entry.name);
+    setDiceUi((prev) => ({ ...prev, detail: entry.name }));
   };
 
   const applyMotivation = (name: string) => {
@@ -2604,6 +2628,7 @@ export default function App() {
     const firstIndex = ((firstResult.rolls[0] ?? 1) - 1) % motivationOptions.length;
     const first = motivationOptions[firstIndex].name;
     let result = first;
+    let detail = first;
 
     const twiceCheck = await runDiceRoll({ count: 1, sides: 12, label: "Roll Twice Check" });
     if (twiceCheck?.total === 12) {
@@ -2619,20 +2644,24 @@ export default function App() {
         }
         const second = motivationOptions[secondIndex].name;
         result = `${first} + ${second}`;
+        detail = result;
       }
     }
 
-    setMotivationPick(first);
+    setMotivationPick(result);
     updateSheet({ ...sheet, motivation: result });
+    setDiceUi((prev) => ({ ...prev, detail }));
   };
 
   const rollStartingCredits = async () => {
     const outcome = await runDiceRoll({ count: 1, sides: 12, label: "Starting Money" });
     if (!outcome) return;
+    const credits = outcome.total * 50 + 800;
     updateSheet({
       ...sheet,
-      credits: outcome.total * 50 + 800,
+      credits,
     });
+    setDiceUi((prev) => ({ ...prev, detail: `${credits} credits` }));
   };
 
   const addFeat = () => {
@@ -5772,15 +5801,9 @@ export default function App() {
       {renderFooter()}
 
       {diceUi.open ? (
-        <div
-          className="modal dice-modal"
-          onClick={() => {
-            if (diceUi.rolling) return;
-            setDiceUi((prev) => ({ ...prev, open: false }));
-          }}
-        >
-          <div className="modal-card cut-corner-padded dice-modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="dice-stage" aria-live="polite">
+        <div className={`dice-overlay${diceUi.rolling ? " rolling" : ""}`} aria-live="polite">
+          <div className="dice-float">
+            <div className="dice-stage">
               <div
                 className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
                 data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
@@ -5793,14 +5816,19 @@ export default function App() {
                 <div className="face face-6">6</div>
               </div>
             </div>
-            <h2>{diceUi.label || "Roll"}</h2>
-            <p className="muted">{diceUi.notation}</p>
-            <p className="dice-result">{diceUi.rolling ? "Rolling..." : `Result: ${diceUi.value}`}</p>
-            {!diceUi.rolling ? (
-              <button className="ghost" onClick={() => setDiceUi((prev) => ({ ...prev, open: false }))}>
-                Close
-              </button>
-            ) : null}
+          </div>
+          <div className="dice-toast">
+            <p className="dice-toast-label">{diceUi.label || "Roll"}</p>
+            <p className="dice-result-line">
+              {diceUi.rolling ? (
+                <>Rolling {diceUi.notation}...</>
+              ) : (
+                <>
+                  Rolled {diceUi.notation}: <strong>{diceUi.total}</strong>
+                  {diceUi.detail ? ` (${diceUi.detail})` : ""}
+                </>
+              )}
+            </p>
           </div>
         </div>
       ) : null}

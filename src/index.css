@@ -1335,15 +1335,54 @@ button:disabled {
   }
 }
 
-.dice-modal {
-  backdrop-filter: blur(4px);
+.dice-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
 }
 
-.dice-modal-card {
-  width: min(360px, 100%);
-  justify-items: center;
-  text-align: center;
-  gap: 10px;
+.dice-float {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  opacity: 0;
+  transform: translate(-8px, 18px) scale(0.88);
+  animation: dice-pop-in 180ms ease-out forwards;
+}
+
+.dice-overlay.rolling .dice-float {
+  animation: dice-across 760ms cubic-bezier(0.18, 0.72, 0.12, 1.01) forwards;
+}
+
+.dice-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  min-width: min(420px, calc(100vw - 48px));
+  max-width: min(520px, calc(100vw - 48px));
+  padding: 12px 14px;
+  border: 1px solid rgba(124, 157, 218, 0.5);
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(12, 25, 49, 0.95), rgba(9, 20, 41, 0.92));
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
+}
+
+.dice-toast-label {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9dbbe7;
+}
+
+.dice-result-line {
+  margin: 0;
+  color: #d8e7ff;
+}
+
+.dice-result-line strong {
+  color: #ffffff;
 }
 
 .dice-stage {
@@ -1399,6 +1438,28 @@ button:disabled {
   margin: 0;
   font-weight: 700;
   color: #d8e7ff;
+}
+
+@keyframes dice-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-8px, 18px) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes dice-across {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(min(58vw, 740px), -56px) scale(1.02);
+  }
 }
 
 @keyframes dice-spin {
