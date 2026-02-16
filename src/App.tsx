@@ -5856,20 +5856,44 @@ export default function App() {
                   <div className="face face-5">{diceUi.rolling ? "" : "5"}</div>
                   <div className="face face-6">{diceUi.rolling ? "" : "6"}</div>
                 </div>
+              ) : diceUi.sides === 10 ? (
+                <div className={`dice-poly dice-d10 ${diceUi.rolling ? "rolling" : ""}`} data-value={Math.max(1, diceUi.value)}>
+                  {Array.from({ length: 10 }, (_, index) => {
+                    const ringIndex = index < 5 ? index : index - 5;
+                    const ringClass = index < 5 ? "upper" : "lower";
+                    return (
+                      <div
+                        key={`d10-face-${index + 1}`}
+                        className={`poly-face d10-face ${ringClass}`}
+                        style={{ "--face-index": String(ringIndex) } as CSSProperties}
+                      >
+                        {diceUi.rolling ? "" : String(index + 1)}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                <div
-                  className={`dice-ring d${diceUi.sides} ${diceUi.rolling ? "rolling" : ""}`}
-                  style={{ "--die-face": String(Math.max(1, diceUi.value)) } as CSSProperties}
-                >
-                  {Array.from({ length: diceUi.sides }, (_, index) => (
+                <div className={`dice-poly dice-d12 ${diceUi.rolling ? "rolling" : ""}`} data-value={Math.max(1, diceUi.value)}>
+                  <div className="poly-face d12-face top">{diceUi.rolling ? "" : "11"}</div>
+                  {Array.from({ length: 5 }, (_, index) => (
                     <div
-                      key={`ring-face-${index + 1}`}
-                      className="ring-face"
+                      key={`d12-upper-${index + 1}`}
+                      className="poly-face d12-face upper"
                       style={{ "--face-index": String(index) } as CSSProperties}
                     >
                       {diceUi.rolling ? "" : String(index + 1)}
                     </div>
                   ))}
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <div
+                      key={`d12-lower-${index + 1}`}
+                      className="poly-face d12-face lower"
+                      style={{ "--face-index": String(index) } as CSSProperties}
+                    >
+                      {diceUi.rolling ? "" : String(index + 6)}
+                    </div>
+                  ))}
+                  <div className="poly-face d12-face bottom">{diceUi.rolling ? "" : "12"}</div>
                 </div>
               )}
             </div>

@@ -1437,54 +1437,96 @@ button:disabled {
 .dice-cube[data-value="5"] { transform: rotateX(-102deg) rotateY(-24deg); }
 .dice-cube[data-value="6"] { transform: rotateX(78deg) rotateY(-24deg); }
 
-.dice-ring {
-  --ring-size: 80px;
-  --ring-depth: 34px;
-  width: var(--ring-size);
-  height: var(--ring-size);
+.dice-poly {
+  width: 82px;
+  height: 82px;
   position: relative;
   transform-style: preserve-3d;
   transition: transform 380ms ease-out;
 }
 
-.dice-ring.rolling {
+.dice-poly.rolling {
   animation: dice-spin 760ms cubic-bezier(0.2, 0.72, 0.14, 1.02);
 }
 
-.dice-ring.d10 {
-  transform: rotateX(-14deg) rotateY(calc((var(--die-face, 1) - 1) * -36deg));
-}
-
-.dice-ring.d12 {
-  transform: rotateX(-14deg) rotateY(calc((var(--die-face, 1) - 1) * -30deg));
-}
-
-.dice-ring .ring-face {
+.poly-face {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 28px;
-  height: 48px;
-  margin-left: -14px;
-  margin-top: -24px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(155, 189, 248, 0.72);
   background: linear-gradient(155deg, rgba(17, 39, 79, 0.98), rgba(8, 22, 49, 0.95));
   color: #d8e7ff;
   font-weight: 700;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   box-shadow: inset 0 0 16px rgba(122, 169, 255, 0.18);
   backface-visibility: hidden;
 }
 
-.dice-ring.d10 .ring-face {
-  transform: rotateY(calc(var(--face-index) * 36deg)) translateZ(var(--ring-depth));
+.d10-face {
+  width: 30px;
+  height: 52px;
+  margin-left: -15px;
+  margin-top: -26px;
+  clip-path: polygon(50% 0%, 100% 32%, 78% 100%, 22% 100%, 0% 32%);
 }
 
-.dice-ring.d12 .ring-face {
-  transform: rotateY(calc(var(--face-index) * 30deg)) translateZ(var(--ring-depth));
+.dice-d10 .d10-face.upper {
+  transform: rotateY(calc(var(--face-index) * 72deg)) rotateX(59deg) translateZ(27px);
 }
+
+.dice-d10 .d10-face.lower {
+  transform: rotateY(calc(var(--face-index) * 72deg + 36deg)) rotateX(-59deg) translateZ(27px);
+}
+
+.d12-face {
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  margin-top: -18px;
+  clip-path: polygon(50% 0%, 98% 36%, 80% 100%, 20% 100%, 2% 36%);
+}
+
+.dice-d12 .d12-face.top {
+  transform: rotateX(84deg) translateZ(26px);
+}
+
+.dice-d12 .d12-face.upper {
+  transform: rotateY(calc(var(--face-index) * 72deg)) rotateX(30deg) translateZ(26px);
+}
+
+.dice-d12 .d12-face.lower {
+  transform: rotateY(calc(var(--face-index) * 72deg + 36deg)) rotateX(-30deg) translateZ(26px);
+}
+
+.dice-d12 .d12-face.bottom {
+  transform: rotateX(-84deg) translateZ(26px);
+}
+
+.dice-d10[data-value="1"] { transform: rotateX(-10deg) rotateY(0deg); }
+.dice-d10[data-value="2"] { transform: rotateX(-10deg) rotateY(-36deg); }
+.dice-d10[data-value="3"] { transform: rotateX(-10deg) rotateY(-72deg); }
+.dice-d10[data-value="4"] { transform: rotateX(-10deg) rotateY(-108deg); }
+.dice-d10[data-value="5"] { transform: rotateX(-10deg) rotateY(-144deg); }
+.dice-d10[data-value="6"] { transform: rotateX(24deg) rotateY(-18deg); }
+.dice-d10[data-value="7"] { transform: rotateX(24deg) rotateY(-54deg); }
+.dice-d10[data-value="8"] { transform: rotateX(24deg) rotateY(-90deg); }
+.dice-d10[data-value="9"] { transform: rotateX(24deg) rotateY(-126deg); }
+.dice-d10[data-value="10"] { transform: rotateX(24deg) rotateY(-162deg); }
+
+.dice-d12[data-value="1"] { transform: rotateX(-22deg) rotateY(0deg); }
+.dice-d12[data-value="2"] { transform: rotateX(-22deg) rotateY(-72deg); }
+.dice-d12[data-value="3"] { transform: rotateX(-22deg) rotateY(-144deg); }
+.dice-d12[data-value="4"] { transform: rotateX(-22deg) rotateY(-216deg); }
+.dice-d12[data-value="5"] { transform: rotateX(-22deg) rotateY(-288deg); }
+.dice-d12[data-value="6"] { transform: rotateX(22deg) rotateY(-36deg); }
+.dice-d12[data-value="7"] { transform: rotateX(22deg) rotateY(-108deg); }
+.dice-d12[data-value="8"] { transform: rotateX(22deg) rotateY(-180deg); }
+.dice-d12[data-value="9"] { transform: rotateX(22deg) rotateY(-252deg); }
+.dice-d12[data-value="10"] { transform: rotateX(22deg) rotateY(-324deg); }
+.dice-d12[data-value="11"] { transform: rotateX(-86deg) rotateY(0deg); }
+.dice-d12[data-value="12"] { transform: rotateX(86deg) rotateY(0deg); }
 
 .dice-result {
   margin: 0;
