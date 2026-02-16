@@ -172,6 +172,7 @@ npm run dev
 - [done] Landing-page behavior now applies only immediately after successful login (not on refresh or deep-link page loads), and dice-roll UI now stays visible until manually closed so Motivation/Background/credits rolls are reliably visible.
 - [done] Fixed dice modal mount scope: roll dialogs now render from the main builder view (not only `/characters`), so `Roll Motivation` / `Roll Background` always show the die animation and result modal in Origin.
 - [done] Dice UX changed from modal to in-page overlay: a 3D die now pops from bottom-left and travels across the screen during rolls, while a bottom-right result toast displays `Rolled <notation>: <result>` with contextual detail (for example credits or selected motivation/background) before auto-dismissing.
+- [done] Dice overlay polish: stronger toast pop-in animation, +1s linger for both die/toast, die-type-aware visuals (`d10`/`d12`), randomized launch direction/force/start face, and delayed number reveal so roll values appear only after the die settles.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

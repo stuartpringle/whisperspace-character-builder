@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
  
 import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/character";
 import { createBlankCharacter, updateTimestamp } from "./model/character";
@@ -121,6 +121,13 @@ type DiceUiState = {
   value: number;
   total: number;
   detail: string;
+  sides: number;
+  launchX: number;
+  launchY: number;
+  spinX: number;
+  spinY: number;
+  spinZ: number;
+  startFace: number;
 };
 
 type CatalogPreviewState = {
@@ -454,6 +461,13 @@ export default function App() {
     value: 1,
     total: 1,
     detail: "",
+    sides: 6,
+    launchX: 56,
+    launchY: -54,
+    spinX: 720,
+    spinY: 540,
+    spinZ: 360,
+    startFace: 1,
   });
   const [diceBusy, setDiceBusy] = useState<boolean>(false);
   const skillCalcTimer = useRef<number | null>(null);
@@ -469,8 +483,15 @@ export default function App() {
 
   const animateDiceRoll = useCallback(
     async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
-      const shown = plannedRolls[0] ?? 1;
+      const shown = Math.max(1, plannedRolls[0] ?? 1);
       const total = plannedRolls.reduce((sum, value) => sum + value, 0) + (_request.modifier ?? 0);
+      const visualSides = _request.sides <= 6 ? 6 : _request.sides <= 10 ? 10 : 12;
+      const startFace = Math.floor(Math.random() * visualSides) + 1;
+      const launchX = 46 + Math.random() * 24;
+      const launchY = -22 - Math.random() * 62;
+      const spinX = 520 + Math.floor(Math.random() * 540);
+      const spinY = 420 + Math.floor(Math.random() * 720);
+      const spinZ = 260 + Math.floor(Math.random() * 620);
       if (diceHideTimer.current) {
         window.clearTimeout(diceHideTimer.current);
         diceHideTimer.current = null;
@@ -480,15 +501,23 @@ export default function App() {
         rolling: true,
         notation,
         label: _request.label ?? "Roll",
-        value: shown,
+        value: startFace,
         total,
         detail: "",
+        sides: visualSides,
+        launchX,
+        launchY,
+        spinX,
+        spinY,
+        spinZ,
+        startFace,
       });
       await new Promise((resolve) => window.setTimeout(resolve, 700));
-      setDiceUi((prev) => ({ ...prev, rolling: false }));
+      const endFace = ((shown - 1) % visualSides) + 1;
+      setDiceUi((prev) => ({ ...prev, rolling: false, value: endFace }));
       diceHideTimer.current = window.setTimeout(() => {
         setDiceUi((prev) => ({ ...prev, open: false }));
-      }, 2200);
+      }, 3200);
     },
     []
   );
@@ -5802,19 +5831,47 @@ export default function App() {
 
       {diceUi.open ? (
         <div className={`dice-overlay${diceUi.rolling ? " rolling" : ""}`} aria-live="polite">
-          <div className="dice-float">
+          <div
+            className="dice-float"
+            style={
+              {
+                "--launch-x": `${diceUi.launchX}vw`,
+                "--launch-y": `${diceUi.launchY}px`,
+                "--spin-x": `${diceUi.spinX}deg`,
+                "--spin-y": `${diceUi.spinY}deg`,
+                "--spin-z": `${diceUi.spinZ}deg`,
+              } as CSSProperties
+            }
+          >
             <div className="dice-stage">
-              <div
-                className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
-                data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
-              >
-                <div className="face face-1">1</div>
-                <div className="face face-2">2</div>
-                <div className="face face-3">3</div>
-                <div className="face face-4">4</div>
-                <div className="face face-5">5</div>
-                <div className="face face-6">6</div>
-              </div>
+              {diceUi.sides === 6 ? (
+                <div
+                  className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
+                  data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
+                >
+                  <div className="face face-1">{diceUi.rolling ? "" : "1"}</div>
+                  <div className="face face-2">{diceUi.rolling ? "" : "2"}</div>
+                  <div className="face face-3">{diceUi.rolling ? "" : "3"}</div>
+                  <div className="face face-4">{diceUi.rolling ? "" : "4"}</div>
+                  <div className="face face-5">{diceUi.rolling ? "" : "5"}</div>
+                  <div className="face face-6">{diceUi.rolling ? "" : "6"}</div>
+                </div>
+              ) : (
+                <div
+                  className={`dice-ring d${diceUi.sides} ${diceUi.rolling ? "rolling" : ""}`}
+                  style={{ "--die-face": String(Math.max(1, diceUi.value)) } as CSSProperties}
+                >
+                  {Array.from({ length: diceUi.sides }, (_, index) => (
+                    <div
+                      key={`ring-face-${index + 1}`}
+                      className="ring-face"
+                      style={{ "--face-index": String(index) } as CSSProperties}
+                    >
+                      {diceUi.rolling ? "" : String(index + 1)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="dice-toast">
