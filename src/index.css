@@ -68,7 +68,7 @@ body {
 
 .header-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -77,6 +77,8 @@ body {
 .header-title-stack {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 header h1 {
@@ -177,6 +179,7 @@ header p {
   position: relative;
   overflow: visible;
   align-self: flex-start;
+  margin-left: auto;
   margin-top: -10px;
 }
 
@@ -1372,6 +1375,10 @@ button:disabled {
   padding: 10px 14px;
 }
 
+.weapon-action-btn {
+  padding: 10px 14px;
+}
+
 .switch-wrap {
   display: inline-flex;
   align-items: center;
@@ -1439,6 +1446,22 @@ input:checked + .slider:before {
   min-width: auto;
   height: auto;
   padding: 7px 12px;
+}
+
+.row-controls button.weapon-action-btn {
+  min-width: auto;
+  height: auto;
+  padding: 7px 12px;
+}
+
+@media (max-width: 960px) {
+  .header-row {
+    flex-wrap: wrap;
+  }
+
+  .auth-chip {
+    margin-left: 0;
+  }
 }
 
 

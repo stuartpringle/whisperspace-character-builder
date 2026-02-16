@@ -181,6 +181,9 @@ npm run dev
 - [done] Character View header now uses the character name as page title with learning focus, updated timestamp, and motivation surfaced directly under it.
 - [done] Character View metrics now use `Cool Under Fire` label and replace `Armours` count with `Protection` (currently equipped armour protection, or `0` when equipped armour durability is depleted).
 - [done] Weapons now support explicit equip/unequip actions in Equipment: maximum 2 equipped at once, two-handed weapons are exclusive, and equip attempts enforce `Req` attribute minimums with clear user-facing failure messages.
+- [done] Weapon row action controls (`Equip`/`Unequip`/`Remove`) now use the same padded action-button treatment as armour row controls for consistent touch/click affordance.
+- [done] Header layout alignment pass: desktop header now keeps the account/menu block pinned to the right (including Character View pages), with responsive wrap fallback preserved for narrower screens.
+- [done] Removed `CUF Loss` from both Character View and Builder Review Health cards to reduce low-value stat noise.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

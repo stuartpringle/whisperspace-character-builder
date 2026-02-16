@@ -3738,10 +3738,6 @@ export default function App() {
                       <strong>{viewSheet.stress?.current ?? 0}</strong>
                     </li>
                     <li>
-                      <span>CUF Loss</span>
-                      <strong>{viewSheet.stress?.cufLoss ?? 0}</strong>
-                    </li>
-                    <li>
                       <span>Wounds (Light)</span>
                       <strong>{viewSheet.wounds?.light ?? 0}</strong>
                     </li>
@@ -4652,13 +4648,13 @@ export default function App() {
                                 </div>
                                 <div className="inline row-controls" data-no-expand="true">
                                   <button
-                                    className={equipped ? "primary" : "ghost"}
+                                    className={`${equipped ? "primary" : "ghost"} weapon-action-btn`}
                                     onClick={() => toggleWeaponEquip(weaponIndex)}
                                   >
                                     {equipped ? "Unequip" : "Equip"}
                                   </button>
                                   <button
-                                    className="ghost danger"
+                                    className="ghost danger weapon-action-btn"
                                     title={
                                       gearAcquisitionMode === "buy"
                                         ? `Sell (${unitCost(weapon.cost)} credits)`
@@ -5892,10 +5888,6 @@ export default function App() {
                   <li>
                     <span>Stress (Current)</span>
                     <strong>{sheet.stress?.current ?? 0}</strong>
-                  </li>
-                  <li>
-                    <span>CUF Loss</span>
-                    <strong>{sheet.stress?.cufLoss ?? 0}</strong>
                   </li>
                   <li>
                     <span>Wounds (Light)</span>
