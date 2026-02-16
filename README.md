@@ -147,6 +147,7 @@ npm run dev
 - [done] Credits adjustment controls moved into a dedicated modal (`Add/Remove`) opened beside the credits display in Equipment; modal uses vertical/grid layout with current balance, amount input, and Add/Remove actions.
 - [done] In `Buy` mode, item quantity controls become buy/sell actions (`+` buys one with credit checks, `-` sells one), and gear remove actions become sell actions that credit back item/weapon/armour value.
 - [done] Equipment add buttons now switch labels in `Buy` mode (`Buy Weapon/Armour/Gear (<cost> credits)`) and disable when credits are insufficient; `Acquire` mode keeps standard `Add` labels and the mode selector now uses a switch-style toggle.
+- [done] Equipment add rows now include `Preview` actions for weapon/armour/gear catalogs, opening a modal with full selected-entry details before buy/add.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 

@@ -1398,3 +1398,24 @@ input:checked + .slider:before {
 .credits-modal-grid p {
   margin: 0;
 }
+
+.preview-modal-card {
+  width: min(720px, 100%);
+}
+
+.preview-grid {
+  display: grid;
+  gap: 10px;
+  max-height: 62vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.preview-row {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(86, 116, 168, 0.35);
+  background: rgba(10, 20, 38, 0.62);
+  border-radius: 10px;
+}

@@ -117,6 +117,18 @@ type DiceUiState = {
   value: number;
 };
 
+type CatalogPreviewState = {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+};
+
+type SelectedGearEntry = {
+  kind: GearType | "hacker_rig" | "hacker_software";
+  label: string;
+  cost?: number;
+  details: Record<string, unknown>;
+};
+
 const MAX_RANK_INHERENT = 5;
 const MAX_RANK_ON_FOCUS = 5;
 const MAX_RANK_OFF_FOCUS = 2;
@@ -286,6 +298,7 @@ export default function App() {
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
   const [creditsModalOpen, setCreditsModalOpen] = useState<boolean>(false);
+  const [catalogPreview, setCatalogPreview] = useState<CatalogPreviewState | null>(null);
   const [saveVisibility, setSaveVisibility] = useState<"private" | "public">(
     () => ((localStorage.getItem("ws_pref_visibility") as "private" | "public") || "private")
   );
@@ -1955,31 +1968,92 @@ export default function App() {
   }, [gearData, armourPickId]);
 
   const selectedGearEntry = useMemo(() => {
-    if (!gearData || !gearPickName) return null as null | { cost?: number; label: string };
+    if (!gearData || !gearPickName) return null as SelectedGearEntry | null;
     if (gearPickType === "item") {
       const entry = gearData.items.items.find((item) => item.name === gearPickName);
-      return entry ? { cost: entry.cost, label: entry.name } : null;
+      return entry
+        ? { kind: "item", label: entry.name, cost: entry.cost, details: { ...entry } }
+        : null;
     }
     if (gearPickType === "cyberware") {
       const entry = gearData.cyberware.cyberware.find((item) => item.name === gearPickName);
-      return entry ? { cost: entry.cost, label: entry.name } : null;
+      return entry
+        ? { kind: "cyberware", label: entry.name, cost: entry.cost, details: { ...entry } }
+        : null;
     }
     if (gearPickType === "narcotics") {
       const entry = gearData.narcotics.narcotics.find((item) => item.name === gearPickName);
-      return entry ? { cost: entry.cost, label: entry.name } : null;
+      return entry
+        ? { kind: "narcotics", label: entry.name, cost: entry.cost, details: { ...entry } }
+        : null;
     }
     if (gearPickName.startsWith("rig:")) {
       const name = gearPickName.replace("rig:", "");
       const entry = gearData.hacking.rigs.find((item) => item.name === name);
-      return entry ? { cost: entry.cost, label: entry.name } : null;
+      return entry
+        ? { kind: "hacker_rig", label: `Rig: ${entry.name}`, cost: entry.cost, details: { ...entry } }
+        : null;
     }
     if (gearPickName.startsWith("software:")) {
       const name = gearPickName.replace("software:", "");
       const entry = gearData.hacking.software.find((item) => item.name === name);
-      return entry ? { cost: entry.cost, label: entry.name } : null;
+      return entry
+        ? {
+            kind: "hacker_software",
+            label: `Software: ${entry.name}`,
+            cost: entry.cost,
+            details: { ...entry },
+          }
+        : null;
     }
     return null;
   }, [gearData, gearPickName, gearPickType]);
+
+  const formatPreviewValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === "") return "-";
+    if (Array.isArray(value)) return value.length ? value.map((v) => String(v)).join(", ") : "-";
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  };
+
+  const previewLabel = (key: string) =>
+    key
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/_/g, " ")
+      .replace(/\w/g, (char) => char.toUpperCase());
+
+  const openCatalogPreview = (kind: "weapon" | "armour" | "gear") => {
+    if (kind === "weapon") {
+      if (!selectedWeaponEntry) return;
+      const rows = Object.entries(selectedWeaponEntry as Record<string, unknown>).map(([key, value]) => ({
+        label: previewLabel(key),
+        value: formatPreviewValue(value),
+      }));
+      setCatalogPreview({ title: `Weapon Preview: ${selectedWeaponEntry.name ?? "Weapon"}`, rows });
+      return;
+    }
+    if (kind === "armour") {
+      if (!selectedArmourEntry) return;
+      const rows = Object.entries(selectedArmourEntry as Record<string, unknown>).map(([key, value]) => ({
+        label: previewLabel(key),
+        value: formatPreviewValue(value),
+      }));
+      setCatalogPreview({ title: `Armour Preview: ${selectedArmourEntry.name ?? "Armour"}`, rows });
+      return;
+    }
+    if (!selectedGearEntry) return;
+    const rows = Object.entries(selectedGearEntry.details).map(([key, value]) => ({
+      label: previewLabel(key),
+      value: formatPreviewValue(value),
+    }));
+    setCatalogPreview({ title: `Gear Preview: ${selectedGearEntry.label}`, rows });
+  };
 
   const purchasePreview = useCallback(
     (costValue: number | undefined) => {
@@ -4053,18 +4127,27 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button
-                          className="ghost"
-                          onClick={addSelectedWeapon}
-                          disabled={
-                            gearAcquisitionMode === "buy" &&
-                            !purchasePreview(selectedWeaponEntry?.cost).affordable
-                          }
-                        >
-                          {gearAcquisitionMode === "buy"
-                            ? `Buy Weapon (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
-                            : "Add Weapon"}
-                        </button>
+                        <div className="inline wrap">
+                          <button
+                            className="ghost"
+                            onClick={() => openCatalogPreview("weapon")}
+                            disabled={!selectedWeaponEntry}
+                          >
+                            Preview
+                          </button>
+                          <button
+                            className="ghost"
+                            onClick={addSelectedWeapon}
+                            disabled={
+                              gearAcquisitionMode === "buy" &&
+                              !purchasePreview(selectedWeaponEntry?.cost).affordable
+                            }
+                          >
+                            {gearAcquisitionMode === "buy"
+                              ? `Buy Weapon (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
+                              : "Add Weapon"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {filteredWeaponRows.length === 0 ? (
@@ -4441,18 +4524,27 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button
-                          className="ghost"
-                          onClick={equipArmour}
-                          disabled={
-                            gearAcquisitionMode === "buy" &&
-                            !purchasePreview(selectedArmourEntry?.cost).affordable
-                          }
-                        >
-                          {gearAcquisitionMode === "buy"
-                            ? `Buy Armour (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
-                            : "Add Armour"}
-                        </button>
+                        <div className="inline wrap">
+                          <button
+                            className="ghost"
+                            onClick={() => openCatalogPreview("armour")}
+                            disabled={!selectedArmourEntry}
+                          >
+                            Preview
+                          </button>
+                          <button
+                            className="ghost"
+                            onClick={equipArmour}
+                            disabled={
+                              gearAcquisitionMode === "buy" &&
+                              !purchasePreview(selectedArmourEntry?.cost).affordable
+                            }
+                          >
+                            {gearAcquisitionMode === "buy"
+                              ? `Buy Armour (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
+                              : "Add Armour"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     {filteredArmourRows.length === 0 ? (
@@ -4758,18 +4850,27 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <button
-                          className="ghost"
-                          onClick={addSelectedGear}
-                          disabled={
-                            gearAcquisitionMode === "buy" &&
-                            !purchasePreview(selectedGearEntry?.cost).affordable
-                          }
-                        >
-                          {gearAcquisitionMode === "buy"
-                            ? `Buy Gear (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
-                            : "Add Gear"}
-                        </button>
+                        <div className="inline wrap">
+                          <button
+                            className="ghost"
+                            onClick={() => openCatalogPreview("gear")}
+                            disabled={!selectedGearEntry}
+                          >
+                            Preview
+                          </button>
+                          <button
+                            className="ghost"
+                            onClick={addSelectedGear}
+                            disabled={
+                              gearAcquisitionMode === "buy" &&
+                              !purchasePreview(selectedGearEntry?.cost).affordable
+                            }
+                          >
+                            {gearAcquisitionMode === "buy"
+                              ? `Buy Gear (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
+                              : "Add Gear"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="gear-tools">
@@ -5656,6 +5757,27 @@ export default function App() {
                   onChange={(event) => void handleImportDrop(event.target.files?.[0] ?? null)}
                 />
               </label>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {catalogPreview ? (
+        <div className="modal" onClick={() => setCatalogPreview(null)}>
+          <div className="modal-card cut-corner-padded preview-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{catalogPreview.title}</h2>
+              <button className="ghost" onClick={() => setCatalogPreview(null)}>
+                Close
+              </button>
+            </div>
+            <div className="preview-grid">
+              {catalogPreview.rows.map((row) => (
+                <div key={row.label} className="preview-row">
+                  <span className="muted">{row.label}</span>
+                  <strong>{row.value}</strong>
+                </div>
+              ))}
             </div>
           </div>
         </div>
