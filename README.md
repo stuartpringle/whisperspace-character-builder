@@ -170,6 +170,7 @@ npm run dev
 - [done] Origin name field now includes a `Generate` action that creates sci-fi style names (built-in generator), enabling quick character naming without leaving the builder.
 - [done] Review tab polish pass: added richer hero metadata tags, expanded summary pills (including skill-point spent/remaining), equipped-armour-aware loadout listing, and subtle review-card hover polish.
 - [done] Landing-page behavior now applies only immediately after successful login (not on refresh or deep-link page loads), and dice-roll UI now stays visible until manually closed so Motivation/Background/credits rolls are reliably visible.
+- [done] Fixed dice modal mount scope: roll dialogs now render from the main builder view (not only `/characters`), so `Roll Motivation` / `Roll Background` always show the die animation and result modal in Origin.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

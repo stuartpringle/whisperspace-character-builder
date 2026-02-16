@@ -3771,40 +3771,6 @@ export default function App() {
           </div>
         </section>
         {renderFooter()}
-      {diceUi.open ? (
-        <div
-          className="modal dice-modal"
-          onClick={() => {
-            if (diceUi.rolling) return;
-            setDiceUi((prev) => ({ ...prev, open: false }));
-          }}
-        >
-          <div className="modal-card cut-corner-padded dice-modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="dice-stage" aria-live="polite">
-              <div
-                className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
-                data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
-              >
-                <div className="face face-1">1</div>
-                <div className="face face-2">2</div>
-                <div className="face face-3">3</div>
-                <div className="face face-4">4</div>
-                <div className="face face-5">5</div>
-                <div className="face face-6">6</div>
-              </div>
-            </div>
-            <h2>{diceUi.label || "Roll"}</h2>
-            <p className="muted">{diceUi.notation}</p>
-            <p className="dice-result">{diceUi.rolling ? "Rolling..." : `Result: ${diceUi.value}`}</p>
-            {!diceUi.rolling ? (
-              <button className="ghost" onClick={() => setDiceUi((prev) => ({ ...prev, open: false }))}>
-                Close
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
       {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
             <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
@@ -5804,6 +5770,40 @@ export default function App() {
 
 
       {renderFooter()}
+
+      {diceUi.open ? (
+        <div
+          className="modal dice-modal"
+          onClick={() => {
+            if (diceUi.rolling) return;
+            setDiceUi((prev) => ({ ...prev, open: false }));
+          }}
+        >
+          <div className="modal-card cut-corner-padded dice-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="dice-stage" aria-live="polite">
+              <div
+                className={`dice-cube ${diceUi.rolling ? "rolling" : ""}`}
+                data-value={((Math.max(1, diceUi.value) - 1) % 6) + 1}
+              >
+                <div className="face face-1">1</div>
+                <div className="face face-2">2</div>
+                <div className="face face-3">3</div>
+                <div className="face face-4">4</div>
+                <div className="face face-5">5</div>
+                <div className="face face-6">6</div>
+              </div>
+            </div>
+            <h2>{diceUi.label || "Roll"}</h2>
+            <p className="muted">{diceUi.notation}</p>
+            <p className="dice-result">{diceUi.rolling ? "Rolling..." : `Result: ${diceUi.value}`}</p>
+            {!diceUi.rolling ? (
+              <button className="ghost" onClick={() => setDiceUi((prev) => ({ ...prev, open: false }))}>
+                Close
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {saveMenuOpen ? (
         <div className="modal" onClick={() => setSaveMenuOpen(false)}>
