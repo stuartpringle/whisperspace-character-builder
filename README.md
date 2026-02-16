@@ -159,6 +159,7 @@ npm run dev
 - [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
 
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
+- [done] `/characters` polish pass: primary CTA label is now `New Character`, the account submenu stays expanded with correct active highlighting on submenu routes (`/characters`, `/settings`), and character rows now use the same hover highlight treatment as other equipment/list rows.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 
@@ -201,4 +202,3 @@ npm run dev
 
 - [done] Weapon rows now show keyword chips with tooltips sourced from Rules API `weapon_keywords.json`, including `X` keyword template matching (for example `Piercing 2`).
 - [done] Gear row polish pass: hover highlighting for weapons/armour/items plus reusable equipped-row emphasis styling for equipped armour.
-

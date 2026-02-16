@@ -3204,6 +3204,9 @@ export default function App() {
   }, [page, user]);
 
   const activeMenuPage = page === "view" ? "builder" : page;
+  const accountSubmenuPage =
+    activeMenuPage === "characters" || activeMenuPage === "settings";
+  const accountMenuExpanded = accountDropdownOpen || accountSubmenuPage;
   const normalizeHost = (host: string) => host.toLowerCase().replace(/^www\./, "");
   const normalizePath = (path: string) => {
     const trimmed = path.replace(/\/+$/, "");
@@ -3290,13 +3293,13 @@ export default function App() {
           </button>
           <div className="account-user-menu" ref={accountDropdownRef}>
             <button
-              className={`ghost account-user-trigger${accountDropdownOpen ? " active" : ""}`}
+              className={`ghost account-user-trigger${accountMenuExpanded ? " active" : ""}`}
               onClick={() => setAccountDropdownOpen((prev) => !prev)}
-              aria-expanded={accountDropdownOpen}
+              aria-expanded={accountMenuExpanded}
             >
               {accountName}
             </button>
-            {accountDropdownOpen ? (
+            {accountMenuExpanded ? (
               <div className="account-dropdown">
                 <button
                   className={activeMenuPage === "characters" ? "primary" : "ghost"}
@@ -3629,7 +3632,7 @@ export default function App() {
               onClick={() => beginEditorAction({ type: "add" })}
               disabled={!user}
             >
-              Add Character
+              New Character
             </button>
             <input
               value={characterSearch}

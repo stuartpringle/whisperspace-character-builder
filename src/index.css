@@ -299,6 +299,13 @@ header p {
   border-radius: 12px;
   background: rgba(9, 18, 36, 0.84);
   padding: 12px 10px;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.character-row:hover {
+  border-color: rgba(140, 175, 240, 0.7);
+  background: rgba(17, 30, 57, 0.92);
+  box-shadow: 0 0 0 1px rgba(120, 161, 232, 0.25);
 }
 
 .character-row.empty {
