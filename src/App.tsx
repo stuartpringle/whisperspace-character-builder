@@ -1962,19 +1962,28 @@ export default function App() {
     if (!gearData) return [];
     if (type === "item") {
       return filterOptions(
-        gearData.items.items.map((entry) => ({ key: entry.name, label: entry.name })),
+        gearData.items.items.map((entry) => ({
+          key: entry.name,
+          label: `${entry.name} (${unitCost(entry.cost)} credits)`,
+        })),
         query
       );
     }
     if (type === "cyberware") {
       return filterOptions(
-        gearData.cyberware.cyberware.map((entry) => ({ key: entry.name, label: entry.name })),
+        gearData.cyberware.cyberware.map((entry) => ({
+          key: entry.name,
+          label: `${entry.name} (${unitCost(entry.cost)} credits)`,
+        })),
         query
       );
     }
     if (type === "narcotics") {
       return filterOptions(
-        gearData.narcotics.narcotics.map((entry) => ({ key: entry.name, label: entry.name })),
+        gearData.narcotics.narcotics.map((entry) => ({
+          key: entry.name,
+          label: `${entry.name} (${unitCost(entry.cost)} credits)`,
+        })),
         query
       );
     }
@@ -1982,11 +1991,11 @@ export default function App() {
       [
         ...gearData.hacking.rigs.map((entry) => ({
           key: `rig:${entry.name}`,
-          label: `Rig: ${entry.name}`,
+          label: `Rig: ${entry.name} (${unitCost(entry.cost)} credits)`,
         })),
         ...gearData.hacking.software.map((entry) => ({
           key: `software:${entry.name}`,
-          label: `Software: ${entry.name}`,
+          label: `Software: ${entry.name} (${unitCost(entry.cost)} credits)`,
         })),
       ],
       query
@@ -1996,7 +2005,10 @@ export default function App() {
   const buildWeaponOptions = (query = "") => {
     if (!gearData) return [];
     return filterOptions(
-      gearData.weapons.weapons.map((entry) => ({ key: entry.id ?? entry.name, label: entry.name })),
+      gearData.weapons.weapons.map((entry) => ({
+        key: entry.id ?? entry.name,
+        label: `${entry.name} (${unitCost(entry.cost)} credits)`,
+      })),
       query
     );
   };
@@ -2004,7 +2016,10 @@ export default function App() {
   const buildArmourOptions = (query = "") => {
     if (!gearData) return [];
     return filterOptions(
-      gearData.armour.armor.map((entry) => ({ key: entry.id ?? entry.name, label: entry.name })),
+      gearData.armour.armor.map((entry) => ({
+        key: entry.id ?? entry.name,
+        label: `${entry.name} (${unitCost(entry.cost)} credits)`,
+      })),
       query
     );
   };
@@ -4303,7 +4318,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
+                              ? "Buy Weapon"
                               : "Add Weapon"}
                           </button>
                         </div>
@@ -4716,7 +4731,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
+                              ? "Buy Armour"
                               : "Add Armour"}
                           </button>
                         </div>
@@ -5042,7 +5057,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
+                              ? "Buy Gear"
                               : "Add Gear"}
                           </button>
                         </div>

@@ -166,6 +166,7 @@ npm run dev
 - [done] Header account navigation simplified again: removed the separate user-name trigger row and now renders `My Characters` / `Settings` / `Log out` directly as indented entries in the normal menu list under `Continue Building`.
 - [done] Header account navigation now uses fully normal (non-indented) menu entries for `Continue Building`, `My Characters`, `Settings`, and `Log out`; `Log out` is styled with a softer danger variant to stand out from standard nav actions.
 - [done] Header `Log out` now reuses the same `ghost danger` visual style as inventory/remove actions for consistent destructive-action styling across the app.
+- [done] Equipment catalog selectors now always include costs in option labels (`Name (<cost> credits)`) for weapons, armour, and items across both `Buy` and `Acquire` modes; `Buy` action buttons were simplified to `Buy Weapon`, `Buy Armour`, and `Buy Gear` (no inline cost suffix).
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 
