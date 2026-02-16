@@ -2026,7 +2026,7 @@ export default function App() {
     key
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/_/g, " ")
-      .replace(/\w/g, (char) => char.toUpperCase());
+      .replace(/\b\w/g, (char) => char.toUpperCase());
 
   const buildPreviewRows = (
     details: Record<string, unknown>,
@@ -3459,12 +3459,10 @@ export default function App() {
   }
 
   if (page === "characters") {
-    const showEmptySlots = characterSearch.trim().length === 0;
-    const emptySlots = showEmptySlots ? Math.max(0, characterLimit - characterSummaries.length) : 0;
     return (
       <div className="app">
         {renderHeader(
-          "Character List",
+          "My Characters",
           `${sortedFilteredCharacters.length} / ${characterLimit} slots used`
         )}
         <section className="card cut-corner-padded">
@@ -3540,11 +3538,6 @@ export default function App() {
                 </div>
               );
             })}
-            {Array.from({ length: emptySlots }).map((_, idx) => (
-              <div className="character-row empty" key={`empty-${idx}`}>
-                <span>Empty slot</span>
-              </div>
-            ))}
           </div>
         </section>
         {renderFooter()}
