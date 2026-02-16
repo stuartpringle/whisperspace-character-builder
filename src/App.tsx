@@ -3200,19 +3200,6 @@ export default function App() {
             <button className={builderLabelClass} onClick={() => navigate("/")}>
               Character Builder
             </button>
-            {builderControls ? (
-              <div className="builder-submenu">
-                <button className="ghost" onClick={() => void openSaveMenu()}>
-                  Save
-                </button>
-                <button className="ghost" onClick={() => setImportDialogOpen(true)}>
-                  Import
-                </button>
-                <button className="ghost danger" onClick={() => void resetToLastSaved()}>
-                  Reset
-                </button>
-              </div>
-            ) : null}
             <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
               Log in / Sign up
             </button>
@@ -3227,25 +3214,6 @@ export default function App() {
           <button className={builderLabelClass} onClick={() => navigate("/")}>
             Character Builder
           </button>
-          {builderControls ? (
-            <div className="builder-submenu">
-              <button className="ghost" onClick={() => void openSaveMenu()}>
-                Save
-              </button>
-              <button className="ghost" onClick={() => setImportDialogOpen(true)}>
-                Import
-              </button>
-              <button className="ghost danger" onClick={() => void resetToLastSaved()}>
-                Reset
-              </button>
-            </div>
-          ) : null}
-          <button
-            className={activeMenuPage === "characters" ? "primary" : "ghost"}
-            onClick={() => navigate("/characters")}
-          >
-            My Characters
-          </button>
           <div className="account-user-menu" ref={accountDropdownRef}>
             <button
               className={`ghost account-user-trigger${accountDropdownOpen ? " active" : ""}`}
@@ -3256,6 +3224,15 @@ export default function App() {
             </button>
             {accountDropdownOpen ? (
               <div className="account-dropdown">
+                <button
+                  className={activeMenuPage === "characters" ? "primary" : "ghost"}
+                  onClick={() => {
+                    navigate("/characters");
+                    setAccountDropdownOpen(false);
+                  }}
+                >
+                  My Characters
+                </button>
                 <button
                   className={activeMenuPage === "settings" ? "primary" : "ghost"}
                   onClick={() => {
@@ -3299,6 +3276,19 @@ export default function App() {
         <div className="header-title-stack">
           <h1>{title}</h1>
           {subtitle ? <p className="status">{subtitle}</p> : null}
+          {builderControls ? (
+            <div className="builder-title-actions">
+              <button className="primary" onClick={() => void openSaveMenu()}>
+                Save
+              </button>
+              <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+                Import
+              </button>
+              <button className="ghost danger" onClick={() => void resetToLastSaved()}>
+                Reset
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="auth-chip">{renderAccountMenu(builderControls)}</div>
       </div>
@@ -4249,7 +4239,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy Weapon (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
+                              ? `Buy (${purchasePreview(selectedWeaponEntry?.cost).cost} credits)`
                               : "Add Weapon"}
                           </button>
                         </div>
@@ -4388,7 +4378,7 @@ export default function App() {
                                   className="ghost danger"
                                   title={
                                     gearAcquisitionMode === "buy"
-                                      ? `Sell Weapon (${unitCost(weapon.cost)} credits)`
+                                      ? `Sell (${unitCost(weapon.cost)} credits)`
                                       : "Remove"
                                   }
                                   onClick={() =>
@@ -4396,7 +4386,7 @@ export default function App() {
                                   }
                                 >
                                   {gearAcquisitionMode === "buy"
-                                    ? `Sell Weapon (${unitCost(weapon.cost)} credits)`
+                                    ? `Sell (${unitCost(weapon.cost)} credits)`
                                     : "Remove"}
                                 </button>
                               </div>
@@ -4662,7 +4652,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy Armour (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
+                              ? `Buy (${purchasePreview(selectedArmourEntry?.cost).cost} credits)`
                               : "Add Armour"}
                           </button>
                         </div>
@@ -4718,7 +4708,7 @@ export default function App() {
                                     className="ghost danger armour-action-btn"
                                     title={
                                       gearAcquisitionMode === "buy"
-                                        ? `Sell Armour (${unitCost(armor.cost)} credits)`
+                                        ? `Sell (${unitCost(armor.cost)} credits)`
                                         : "Remove"
                                     }
                                     onClick={(event) => {
@@ -4727,7 +4717,7 @@ export default function App() {
                                     }}
                                   >
                                     {gearAcquisitionMode === "buy"
-                                      ? `Sell Armour (${unitCost(armor.cost)} credits)`
+                                      ? `Sell (${unitCost(armor.cost)} credits)`
                                       : "Remove"}
                                   </button>
                                 </div>
@@ -4988,7 +4978,7 @@ export default function App() {
                             }
                           >
                             {gearAcquisitionMode === "buy"
-                              ? `Buy Gear (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
+                              ? `Buy (${purchasePreview(selectedGearEntry?.cost).cost} credits)`
                               : "Add Gear"}
                           </button>
                         </div>
@@ -5115,7 +5105,7 @@ export default function App() {
                                     className="ghost"
                                     title={
                                       gearAcquisitionMode === "buy"
-                                        ? `Sell ${gear.name || "Item"} (${unitCost(gear.cost)} credits)`
+                                        ? `Sell (${unitCost(gear.cost)} credits)`
                                         : "Decrease quantity"
                                     }
                                     onClick={() => adjustInventoryQuantity(inventoryIndex, -1)}
@@ -5127,7 +5117,7 @@ export default function App() {
                                     className="ghost"
                                     title={
                                       gearAcquisitionMode === "buy"
-                                        ? `Buy ${gear.name || "Item"} (${unitCost(gear.cost)} credits)`
+                                        ? `Buy (${unitCost(gear.cost)} credits)`
                                         : "Increase quantity"
                                     }
                                     disabled={
@@ -5145,7 +5135,7 @@ export default function App() {
                                   className="ghost danger"
                                   title={
                                     gearAcquisitionMode === "buy"
-                                      ? `Sell Gear (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
+                                      ? `Sell (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
                                       : "Remove"
                                   }
                                   onClick={() =>
@@ -5153,7 +5143,7 @@ export default function App() {
                                   }
                                 >
                                   {gearAcquisitionMode === "buy"
-                                    ? `Sell Gear (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
+                                    ? `Sell (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
                                     : "Remove"}
                                 </button>
                               </div>

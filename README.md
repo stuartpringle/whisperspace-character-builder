@@ -152,6 +152,8 @@ npm run dev
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
+- [done] Builder header now shows larger horizontal `Save`/`Import`/`Reset` actions directly under the `Character Builder` title; account dropdown now holds `My Characters`, `Settings`, and `Log out`, while buy/sell labels are simplified (`Buy (...)`, `Sell (...)`).
+
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
 - Character view URL pattern: `https://builder.whisperspace.com/character/:id`
