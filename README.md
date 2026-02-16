@@ -154,6 +154,10 @@ npm run dev
 
 - [done] Builder header now shows larger horizontal `Save`/`Import`/`Reset` actions directly under the `Character Builder` title; account dropdown now holds `My Characters`, `Settings`, and `Log out`, while buy/sell labels are simplified (`Buy (...)`, `Sell (...)`).
 
+- [done] Gear card hover highlight now applies to both collapsed and expanded cards (weapon/item/armour), and the temporary `.equipped-row` row-only highlight class has been removed.
+- [done] Cloud save visibility now defaults per-character to the last chosen value for that character (when available), instead of always using global default visibility.
+- [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
+
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
 - Character view URL pattern: `https://builder.whisperspace.com/character/:id`

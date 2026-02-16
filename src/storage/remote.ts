@@ -5,12 +5,14 @@ import { validateCharacterRecordV1 } from "../model/validate";
 const API_BASE =
   (import.meta as any).env?.VITE_CHARACTER_API_BASE || CHARACTER_API_BASE;
 
-function authHeaders() {
+function authHeaders(opts?: { includeApiKey?: boolean }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  const apiKey = localStorage.getItem("ws_character_api_key");
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (opts?.includeApiKey) {
+    const apiKey = localStorage.getItem("ws_character_api_key");
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  }
   const csrf = document.cookie
     .split(";")
     .map((part) => part.trim())
@@ -40,6 +42,7 @@ export type AdminListResponse = {
 export async function listCharacters(): Promise<CharacterSummary[]> {
   const res = await fetch(`${API_BASE}/characters`, {
     headers: authHeaders(),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to list characters");
   return (await res.json()) as CharacterSummary[];
@@ -48,6 +51,7 @@ export async function listCharacters(): Promise<CharacterSummary[]> {
 export async function fetchCharacter(id: string): Promise<CharacterSheet> {
   const res = await fetch(`${API_BASE}/characters/${id}`, {
     headers: authHeaders(),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to load character");
   return (await res.json()) as CharacterSheet;
@@ -78,6 +82,7 @@ export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: bool
       ...authHeaders(),
       "If-Unmodified-Since": sanitized.updatedAt,
     },
+    credentials: "include",
     body: JSON.stringify(sanitized),
   });
   if (res.status === 409) {
@@ -92,13 +97,15 @@ export async function deleteCharacter(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/characters/${id}`, {
     method: "DELETE",
     headers: authHeaders(),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to delete character");
 }
 
 export async function adminListCharacters(): Promise<AdminListResponse> {
   const res = await fetch(`${API_BASE}/admin/characters`, {
-    headers: authHeaders(),
+    headers: authHeaders({ includeApiKey: true }),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to load admin list");
   return (await res.json()) as AdminListResponse;
@@ -107,7 +114,8 @@ export async function adminListCharacters(): Promise<AdminListResponse> {
 export async function adminDeleteAll(): Promise<{ ok: boolean; deleted: number }> {
   const res = await fetch(`${API_BASE}/admin/characters?confirm=1`, {
     method: "DELETE",
-    headers: authHeaders(),
+    headers: authHeaders({ includeApiKey: true }),
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to delete all characters");
   return (await res.json()) as { ok: boolean; deleted: number };

@@ -139,6 +139,7 @@ const MAX_RANK_OFF_FOCUS = 2;
 const STEP_KEY = "ws_builder_step";
 const LOCAL_SAVED_KEY = "ws_character_saved_local_v1";
 const LAST_SAVED_KEY = "ws_character_last_saved_v1";
+const CHARACTER_VISIBILITY_PREFS_KEY = "ws_character_visibility_preferences_v1";
 const SHARED_NAV_SRC = "https://whisperspace.com/nav/main-menu.v1.json";
 const SHARED_NAV_FALLBACK: SharedNavItem[] = [
   { id: "home", label: "Home", href: "https://whisperspace.com/#home" },
@@ -2693,6 +2694,23 @@ export default function App() {
     return Boolean(saves[id]);
   };
 
+  const readCharacterVisibilityPreferences = (): Record<string, "private" | "public"> => {
+    try {
+      const raw = localStorage.getItem(CHARACTER_VISIBILITY_PREFS_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, "private" | "public">;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const writeCharacterVisibilityPreference = (id: string, visibility: "private" | "public") => {
+    const prefs = readCharacterVisibilityPreferences();
+    prefs[id] = visibility;
+    localStorage.setItem(CHARACTER_VISIBILITY_PREFS_KEY, JSON.stringify(prefs));
+  };
+
   const checkCloudExists = async (id: string): Promise<boolean> => {
     try {
       const res = await fetch(`${apiBase}/characters/${id}`, {
@@ -2734,6 +2752,10 @@ export default function App() {
       details.forEach((pair) => {
         if (!pair) return;
         map[pair[0]] = pair[1];
+        const rawVisibility = (pair[1] as CharacterSheet & { visibility?: string }).visibility;
+        if (rawVisibility === "private" || rawVisibility === "public") {
+          writeCharacterVisibilityPreference(pair[0], rawVisibility);
+        }
       });
       setCharacterSheetsById(map);
     } catch (err) {
@@ -2833,6 +2855,9 @@ export default function App() {
       });
       if (res.ok) {
         setUser(null);
+        setCharacterSummaries([]);
+        setCharacterSheetsById({});
+        setCharacterListError("");
         localStorage.removeItem("ws_auth_session");
         localStorage.removeItem("ws_auth_session_at");
         if (page !== "builder" && page !== "view") {
@@ -2953,6 +2978,7 @@ export default function App() {
       }
       const savedPayload = (await res.json()) as CharacterSheet;
       const saved = mergeGameplayEffectsFromLocal(savedPayload, normalized);
+      writeCharacterVisibilityPreference(saved.id, saveVisibility);
       updateSheet(saved);
       localStorage.setItem(LAST_SAVED_KEY, JSON.stringify(saved));
       setBaselineSheetJson(JSON.stringify(saved));
@@ -2982,6 +3008,8 @@ export default function App() {
       const exists = await checkCloudExists(sheet.id);
       setSaveExistingRecord(exists);
       setSaveNewAvailable(exists);
+      const perCharacterVisibility = readCharacterVisibilityPreferences()[sheet.id];
+      setSaveVisibility(perCharacterVisibility ?? settingsVisibilityDefault);
     } else {
       const exists = localSaveExists(sheet.id);
       setSaveExistingRecord(exists);
@@ -3125,6 +3153,14 @@ export default function App() {
       void refreshCharacterList();
     }
   }, [page, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setCharacterSummaries([]);
+      setCharacterSheetsById({});
+      setCharacterListError("");
+    }
+  }, [user]);
 
   useEffect(() => {
     // Public pages: builder + character view.
@@ -4689,7 +4725,7 @@ export default function App() {
                                 setArmourExpanded((prev) => ({ ...prev, [key]: !expanded }))
                               }
                             >
-                              <div className={`gear-row armour-row gear-row-interactive${isEquipped ? " equipped-row" : ""}`}>
+                              <div className="gear-row armour-row gear-row-interactive">
                                 <span>{armor.name || "Armour"}</span>
                                 <span>{armor.protection ?? 0}</span>
                                 <span>{armor.bulk ?? 0}</span>
