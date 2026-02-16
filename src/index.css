@@ -319,6 +319,32 @@ header p {
   text-align: right;
 }
 
+.character-row-actions {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.copy-link-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.copy-link-tooltip {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  border: 1px solid rgba(108, 148, 216, 0.55);
+  border-radius: 8px;
+  background: rgba(10, 25, 49, 0.95);
+  color: #d8e9ff;
+  pointer-events: none;
+  z-index: 12;
+}
+
 .step {
   position: relative;
   border: 1px solid rgba(88, 111, 160, 0.42);

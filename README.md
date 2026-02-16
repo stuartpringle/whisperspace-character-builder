@@ -158,6 +158,8 @@ npm run dev
 - [done] Cloud save visibility now defaults per-character to the last chosen value for that character (when available), instead of always using global default visibility.
 - [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
 
+- [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
+
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
 - Character view URL pattern: `https://builder.whisperspace.com/character/:id`

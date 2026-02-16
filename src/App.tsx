@@ -6,7 +6,7 @@ import { CHARACTER_API_BASE } from "./model/api";
 import { validateCharacterRecordV1 } from "./model/validate";
 import { loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
-import { fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
+import { deleteCharacter, fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
 import {
   createAnimated3dProvider,
   createMathRollProvider,
@@ -301,6 +301,7 @@ export default function App() {
   const [resetToken, setResetToken] = useState<string>("");
   const [saveMenuOpen, setSaveMenuOpen] = useState<boolean>(false);
   const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
+  const [authPostLoginAction, setAuthPostLoginAction] = useState<"none" | "save">("none");
   const [accountDropdownOpen, setAccountDropdownOpen] = useState<boolean>(false);
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
@@ -334,6 +335,7 @@ export default function App() {
   const [characterSearch, setCharacterSearch] = useState<string>("");
   const [characterSortKey, setCharacterSortKey] = useState<CharacterSortKey>("name");
   const [characterSortDirection, setCharacterSortDirection] = useState<SortDirection>("asc");
+  const [copiedCharacterId, setCopiedCharacterId] = useState<string | null>(null);
   const [unsavedPromptOpen, setUnsavedPromptOpen] = useState<boolean>(false);
   const [pendingEditorAction, setPendingEditorAction] = useState<
     null | { type: "add" } | { type: "edit"; id: string; name: string }
@@ -2836,7 +2838,10 @@ export default function App() {
         localStorage.setItem("ws_auth_session", JSON.stringify({ user: payload.user ?? null }));
         localStorage.setItem("ws_auth_session_at", String(Date.now()));
         setAuthDialogOpen(false);
-        setSaveMenuOpen(true);
+        if (authPostLoginAction === "save") {
+          setSaveMenuOpen(true);
+        }
+        setAuthPostLoginAction("none");
       }
     } catch {
       setAuthError("auth_failed");
@@ -3236,7 +3241,13 @@ export default function App() {
             <button className={builderLabelClass} onClick={() => navigate("/")}>
               Character Builder
             </button>
-            <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
+            <button
+              className="ghost"
+              onClick={() => {
+                setAuthPostLoginAction("none");
+                setAuthDialogOpen(true);
+              }}
+            >
               Log in / Sign up
             </button>
           </div>
@@ -3632,15 +3643,24 @@ export default function App() {
                   <span className="num">{full?.attributes?.ment ?? 0}</span>
                   <span>{full?.weapons?.[0]?.name ?? "-"}</span>
                   <span>{full?.armour?.name ?? "-"}</span>
-                  <div className="inline">
-                    <button
-                      className="ghost"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(shareUrl);
-                      }}
-                    >
-                      {"Copy\u00A0Link"}
-                    </button>
+                  <div className="inline character-row-actions">
+                    <span className="copy-link-wrap">
+                      <button
+                        className="ghost"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard?.writeText(shareUrl);
+                            setCopiedCharacterId(entry.id);
+                            window.setTimeout(() => setCopiedCharacterId((current) => (current === entry.id ? null : current)), 1400);
+                          } catch {
+                            setCharacterListError("Failed to copy link");
+                          }
+                        }}
+                      >
+                        {"Copy\u00A0Link"}
+                      </button>
+                      {copiedCharacterId === entry.id ? <span className="copy-link-tooltip">Copied</span> : null}
+                    </span>
                     <button
                       className="ghost"
                       onClick={() =>
@@ -3652,6 +3672,21 @@ export default function App() {
                       }
                     >
                       Edit
+                    </button>
+                    <button
+                      className="ghost danger"
+                      onClick={async () => {
+                        const ok = window.confirm(`Delete ${entry.name || "this character"}? This cannot be undone.`);
+                        if (!ok) return;
+                        try {
+                          await deleteCharacter(entry.id);
+                          await refreshCharacterList();
+                        } catch {
+                          setCharacterListError("Failed to delete character");
+                        }
+                      }}
+                    >
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -5698,6 +5733,7 @@ export default function App() {
                 onClick={() => {
                   if (!user) {
                     setSaveMenuOpen(false);
+                    setAuthPostLoginAction("save");
                     setAuthDialogOpen(true);
                     return;
                   }
@@ -5718,11 +5754,20 @@ export default function App() {
       ) : null}
 
       {authDialogOpen ? (
-        <div className="modal" onClick={() => setAuthDialogOpen(false)}>
+        <div className="modal" onClick={() => {
+          setAuthDialogOpen(false);
+          setAuthPostLoginAction("none");
+        }}>
           <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Log In / Sign Up</h2>
-              <button className="ghost" onClick={() => setAuthDialogOpen(false)}>
+              <button
+                className="ghost"
+                onClick={() => {
+                  setAuthDialogOpen(false);
+                  setAuthPostLoginAction("none");
+                }}
+              >
                 Close
               </button>
             </div>
@@ -5772,6 +5817,12 @@ export default function App() {
                   type="password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void handleAuth();
+                    }
+                  }}
                   placeholder="Password"
                   autoComplete={authMode === "login" ? "current-password" : "new-password"}
                 />
