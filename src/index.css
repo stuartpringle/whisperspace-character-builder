@@ -209,17 +209,6 @@ header p {
   padding: 8px 10px;
 }
 
-.account-logout {
-  border-color: rgba(199, 110, 110, 0.48) !important;
-  color: #ffb4b4;
-}
-
-.account-logout:hover {
-  border-color: rgba(240, 140, 140, 0.68) !important;
-  background: rgba(64, 20, 20, 0.62);
-  color: #ffd0d0;
-}
-
 .builder-title-actions {
   display: inline-flex;
   gap: 10px;

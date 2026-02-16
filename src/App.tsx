@@ -3309,7 +3309,7 @@ export default function App() {
           >
             Settings
           </button>
-          <button className="ghost account-menu-item account-logout" onClick={() => void handleLogout()}>
+          <button className="ghost danger account-menu-item" onClick={() => void handleLogout()}>
             Log out
           </button>
         </div>
