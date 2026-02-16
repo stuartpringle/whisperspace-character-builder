@@ -162,6 +162,7 @@ npm run dev
 - [done] `/characters` polish pass: primary CTA label is now `New Character`, the account submenu stays expanded with correct active highlighting on submenu routes (`/characters`, `/settings`), and character rows now use the same hover highlight treatment as other equipment/list rows.
 - [done] Non-builder headers now label the builder return action as `Continue Building`; default landing preference fallback is now `My Characters`; and Skills now include an `Add / Remove` modal (mirroring credits adjustments) with guardrails that block removing points already spent and show an inline warning.
 - [done] Skills layout polish: removed the large direct `Total` points input, added a `Skill Points` heading for the budget block, and moved `Learning Focus` to sit just below the skill-points section.
+- [done] Header account navigation now renders as a single inline menu tree: the user submenu items are part of the same menu stack with visual indentation (instead of a floating dropdown), and the account menu block is positioned slightly higher in the header for better alignment.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

@@ -3320,7 +3320,7 @@ export default function App() {
               {accountName}
             </button>
             {accountMenuExpanded ? (
-              <div className="account-dropdown">
+              <div className="account-dropdown account-submenu">
                 <button
                   className={activeMenuPage === "characters" ? "primary" : "ghost"}
                   onClick={() => {
