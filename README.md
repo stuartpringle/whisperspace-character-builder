@@ -148,6 +148,7 @@ npm run dev
 - [done] In `Buy` mode, item quantity controls become buy/sell actions (`+` buys one with credit checks, `-` sells one), and gear remove actions become sell actions that credit back item/weapon/armour value.
 - [done] Equipment add buttons now switch labels in `Buy` mode (`Buy Weapon/Armour/Gear (<cost> credits)`) and disable when credits are insufficient; `Acquire` mode keeps standard `Add` labels and the mode selector now uses a switch-style toggle.
 - [done] Equipment add rows now include `Preview` actions for weapon/armour/gear catalogs, opening a modal with full selected-entry details before buy/add.
+- [done] Preview modal now hides internal IDs, maps weapon `skillId` to `Skill Used` with pretty skill labels, title-cases field labels, and renders detail fields in two columns beneath Name on larger screens.
 - [planned] Expand the character view page to show full derived stats, wounds/stress, and gear totals.
 - [planned] Add a cache refresh control for rules data.
 
@@ -186,3 +187,4 @@ npm run dev
 - Gameplay-effect tags are stored on gear/feat entries and normalized into a top-level `gameplayEffects` array for calc requests (`derive-*` and `validate-sheet`); entity payloads are sent without embedded `gameplayEffects` fields for compatibility with current deployed calc behavior.
 - Character API persistence schema currently rejects `gameplayEffects` on weapon/gear/feat records; cloud saves remove those transient UI fields before submit.
 - During schema migration, the builder can read/write legacy `armour` and new `armours` + `equippedArmourId` fields.
+- [done] Catalog action rows now use tighter no-wrap action-group layout so `Preview` + `Buy ...` controls avoid awkward line breaks (with mobile wrap fallback).

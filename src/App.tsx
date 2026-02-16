@@ -2028,30 +2028,49 @@ export default function App() {
       .replace(/_/g, " ")
       .replace(/\w/g, (char) => char.toUpperCase());
 
+  const buildPreviewRows = (
+    details: Record<string, unknown>,
+    options?: { skillLabelById?: Record<string, string> }
+  ) => {
+    const rows = Object.entries(details)
+      .filter(([key]) => key !== "id")
+      .map(([key, value]) => {
+        if (key === "skillId") {
+          const skillKey = String(value ?? "");
+          const pretty = options?.skillLabelById?.[skillKey] ?? skillKey;
+          return {
+            label: "Skill Used",
+            value: formatPreviewValue(pretty),
+          };
+        }
+        return {
+          label: previewLabel(key),
+          value: formatPreviewValue(value),
+        };
+      });
+    rows.sort((a, b) => {
+      if (a.label === "Name") return -1;
+      if (b.label === "Name") return 1;
+      return a.label.localeCompare(b.label);
+    });
+    return rows;
+  };
+
   const openCatalogPreview = (kind: "weapon" | "armour" | "gear") => {
     if (kind === "weapon") {
       if (!selectedWeaponEntry) return;
-      const rows = Object.entries(selectedWeaponEntry as Record<string, unknown>).map(([key, value]) => ({
-        label: previewLabel(key),
-        value: formatPreviewValue(value),
-      }));
+      const rows = buildPreviewRows(selectedWeaponEntry as Record<string, unknown>, { skillLabelById });
       setCatalogPreview({ title: `Weapon Preview: ${selectedWeaponEntry.name ?? "Weapon"}`, rows });
       return;
     }
     if (kind === "armour") {
       if (!selectedArmourEntry) return;
-      const rows = Object.entries(selectedArmourEntry as Record<string, unknown>).map(([key, value]) => ({
-        label: previewLabel(key),
-        value: formatPreviewValue(value),
-      }));
+      const rows = buildPreviewRows(selectedArmourEntry as Record<string, unknown>);
       setCatalogPreview({ title: `Armour Preview: ${selectedArmourEntry.name ?? "Armour"}`, rows });
       return;
     }
     if (!selectedGearEntry) return;
-    const rows = Object.entries(selectedGearEntry.details).map(([key, value]) => ({
-      label: previewLabel(key),
-      value: formatPreviewValue(value),
-    }));
+    const rows = buildPreviewRows(selectedGearEntry.details);
     setCatalogPreview({ title: `Gear Preview: ${selectedGearEntry.label}`, rows });
   };
 
@@ -4127,7 +4146,7 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <div className="inline wrap">
+                        <div className="inline wrap catalog-actions">
                           <button
                             className="ghost"
                             onClick={() => openCatalogPreview("weapon")}
@@ -4524,7 +4543,7 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <div className="inline wrap">
+                        <div className="inline wrap catalog-actions">
                           <button
                             className="ghost"
                             onClick={() => openCatalogPreview("armour")}
@@ -4850,7 +4869,7 @@ export default function App() {
                       </div>
                       <div className="gear-actions">
                         <label>&nbsp;</label>
-                        <div className="inline wrap">
+                        <div className="inline wrap catalog-actions">
                           <button
                             className="ghost"
                             onClick={() => openCatalogPreview("gear")}
@@ -5771,14 +5790,28 @@ export default function App() {
                 Close
               </button>
             </div>
-            <div className="preview-grid">
-              {catalogPreview.rows.map((row) => (
-                <div key={row.label} className="preview-row">
-                  <span className="muted">{row.label}</span>
-                  <strong>{row.value}</strong>
-                </div>
-              ))}
-            </div>
+            {(() => {
+              const nameRow = catalogPreview.rows.find((row) => row.label === "Name");
+              const detailRows = catalogPreview.rows.filter((row) => row.label !== "Name");
+              return (
+                <>
+                  {nameRow ? (
+                    <div className="preview-row preview-name-row">
+                      <span className="muted">{nameRow.label}</span>
+                      <strong>{nameRow.value}</strong>
+                    </div>
+                  ) : null}
+                  <div className="preview-grid two-col">
+                    {detailRows.map((row) => (
+                      <div key={row.label} className="preview-row">
+                        <span className="muted">{row.label}</span>
+                        <strong>{row.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       ) : null}

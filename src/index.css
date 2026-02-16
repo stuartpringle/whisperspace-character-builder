@@ -1419,3 +1419,31 @@ input:checked + .slider:before {
   background: rgba(10, 20, 38, 0.62);
   border-radius: 10px;
 }
+
+.catalog-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.catalog-actions button {
+  white-space: nowrap;
+}
+
+.preview-name-row {
+  margin-bottom: 10px;
+}
+
+.preview-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 760px) {
+  .preview-grid.two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-actions {
+    flex-wrap: wrap;
+  }
+}
