@@ -164,6 +164,7 @@ npm run dev
 - [done] Skills layout polish: removed the large direct `Total` points input, added a `Skill Points` heading for the budget block, and moved `Learning Focus` to sit just below the skill-points section.
 - [done] Header account navigation now renders as a single inline menu tree: the user submenu items are part of the same menu stack with visual indentation (instead of a floating dropdown), and the account menu block is positioned slightly higher in the header for better alignment.
 - [done] Header account navigation simplified again: removed the separate user-name trigger row and now renders `My Characters` / `Settings` / `Log out` directly as indented entries in the normal menu list under `Continue Building`.
+- [done] Header account navigation now uses fully normal (non-indented) menu entries for `Continue Building`, `My Characters`, `Settings`, and `Log out`; `Log out` is styled with a softer danger variant to stand out from standard nav actions.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

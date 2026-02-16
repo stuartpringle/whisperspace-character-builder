@@ -3294,7 +3294,7 @@ export default function App() {
             {builderLabel}
           </button>
           <button
-            className={activeMenuPage === "characters" ? "primary account-submenu-item" : "ghost account-submenu-item"}
+            className={activeMenuPage === "characters" ? "primary account-menu-item" : "ghost account-menu-item"}
             onClick={() => {
               navigate("/characters");
             }}
@@ -3302,14 +3302,14 @@ export default function App() {
             My Characters
           </button>
           <button
-            className={activeMenuPage === "settings" ? "primary account-submenu-item" : "ghost account-submenu-item"}
+            className={activeMenuPage === "settings" ? "primary account-menu-item" : "ghost account-menu-item"}
             onClick={() => {
               navigate("/settings");
             }}
           >
             Settings
           </button>
-          <button className="ghost account-submenu-item" onClick={() => void handleLogout()}>
+          <button className="ghost account-menu-item account-logout" onClick={() => void handleLogout()}>
             Log out
           </button>
         </div>

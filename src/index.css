@@ -203,14 +203,21 @@ header p {
   padding: 10px 12px;
 }
 
-.account-submenu-item {
+.account-menu-item {
   min-height: 36px;
   font-size: 0.92rem;
   padding: 8px 10px;
-  margin-left: 16px;
-  border-left: 1px solid rgba(99, 130, 185, 0.45);
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+}
+
+.account-logout {
+  border-color: rgba(199, 110, 110, 0.48) !important;
+  color: #ffb4b4;
+}
+
+.account-logout:hover {
+  border-color: rgba(240, 140, 140, 0.68) !important;
+  background: rgba(64, 20, 20, 0.62);
+  color: #ffd0d0;
 }
 
 .builder-title-actions {
