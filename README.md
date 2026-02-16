@@ -69,7 +69,7 @@ npm run dev
 - [done] Learning Focus skills no longer show attribute labels; they are grouped by focus domain.
 - [done] Current tab persists across refresh; Back/Next controls moved next to step tabs.
 - [done] Previous/Next controls now render inside the main content card container.
-- [done] Authenticated account menu now shows username with an always-visible menu (Character Builder, Character List, Settings, Log out) and active-page highlighting.
+- [done] Header account area now uses a username-triggered dropdown (Settings, Log out) with active-page highlighting and inline Builder submenu actions (`Save`, `Import`, `Reset`).
 - [done] Character List page supports search, sortable columns, slot-capacity display, name-as-view-link, copy-link/edit actions, and right-aligned numeric columns.
 - [done] Character List sort headers now show direction indicators (ascending/descending).
 - [done] Edit/Add from Character List now checks for unsaved builder changes and prompts save-or-discard.
@@ -77,7 +77,7 @@ npm run dev
 - [done] Empty character slots are hidden while search filtering is active.
 - [done] Settings page now includes account summary plus saved preferences (default visibility, default landing page).
 - [done] Header/footer layout now uses shared render templates for consistent structure across builder/view/characters/settings pages.
-- [done] Back-to-builder action now appears under page title on all non-builder pages.
+- [done] Non-builder pages no longer render a separate Back-to-builder button; global nav handles page switching consistently.
 - [done] Character builder now uses the same favicon assets as `whisperspace.com`.
 - [done] Account menu hit-area was expanded/tuned for reliable hover/click interaction.
 - [prototype] Added `augmented-ui` treatment to cards, step tabs, modal cards, gear cards, and primary buttons using the current Whisperspace palette.
@@ -188,3 +188,7 @@ npm run dev
 - Character API persistence schema currently rejects `gameplayEffects` on weapon/gear/feat records; cloud saves remove those transient UI fields before submit.
 - During schema migration, the builder can read/write legacy `armour` and new `armours` + `equippedArmourId` fields.
 - [done] Catalog action rows now use tighter no-wrap action-group layout so `Preview` + `Buy ...` controls avoid awkward line breaks (with mobile wrap fallback).
+
+- [done] Weapon rows now show keyword chips with tooltips sourced from Rules API `weapon_keywords.json`, including `X` keyword template matching (for example `Piercing 2`).
+- [done] Gear row polish pass: hover highlighting for weapons/armour/items plus reusable equipped-row emphasis styling for equipped armour.
+

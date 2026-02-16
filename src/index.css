@@ -174,6 +174,8 @@ header p {
 
 .auth-chip {
   justify-content: flex-end;
+  position: relative;
+  overflow: visible;
 }
 
 .account-block {
@@ -202,6 +204,38 @@ header p {
   justify-content: flex-start;
   min-height: 40px;
   padding: 10px 12px;
+}
+
+.builder-submenu {
+  display: grid;
+  gap: 6px;
+  margin: -2px 0 4px 14px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(102, 136, 194, 0.38);
+}
+
+.account-user-menu {
+  position: relative;
+}
+
+.account-user-trigger.active {
+  border-color: rgba(148, 183, 245, 0.82);
+  background: rgba(25, 43, 75, 0.88);
+}
+
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 200px;
+  border: 1px solid rgba(99, 130, 185, 0.45);
+  border-radius: 12px;
+  background: rgba(7, 16, 33, 0.96);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
 }
 
 .steps {
@@ -1025,6 +1059,11 @@ button:disabled {
   box-shadow: 0 0 0 2px rgba(115, 160, 238, 0.35);
 }
 
+.gear-card.equipped {
+  border-color: rgba(140, 178, 246, 0.92);
+  box-shadow: 0 0 0 2px rgba(91, 150, 244, 0.3);
+}
+
 .gear-section {
   border: 1px solid rgba(90, 116, 168, 0.26);
   border-radius: 14px;
@@ -1041,6 +1080,10 @@ button:disabled {
   text-align: right;
 }
 
+.weapon-row {
+  grid-template-columns: 1.1fr 0.95fr 0.55fr 0.7fr 0.75fr 0.95fr 1.4fr auto;
+}
+
 .gear-row:active {
   cursor: grabbing;
 }
@@ -1051,6 +1094,22 @@ button:disabled {
 
 .gear-row .row-controls {
   justify-content: flex-end;
+}
+
+.gear-row-interactive {
+  border-radius: 10px;
+  padding: 6px 8px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gear-row-interactive:hover {
+  background: rgba(21, 36, 64, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(95, 131, 195, 0.35);
+}
+
+.equipped-row {
+  background: rgba(28, 52, 92, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(122, 168, 242, 0.52);
 }
 
 .gear-row-header {
@@ -1100,6 +1159,28 @@ button:disabled {
 .icon-only svg {
   width: 14px;
   height: 14px;
+}
+
+.weapon-keywords-inline {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.keyword-chip {
+  border: 1px solid rgba(112, 150, 212, 0.48);
+  background: rgba(15, 30, 58, 0.78);
+  color: #c4daff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  line-height: 1.1;
+}
+
+.keyword-chip:hover {
+  border-color: rgba(151, 188, 247, 0.85);
+  background: rgba(24, 44, 79, 0.92);
 }
 
 .gameplay-block {
@@ -1313,7 +1394,7 @@ button:disabled {
 
 
 .armour-action-btn {
-  padding: 7px 12px;
+  padding: 10px 14px;
 }
 
 .switch-wrap {

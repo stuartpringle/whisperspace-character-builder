@@ -74,6 +74,10 @@ type SkillTooltips = {
   skillsByLabel?: Record<string, string>;
 };
 
+type WeaponKeywordsData = {
+  keywords: Array<{ name?: string; description?: string }>;
+};
+
 type BackgroundOption = {
   name: string;
   description: string;
@@ -266,6 +270,7 @@ export default function App() {
   const [skillsStatus, setSkillsStatus] = useState<string>("idle");
   const [skillsError, setSkillsError] = useState<string>("");
   const [skillTooltips, setSkillTooltips] = useState<SkillTooltips | null>(null);
+  const [weaponKeywordTooltips, setWeaponKeywordTooltips] = useState<Record<string, string>>({});
   const [skillSearch, setSkillSearch] = useState<string>("");
   const [derivedStats, setDerivedStats] = useState<{ speed: number; capacity: number }>({
     speed: 0,
@@ -295,6 +300,7 @@ export default function App() {
   const [resetToken, setResetToken] = useState<string>("");
   const [saveMenuOpen, setSaveMenuOpen] = useState<boolean>(false);
   const [authDialogOpen, setAuthDialogOpen] = useState<boolean>(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState<boolean>(false);
   const [saveOptionsOpen, setSaveOptionsOpen] = useState<boolean>(false);
   const [saveTarget, setSaveTarget] = useState<SaveTarget>("cloud");
   const [creditsModalOpen, setCreditsModalOpen] = useState<boolean>(false);
@@ -418,6 +424,7 @@ export default function App() {
   const deriveHandledManualTick = useRef<number>(0);
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
+  const accountDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const animateDiceRoll = useCallback(
     async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
@@ -848,6 +855,39 @@ export default function App() {
       })
       .catch(() => {
         // keep skills usable even if tooltip file is unavailable
+      });
+
+    const cachedWeaponKeywords = localStorage.getItem("ws_rules_weapon_keywords_json");
+    if (cachedWeaponKeywords) {
+      try {
+        const parsed = JSON.parse(cachedWeaponKeywords) as WeaponKeywordsData;
+        const map = (parsed.keywords ?? []).reduce<Record<string, string>>((acc: Record<string, string>, entry: { name?: string; description?: string }) => {
+          const key = String(entry?.name ?? "").trim();
+          if (key) acc[key] = String(entry?.description ?? "").trim();
+          return acc;
+        }, {});
+        setWeaponKeywordTooltips(map);
+      } catch {
+        // ignore cache errors
+      }
+    }
+
+    fetch(`${rulesBase}/weapon_keywords.json`)
+      .then((res) =>
+        res.ok ? (res.json() as Promise<WeaponKeywordsData>) : Promise.reject(new Error("bad response"))
+      )
+      .then((payload) => {
+        if (!active) return;
+        localStorage.setItem("ws_rules_weapon_keywords_json", JSON.stringify(payload));
+        const map = (payload.keywords ?? []).reduce<Record<string, string>>((acc: Record<string, string>, entry: { name?: string; description?: string }) => {
+          const key = String(entry?.name ?? "").trim();
+          if (key) acc[key] = String(entry?.description ?? "").trim();
+          return acc;
+        }, {});
+        setWeaponKeywordTooltips(map);
+      })
+      .catch(() => {
+        // keep weapons usable even if keyword tooltip file is unavailable
       });
     return () => {
       active = false;
@@ -3112,27 +3152,67 @@ export default function App() {
     if (item.hash) return item.hash === currentHash;
     return Boolean(hosts.length && hosts.includes(currentHost));
   };
-  const renderAccountMenu = (builderControls = false) => {
-    if (!user) {
-      if (!builderControls) {
-        return (
-          <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
-            Log in / Sign up
-          </button>
-        );
+  const resolveWeaponKeywordTooltip = useCallback(
+    (keywordRaw: string) => {
+      const keyword = String(keywordRaw ?? "").trim();
+      if (!keyword) return "";
+      const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
+      const exactByName = Object.entries(weaponKeywordTooltips).find(
+        ([name]) => normalize(name) === normalize(keyword)
+      );
+      if (exactByName?.[1]) return exactByName[1];
+
+      const escapeRegex = (value: string) => value.replace(/[.*+?^()|[\]\\]/g, "\\$&");
+      const entries = Object.entries(weaponKeywordTooltips);
+      for (const [template, description] of entries) {
+        if (!template.includes("X")) continue;
+        const pattern = new RegExp(`^${escapeRegex(template).replace(/X/g, "(.+?)")}$`, "i");
+        const match = keyword.match(pattern);
+        if (!match) continue;
+        const replacementValue = match[1]?.trim();
+        return replacementValue ? description.replace(/X/g, replacementValue) : description;
       }
+      return keyword;
+    },
+    [weaponKeywordTooltips]
+  );
+
+  useEffect(() => {
+    if (!accountDropdownOpen) return;
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (accountDropdownRef.current?.contains(target)) return;
+      setAccountDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", onDocumentMouseDown);
+    return () => document.removeEventListener("mousedown", onDocumentMouseDown);
+  }, [accountDropdownOpen]);
+
+  const renderAccountMenu = (builderControls = false) => {
+    const builderIsActive = activeMenuPage === "builder";
+    const builderLabelClass = builderIsActive ? "primary" : "ghost";
+
+    if (!user) {
       return (
         <div className="account-block">
           <div className="account-links">
-            <button className="primary" onClick={() => void openSaveMenu()}>
-              Save
+            <button className={builderLabelClass} onClick={() => navigate("/")}>
+              Character Builder
             </button>
-            <button className="ghost" onClick={() => setImportDialogOpen(true)}>
-              Import
-            </button>
-            <button className="ghost danger" onClick={() => void resetToLastSaved()}>
-              Reset
-            </button>
+            {builderControls ? (
+              <div className="builder-submenu">
+                <button className="ghost" onClick={() => void openSaveMenu()}>
+                  Save
+                </button>
+                <button className="ghost" onClick={() => setImportDialogOpen(true)}>
+                  Import
+                </button>
+                <button className="ghost danger" onClick={() => void resetToLastSaved()}>
+                  Reset
+                </button>
+              </div>
+            ) : null}
             <button className="ghost" onClick={() => setAuthDialogOpen(true)}>
               Log in / Sign up
             </button>
@@ -3140,13 +3220,16 @@ export default function App() {
         </div>
       );
     }
+
     return (
       <div className="account-block">
-        <div className="account-name">{accountName}</div>
         <div className="account-links">
+          <button className={builderLabelClass} onClick={() => navigate("/")}>
+            Character Builder
+          </button>
           {builderControls ? (
-            <>
-              <button className="primary" onClick={() => void openSaveMenu()}>
+            <div className="builder-submenu">
+              <button className="ghost" onClick={() => void openSaveMenu()}>
                 Save
               </button>
               <button className="ghost" onClick={() => setImportDialogOpen(true)}>
@@ -3155,34 +3238,49 @@ export default function App() {
               <button className="ghost danger" onClick={() => void resetToLastSaved()}>
                 Reset
               </button>
-            </>
+            </div>
           ) : null}
-          <button
-            className={activeMenuPage === "builder" ? "primary" : "ghost"}
-            onClick={() => navigate("/")}
-          >
-            Character Builder
-          </button>
           <button
             className={activeMenuPage === "characters" ? "primary" : "ghost"}
             onClick={() => navigate("/characters")}
           >
-            Character List
+            My Characters
           </button>
-          <button
-            className={activeMenuPage === "settings" ? "primary" : "ghost"}
-            onClick={() => navigate("/settings")}
-          >
-            Settings
-          </button>
-          <button className="ghost" onClick={() => void handleLogout()}>
-            Log out
-          </button>
+          <div className="account-user-menu" ref={accountDropdownRef}>
+            <button
+              className={`ghost account-user-trigger${accountDropdownOpen ? " active" : ""}`}
+              onClick={() => setAccountDropdownOpen((prev) => !prev)}
+              aria-expanded={accountDropdownOpen}
+            >
+              {accountName}
+            </button>
+            {accountDropdownOpen ? (
+              <div className="account-dropdown">
+                <button
+                  className={activeMenuPage === "settings" ? "primary" : "ghost"}
+                  onClick={() => {
+                    navigate("/settings");
+                    setAccountDropdownOpen(false);
+                  }}
+                >
+                  Settings
+                </button>
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    setAccountDropdownOpen(false);
+                    void handleLogout();
+                  }}
+                >
+                  Log out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     );
   };
-
   const renderHeader = (title: string, subtitle?: string, builderControls = false) => (
     <header className="header cut-corner-padded">
       <nav className="shared-nav-strip" aria-label="Whisperspace navigation">
@@ -3200,11 +3298,6 @@ export default function App() {
       <div className="header-row">
         <div className="header-title-stack">
           <h1>{title}</h1>
-          {page !== "builder" ? (
-            <button className="ghost" onClick={() => navigate("/")}>
-              Back to Character Builder
-            </button>
-          ) : null}
           {subtitle ? <p className="status">{subtitle}</p> : null}
         </div>
         <div className="auth-chip">{renderAccountMenu(builderControls)}</div>
@@ -3443,7 +3536,7 @@ export default function App() {
                   }
                 >
                   <option value="builder">Builder</option>
-                  <option value="characters">Character List</option>
+                  <option value="characters">My Characters</option>
                 </select>
               </div>
               <button className="primary" onClick={saveSettings}>
@@ -4170,13 +4263,14 @@ export default function App() {
                       </p>
                     ) : (
                       <div className="gear-list">
-                        <div className="gear-row gear-row-header">
+                        <div className="gear-row gear-row-header weapon-row">
                           <span>Name</span>
                           <span>Skill</span>
                           <span>Use DC</span>
                           <span>Damage</span>
                           <span>Range</span>
                           <span>Ammo</span>
+                          <span>Keywords</span>
                           <span>Actions</span>
                         </div>
                         {filteredWeaponRows.map(({ weapon, index: weaponIndex }) => {
@@ -4221,7 +4315,7 @@ export default function App() {
                               }}
                             >
                               <div
-                                className="gear-row"
+                                className="gear-row gear-row-interactive weapon-row"
                                 draggable
                                 onDragStart={(event) => {
                                   if (isInteractiveDragTarget(event.target)) {
@@ -4274,6 +4368,21 @@ export default function App() {
                                 ) : (
                                   <span>-</span>
                                 )}
+                                <div className="weapon-keywords-inline" data-no-expand="true">
+                                  {(weapon.keywords ?? []).length ? (weapon.keywords ?? []).map((keyword) => (
+                                    <button
+                                      type="button"
+                                      key={keyword}
+                                      className="keyword-chip"
+                                      title={resolveWeaponKeywordTooltip(keyword)}
+                                      aria-label={`${keyword}: ${resolveWeaponKeywordTooltip(keyword)}`}
+                                    >
+                                      {keyword}
+                                    </button>
+                                  )) : (
+                                    <span>-</span>
+                                  )}
+                                </div>
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
@@ -4590,7 +4699,7 @@ export default function App() {
                                 setArmourExpanded((prev) => ({ ...prev, [key]: !expanded }))
                               }
                             >
-                              <div className="gear-row armour-row">
+                              <div className={`gear-row armour-row gear-row-interactive${isEquipped ? " equipped-row" : ""}`}>
                                 <span>{armor.name || "Armour"}</span>
                                 <span>{armor.protection ?? 0}</span>
                                 <span>{armor.bulk ?? 0}</span>
@@ -4977,7 +5086,7 @@ export default function App() {
                               }}
                             >
                               <div
-                                className="gear-row"
+                                className="gear-row gear-row-interactive"
                                 draggable
                                 onDragStart={(event) => {
                                   if (isInteractiveDragTarget(event.target)) {
