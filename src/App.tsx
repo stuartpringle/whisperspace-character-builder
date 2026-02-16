@@ -151,6 +151,38 @@ const SHARED_NAV_FALLBACK: SharedNavItem[] = [
   { id: "contact", label: "Get In Touch", href: "https://whisperspace.com/#contact", cta: true },
 ];
 
+const SCI_FI_NAME_PARTS_A = [
+  "al", "ar", "ax", "ca", "cor", "cy", "da", "el", "ex", "fi", "ka", "kel", "ly", "my", "ny",
+  "or", "ra", "ry", "sa", "sy", "ta", "va", "xe", "za",
+];
+const SCI_FI_NAME_PARTS_B = [
+  "dara", "en", "eris", "ion", "ira", "is", "ix", "oran", "or", "os", "ra", "rin", "rys", "tar",
+  "ther", "thia", "tor", "vek", "vyn", "xis", "yon",
+];
+const SCI_FI_SURNAME_A = [
+  "ash", "black", "chrome", "dusk", "ember", "frost", "grim", "halo", "iron", "nova", "onyx",
+  "quill", "rime", "shadow", "silk", "star", "stone", "storm", "void", "wraith",
+];
+const SCI_FI_SURNAME_B = [
+  "bane", "crest", "drift", "fall", "field", "flare", "forge", "line", "mark", "mesh", "node",
+  "pulse", "ray", "reach", "runner", "shift", "spark", "stride", "veil", "ward",
+];
+const SCI_FI_CALLSIGNS = [
+  "Ghost", "Vector", "Echo", "Patch", "Nova", "Flux", "Cipher", "Static", "Zero", "Shift",
+];
+
+const capitalize = (value: string) =>
+  value ? `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}` : "";
+const pick = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+const generateSciFiName = () => {
+  const given = capitalize(`${pick(SCI_FI_NAME_PARTS_A)}${pick(SCI_FI_NAME_PARTS_B)}`);
+  const surname = capitalize(`${pick(SCI_FI_SURNAME_A)}${pick(SCI_FI_SURNAME_B)}`);
+  if (Math.random() < 0.25) {
+    return `${given} ${surname} "${pick(SCI_FI_CALLSIGNS)}"`;
+  }
+  return `${given} ${surname}`;
+};
+
 type GearType = "item" | "cyberware" | "narcotics" | "hacker_gear";
 type GameplayCategory = "attribute" | "inherent_skill" | "learning_focus_skill" | "other";
 
@@ -1662,6 +1694,28 @@ export default function App() {
   };
 
   const learningFocus = (sheet.learningFocus ?? "combat") as LearningFocus;
+  const learningFocusLabel =
+    learningFocus === "vehicles"
+      ? "Vehicles"
+      : learningFocus === "education"
+        ? "Education"
+        : "Combat";
+  const allocatedSkillPoints = useMemo(
+    () =>
+      Object.values(sheet.skills ?? {}).reduce(
+        (sum, rank) => sum + Math.max(0, Number(rank) || 0),
+        0
+      ),
+    [sheet.skills]
+  );
+  const reviewSkillSpent = skillValidation?.spent ?? allocatedSkillPoints;
+  const reviewSkillRemaining = skillValidation?.remaining ?? Math.max(0, (sheet.skillPoints ?? 0) - reviewSkillSpent);
+  const reviewBackgroundSummary = (sheet.background ?? "").trim();
+  const reviewBackgroundTag = reviewBackgroundSummary
+    ? reviewBackgroundSummary.length > 36
+      ? `${reviewBackgroundSummary.slice(0, 36)}...`
+      : reviewBackgroundSummary
+    : "Not set";
   const armourCollection = useMemo(() => {
     const existing = (sheet.armours ?? []).map((entry, index) => ({
       ...entry,
@@ -1681,6 +1735,8 @@ export default function App() {
     }
     return sheet.armour ?? armourCollection[0];
   }, [armourCollection, sheet.armour, sheet.equippedArmourId]);
+  const reviewLoadoutCount =
+    (sheet.weapons ?? []).length + armourCollection.length + (sheet.inventory ?? []).length;
   const authFeedback = useMemo(() => {
     if (!authError) return null;
     if (authError === "reset_email_sent") {
@@ -3811,11 +3867,16 @@ export default function App() {
           <div className="grid two">
             <div>
               <label>Name</label>
-              <input
-                value={sheet.name}
-                onChange={(e) => updateSheet({ ...sheet, name: e.target.value })}
-                placeholder="Nyx"
-              />
+              <div className="inline name-input-row">
+                <input
+                  value={sheet.name}
+                  onChange={(e) => updateSheet({ ...sheet, name: e.target.value })}
+                  placeholder="Nyx"
+                />
+                <button className="ghost" onClick={() => updateSheet({ ...sheet, name: generateSciFiName() })}>
+                  Generate
+                </button>
+              </div>
             </div>
             <div>
               <label>Credits</label>
@@ -5581,6 +5642,11 @@ export default function App() {
             <div className="review-hero">
               <h2>{sheet.name || "Unnamed Character"}</h2>
               <p className="muted">{sheet.motivation || "Motivation missing"}</p>
+              <div className="review-hero-meta">
+                <span className="review-tag">Background: {reviewBackgroundTag}</span>
+                <span className="review-tag">Focus: {learningFocusLabel}</span>
+                <span className="review-tag">Loadout: {reviewLoadoutCount} entries</span>
+              </div>
             </div>
 
             <div className="review-metrics">
@@ -5603,6 +5669,14 @@ export default function App() {
               <div className="review-pill">
                 <span>Capacity</span>
                 <strong>{derivedStats.capacity}</strong>
+              </div>
+              <div className="review-pill">
+                <span>Skill Remaining</span>
+                <strong>{reviewSkillRemaining}</strong>
+              </div>
+              <div className="review-pill">
+                <span>Skill Spent</span>
+                <strong>{reviewSkillSpent}</strong>
               </div>
             </div>
 
@@ -5648,19 +5722,19 @@ export default function App() {
                       <strong>Weapon</strong>
                     </li>
                   ))}
-                  {sheet.armour ? (
-                    <li>
-                      <span>{sheet.armour.name || "Armour"}</span>
-                      <strong>Armour</strong>
+                  {armourCollection.map((armor, idx) => (
+                    <li key={`armour-${armor.id ?? idx}`}>
+                      <span>{armor.name || "Armour"}</span>
+                      <strong>{activeArmour?.id === armor.id ? "Armour (Equipped)" : "Armour"}</strong>
                     </li>
-                  ) : null}
+                  ))}
                   {(sheet.inventory ?? []).map((gear, idx) => (
                     <li key={gear.id ?? String(idx)}>
                       <span>{gear.name || "Unnamed Item"}</span>
                       <strong>{gear.type}</strong>
                     </li>
                   ))}
-                  {(sheet.weapons ?? []).length === 0 && !sheet.armour && (sheet.inventory ?? []).length === 0 ? (
+                  {(sheet.weapons ?? []).length === 0 && armourCollection.length === 0 && (sheet.inventory ?? []).length === 0 ? (
                     <li>
                       <span>None</span>
                     </li>

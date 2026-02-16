@@ -167,6 +167,8 @@ npm run dev
 - [done] Header account navigation now uses fully normal (non-indented) menu entries for `Continue Building`, `My Characters`, `Settings`, and `Log out`; `Log out` is styled with a softer danger variant to stand out from standard nav actions.
 - [done] Header `Log out` now reuses the same `ghost danger` visual style as inventory/remove actions for consistent destructive-action styling across the app.
 - [done] Equipment catalog selectors now always include costs in option labels (`Name (<cost> credits)`) for weapons, armour, and items across both `Buy` and `Acquire` modes; `Buy` action buttons were simplified to `Buy Weapon`, `Buy Armour`, and `Buy Gear` (no inline cost suffix).
+- [done] Origin name field now includes a `Generate` action that creates sci-fi style names (built-in generator), enabling quick character naming without leaving the builder.
+- [done] Review tab polish pass: added richer hero metadata tags, expanded summary pills (including skill-point spent/remaining), equipped-armour-aware loadout listing, and subtle review-card hover polish.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

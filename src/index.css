@@ -561,6 +561,24 @@ button:disabled {
   margin: 0;
 }
 
+.review-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 138, 197, 0.4);
+  background: rgba(13, 26, 50, 0.7);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: #b7cceb;
+}
+
 .review-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -601,6 +619,13 @@ button:disabled {
   padding: 14px;
   display: grid;
   gap: 10px;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.review-card:hover {
+  border-color: rgba(126, 159, 220, 0.56);
+  background: rgba(12, 24, 47, 0.84);
+  box-shadow: 0 0 0 1px rgba(112, 150, 221, 0.2);
 }
 
 .review-card h3 {
@@ -624,6 +649,14 @@ button:disabled {
   border: 1px solid rgba(88, 113, 165, 0.24);
   border-radius: 10px;
   background: rgba(11, 23, 47, 0.66);
+}
+
+.name-input-row {
+  align-items: center;
+}
+
+.name-input-row .ghost {
+  white-space: nowrap;
 }
 
 .cloud-list {
