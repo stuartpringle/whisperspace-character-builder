@@ -3531,46 +3531,154 @@ export default function App() {
         {viewError ? <p className="error">{viewError}</p> : null}
         <section className="card cut-corner-padded">
           {viewSheet ? (
-            <div className="stack">
-              <h2>{viewSheet.name || "Unnamed Character"}</h2>
-              <p className="muted">{viewSheet.motivation || "Motivation missing"}</p>
-              <div className="summary">
-                <div>
+            <div className="stack review-layout">
+              <div className="review-hero">
+                <h2>{viewSheet.name || "Unnamed Character"}</h2>
+                <p className="muted">{viewSheet.motivation || "Motivation missing"}</p>
+                <div className="review-hero-meta">
+                  <span className="review-tag">
+                    Focus: {(() => {
+                      const focus = viewSheet.learningFocus ?? "combat";
+                      return focus.charAt(0).toUpperCase() + focus.slice(1);
+                    })()}
+                  </span>
+                  <span className="review-tag">
+                    Updated: {viewSheet.updatedAt ? new Date(viewSheet.updatedAt).toLocaleString() : "Unknown"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="review-metrics">
+                <div className="review-pill">
+                  <span>Credits</span>
+                  <strong>{viewSheet.credits ?? 0}</strong>
+                </div>
+                <div className="review-pill">
+                  <span>CUF</span>
+                  <strong>{viewSheet.stress?.cuf ?? 0}</strong>
+                </div>
+                <div className="review-pill">
+                  <span>Stress</span>
+                  <strong>{viewSheet.stress?.current ?? 0}</strong>
+                </div>
+                <div className="review-pill">
+                  <span>Weapons</span>
+                  <strong>{(viewSheet.weapons ?? []).length}</strong>
+                </div>
+                <div className="review-pill">
+                  <span>Armours</span>
+                  <strong>{(viewSheet.armours?.length ?? 0) || (viewSheet.armour ? 1 : 0)}</strong>
+                </div>
+                <div className="review-pill">
+                  <span>Items</span>
+                  <strong>{(viewSheet.inventory ?? []).length}</strong>
+                </div>
+              </div>
+
+              <div className="review-grid">
+                <section className="review-card">
                   <h3>Attributes</h3>
-                  <ul>
+                  <ul className="review-list">
                     {Object.entries(viewSheet.attributes).map(([key, value]) => (
                       <li key={key}>
-                        {ATTRIBUTE_LABELS[key as AttributeKey]}: {value}
+                        <span>{ATTRIBUTE_FULL_LABELS[key as AttributeKey]}</span>
+                        <strong>{value}</strong>
                       </li>
                     ))}
                   </ul>
-                  <p className="muted">CUF: {viewSheet.stress?.cuf ?? 0}</p>
-                </div>
-                <div>
+                </section>
+
+                <section className="review-card">
                   <h3>Skills</h3>
-                  <ul>
-                    {Object.keys(viewSheet.skills ?? {}).length
-                      ? Object.entries(viewSheet.skills ?? {}).map(([key, rank]) => (
+                  <ul className="review-list">
+                    {Object.keys(viewSheet.skills ?? {}).length ? (
+                      Object.entries(viewSheet.skills ?? {})
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([key, rank]) => (
                           <li key={key}>
-                            {key} ({rank})
+                            <span>{skillLabelById[key] ?? key}</span>
+                            <strong>{rank}</strong>
                           </li>
                         ))
-                      : "None"}
+                    ) : (
+                      <li>
+                        <span>None</span>
+                      </li>
+                    )}
                   </ul>
-                </div>
-                <div>
-                  <h3>Inventory</h3>
-                  <ul>
-                    {(viewSheet.inventory ?? []).length
-                      ? (viewSheet.inventory ?? []).map((gear, idx) => (
-                          <li key={gear.id ?? String(idx)}>
-                            {gear.name || "Unnamed"} ({gear.type})
-                          </li>
-                        ))
-                      : "None"}
+                </section>
+
+                <section className="review-card">
+                  <h3>Equipment</h3>
+                  <ul className="review-list">
+                    {(viewSheet.weapons ?? []).map((weapon, idx) => (
+                      <li key={`view-weapon-${weapon.id ?? idx}`}>
+                        <span>{weapon.name || "Unnamed Weapon"}</span>
+                        <strong>Weapon</strong>
+                      </li>
+                    ))}
+                    {((viewSheet.armours ?? []).length ? (viewSheet.armours ?? []) : viewSheet.armour ? [viewSheet.armour] : []).map((armor, idx) => (
+                      <li key={`view-armour-${armor.id ?? idx}`}>
+                        <span>{armor.name || "Armour"}</span>
+                        <strong>Armour</strong>
+                      </li>
+                    ))}
+                    {(viewSheet.inventory ?? []).map((gear, idx) => (
+                      <li key={gear.id ?? String(idx)}>
+                        <span>{gear.name || "Unnamed Item"}</span>
+                        <strong>{gear.type}</strong>
+                      </li>
+                    ))}
+                    {(viewSheet.weapons ?? []).length === 0 &&
+                    ((viewSheet.armours ?? []).length === 0 && !viewSheet.armour) &&
+                    (viewSheet.inventory ?? []).length === 0 ? (
+                      <li>
+                        <span>None</span>
+                      </li>
+                    ) : null}
                   </ul>
-                </div>
+                </section>
+
+                <section className="review-card">
+                  <h3>Health</h3>
+                  <ul className="review-list">
+                    <li>
+                      <span>Stress (Current)</span>
+                      <strong>{viewSheet.stress?.current ?? 0}</strong>
+                    </li>
+                    <li>
+                      <span>CUF Loss</span>
+                      <strong>{viewSheet.stress?.cufLoss ?? 0}</strong>
+                    </li>
+                    <li>
+                      <span>Wounds (Light)</span>
+                      <strong>{viewSheet.wounds?.light ?? 0}</strong>
+                    </li>
+                    <li>
+                      <span>Wounds (Moderate)</span>
+                      <strong>{viewSheet.wounds?.moderate ?? 0}</strong>
+                    </li>
+                    <li>
+                      <span>Wounds (Heavy)</span>
+                      <strong>{viewSheet.wounds?.heavy ?? 0}</strong>
+                    </li>
+                  </ul>
+                </section>
               </div>
+
+              {viewSheet.background ? (
+                <section className="review-card">
+                  <h3>Background</h3>
+                  <p className="muted">{viewSheet.background}</p>
+                </section>
+              ) : null}
+
+              {viewSheet.notes ? (
+                <section className="review-card">
+                  <h3>Notes</h3>
+                  <p className="muted">{viewSheet.notes}</p>
+                </section>
+              ) : null}
             </div>
           ) : (
             <p className="muted">Loading character...</p>
@@ -3815,7 +3923,9 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div>
+            {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
+            {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
+            <div className="span-2">
               <label>Credits</label>
               <input
                 type="number"
@@ -3829,8 +3939,6 @@ export default function App() {
                 }
               />
             </div>
-            {conceptIntro ? <p className="muted span-2">{conceptIntro}</p> : null}
-            {creditsIntro ? <p className="muted span-2">{creditsIntro}</p> : null}
             <div className="span-2 inline wrap">
               <button className="ghost" onClick={() => void rollStartingCredits()} disabled={diceBusy}>
                 Generate Starting Money

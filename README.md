@@ -176,6 +176,8 @@ npm run dev
 - [done] Replaced prior `d10`/`d12` ring-style approximations with face-shape-driven polyhedron visuals in the roll overlay: `d10` now uses kite-faced two-ring construction and `d12` uses pentagonal-face multi-band construction, with face values revealed only after settle.
 - [done] Roll-face readability/alignment pass: die face numbers now remain visible while rolling, and d10/d12 face transform geometry was tightened (including d12 top/upper/lower/bottom orientation) to improve apparent edge contact and reduce face misalignment.
 - [done] Dice UI rollback: removed on-screen dice animation/toast system and returned Origin roll actions (`Starting Money`, `Background`, `Motivation`) to pure random-number resolution while keeping the modular dice service abstraction (`src/ui/dice.ts` + `ModularDiceRoller`) wired for future visual dice module reintroduction.
+- [done] Origin layout tweak: moved the `Credits` field to sit directly above `Generate Starting Money` for clearer flow.
+- [done] Character View buildout started: `/character/:id` now uses a richer structured summary (hero metadata, key metric pills, and carded sections for Attributes, Skills, Equipment, Health, Background, and Notes) instead of a minimal plain list.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 
