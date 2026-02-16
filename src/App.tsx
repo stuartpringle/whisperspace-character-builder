@@ -474,8 +474,6 @@ export default function App() {
       });
       await new Promise((resolve) => window.setTimeout(resolve, 700));
       setDiceUi((prev) => ({ ...prev, rolling: false }));
-      await new Promise((resolve) => window.setTimeout(resolve, 260));
-      setDiceUi((prev) => ({ ...prev, open: false }));
     },
     []
   );
@@ -599,13 +597,6 @@ export default function App() {
     const matched = backgroundOptions.find((opt) => opt.name === normalized)?.name;
     if (matched && matched !== backgroundPick) setBackgroundPick(matched);
   }, [backgroundOptions, backgroundPick, sheet.background]);
-
-  useEffect(() => {
-    if (window.location.pathname !== "/") return;
-    if (settingsLandingPage === "characters" && user) {
-      navigate("/characters");
-    }
-  }, [settingsLandingPage, user]);
 
   useEffect(() => {
     let active = true;
@@ -2920,14 +2911,17 @@ export default function App() {
       if (!res.ok || payload.error) {
         setAuthError(payload.error || "auth_failed");
       } else {
+        const postLoginAction = authPostLoginAction;
         setUser(payload.user ?? null);
         setAuthEmail("");
         setAuthPassword("");
         localStorage.setItem("ws_auth_session", JSON.stringify({ user: payload.user ?? null }));
         localStorage.setItem("ws_auth_session_at", String(Date.now()));
         setAuthDialogOpen(false);
-        if (authPostLoginAction === "save") {
+        if (postLoginAction === "save") {
           setSaveMenuOpen(true);
+        } else if (settingsLandingPage === "characters" && page === "builder") {
+          navigate("/characters");
         }
         setAuthPostLoginAction("none");
       }
@@ -3777,8 +3771,14 @@ export default function App() {
           </div>
         </section>
         {renderFooter()}
-        {diceUi.open ? (
-        <div className="modal dice-modal" onClick={() => undefined}>
+      {diceUi.open ? (
+        <div
+          className="modal dice-modal"
+          onClick={() => {
+            if (diceUi.rolling) return;
+            setDiceUi((prev) => ({ ...prev, open: false }));
+          }}
+        >
           <div className="modal-card cut-corner-padded dice-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="dice-stage" aria-live="polite">
               <div
@@ -3796,6 +3796,11 @@ export default function App() {
             <h2>{diceUi.label || "Roll"}</h2>
             <p className="muted">{diceUi.notation}</p>
             <p className="dice-result">{diceUi.rolling ? "Rolling..." : `Result: ${diceUi.value}`}</p>
+            {!diceUi.rolling ? (
+              <button className="ghost" onClick={() => setDiceUi((prev) => ({ ...prev, open: false }))}>
+                Close
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

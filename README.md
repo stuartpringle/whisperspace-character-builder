@@ -169,6 +169,7 @@ npm run dev
 - [done] Equipment catalog selectors now always include costs in option labels (`Name (<cost> credits)`) for weapons, armour, and items across both `Buy` and `Acquire` modes; `Buy` action buttons were simplified to `Buy Weapon`, `Buy Armour`, and `Buy Gear` (no inline cost suffix).
 - [done] Origin name field now includes a `Generate` action that creates sci-fi style names (built-in generator), enabling quick character naming without leaving the builder.
 - [done] Review tab polish pass: added richer hero metadata tags, expanded summary pills (including skill-point spent/remaining), equipped-armour-aware loadout listing, and subtle review-card hover polish.
+- [done] Landing-page behavior now applies only immediately after successful login (not on refresh or deep-link page loads), and dice-roll UI now stays visible until manually closed so Motivation/Background/credits rolls are reliably visible.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 
