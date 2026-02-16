@@ -287,7 +287,9 @@ export default function App() {
   const [rulesCacheNote, setRulesCacheNote] = useState<string>("");
   const [backgroundPick, setBackgroundPick] = useState<string>("");
   const [motivationPick, setMotivationPick] = useState<string>("");
-  const [skillPointAddAmount, setSkillPointAddAmount] = useState<number>(0);
+  const [skillPointsAdjustAmount, setSkillPointsAdjustAmount] = useState<number>(0);
+  const [skillPointsModalOpen, setSkillPointsModalOpen] = useState<boolean>(false);
+  const [skillPointsAdjustError, setSkillPointsAdjustError] = useState<string>("");
   const [creditsAdjustAmount, setCreditsAdjustAmount] = useState<number>(0);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authError, setAuthError] = useState<string>("");
@@ -345,7 +347,7 @@ export default function App() {
     () => ((localStorage.getItem("ws_pref_visibility") as "private" | "public") || "private")
   );
   const [settingsLandingPage, setSettingsLandingPage] = useState<"builder" | "characters">(
-    () => ((localStorage.getItem("ws_pref_landing") as "builder" | "characters") || "builder")
+    () => ((localStorage.getItem("ws_pref_landing") as "builder" | "characters") || "characters")
   );
   const [settingsStatus, setSettingsStatus] = useState<string>("");
   const [viewId, setViewId] = useState<string>("");
@@ -1786,11 +1788,28 @@ export default function App() {
 
   const unitCost = (value: number | undefined) => normalizeCost(value);
 
-  const addSkillPointTotal = () => {
-    const delta = Math.max(0, Number(skillPointAddAmount) || 0);
+  const adjustSkillPoints = (direction: "add" | "remove") => {
+    const delta = Math.max(0, Number(skillPointsAdjustAmount) || 0);
     if (!delta) return;
-    updateSheet({ ...sheet, skillPoints: Math.max(0, (sheet.skillPoints ?? 0) + delta) });
-    setSkillPointAddAmount(0);
+    const currentTotal = Math.max(0, sheet.skillPoints ?? 0);
+    const spent =
+      typeof skillValidation?.spent === "number"
+        ? Math.max(0, skillValidation.spent)
+        : Object.values(sheet.skills ?? {}).reduce((sum, rank) => sum + Math.max(0, Number(rank) || 0), 0);
+    if (direction === "remove") {
+      const next = Math.max(0, currentTotal - delta);
+      if (next < spent) {
+        setSkillPointsAdjustError(`Cannot reduce total below spent points (${spent} spent).`);
+        return;
+      }
+      updateSheet({ ...sheet, skillPoints: next });
+      setSkillPointsAdjustError("");
+      setSkillPointsAdjustAmount(0);
+      return;
+    }
+    updateSheet({ ...sheet, skillPoints: currentTotal + delta });
+    setSkillPointsAdjustError("");
+    setSkillPointsAdjustAmount(0);
   };
 
   const adjustCredits = (direction: "add" | "remove") => {
@@ -3263,13 +3282,14 @@ export default function App() {
   const renderAccountMenu = (builderControls = false) => {
     const builderIsActive = activeMenuPage === "builder";
     const builderLabelClass = builderIsActive ? "primary" : "ghost";
+    const builderLabel = builderControls ? "Character Builder" : "Continue Building";
 
     if (!user) {
       return (
         <div className="account-block">
           <div className="account-links">
             <button className={builderLabelClass} onClick={() => navigate("/")}>
-              Character Builder
+              {builderLabel}
             </button>
             <button
               className="ghost"
@@ -3289,7 +3309,7 @@ export default function App() {
       <div className="account-block">
         <div className="account-links">
           <button className={builderLabelClass} onClick={() => navigate("/")}>
-            Character Builder
+            {builderLabel}
           </button>
           <div className="account-user-menu" ref={accountDropdownRef}>
             <button
@@ -4005,7 +4025,7 @@ export default function App() {
             {skillsStatus === "ready" && skillsData ? (
               <>
                 <div className="skill-points-panel">
-                  <div className="grid three">
+                  <div className="grid two">
                     <div>
                       <label>Learning Focus</label>
                       <select
@@ -4036,25 +4056,22 @@ export default function App() {
                         }
                       />
                     </div>
-                    <div>
-                      <label>Add</label>
-                      <div className="inline">
-                        <input
-                          type="number"
-                          min={0}
-                          value={skillPointAddAmount}
-                          onChange={(e) => setSkillPointAddAmount(Math.max(0, Number(e.target.value) || 0))}
-                        />
-                        <button className="ghost" onClick={addSkillPointTotal}>Add</button>
-                      </div>
-                    </div>
                   </div>
                   <div className="skill-budget">
                     <label>Budget</label>
-                    <div className="budget-line">
+                    <div className="budget-line inline wrap">
                       <span><strong>Remaining: {skillValidation?.remaining ?? "-"}</strong></span>
                       <span>Total: {sheet.skillPoints ?? 0}</span>
                       <span>Spent: {skillValidation?.spent ?? "-"}</span>
+                      <button
+                        className="ghost"
+                        onClick={() => {
+                          setSkillPointsAdjustError("");
+                          setSkillPointsModalOpen(true);
+                        }}
+                      >
+                        Add / Remove
+                      </button>
                     </div>
                     {skillValidation ? (
                       skillValidation.valid ? (
@@ -6049,6 +6066,53 @@ export default function App() {
               <button className="ghost" onClick={() => adjustCredits("remove")}>
                 Remove
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {skillPointsModalOpen ? (
+        <div
+          className="modal"
+          onClick={() => {
+            setSkillPointsModalOpen(false);
+            setSkillPointsAdjustError("");
+          }}
+        >
+          <div className="modal-card cut-corner-padded credits-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Adjust Skill Points</h2>
+              <button
+                className="ghost"
+                onClick={() => {
+                  setSkillPointsModalOpen(false);
+                  setSkillPointsAdjustError("");
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="credits-modal-grid">
+              <p><strong>Total:</strong> {sheet.skillPoints ?? 0}</p>
+              <p><strong>Spent:</strong> {skillValidation?.spent ?? 0}</p>
+              <p><strong>Remaining:</strong> {skillValidation?.remaining ?? 0}</p>
+              <input
+                type="number"
+                min={0}
+                value={skillPointsAdjustAmount}
+                onChange={(e) => {
+                  setSkillPointsAdjustAmount(Math.max(0, Number(e.target.value) || 0));
+                  setSkillPointsAdjustError("");
+                }}
+                placeholder="Amount"
+              />
+              <button className="ghost" onClick={() => adjustSkillPoints("add")}>
+                Add
+              </button>
+              <button className="ghost" onClick={() => adjustSkillPoints("remove")}>
+                Remove
+              </button>
+              {skillPointsAdjustError ? <span className="error">{skillPointsAdjustError}</span> : null}
             </div>
           </div>
         </div>
