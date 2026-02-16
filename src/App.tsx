@@ -4,7 +4,7 @@ import type { AttributeKey, BuilderStep, CharacterSheet } from "./model/characte
 import { createBlankCharacter, updateTimestamp } from "./model/character";
 import { CHARACTER_API_BASE } from "./model/api";
 import { validateCharacterRecordV1 } from "./model/validate";
-import { loadDraft, saveDraft } from "./storage/local";
+import { clearDraft, loadDraft, saveDraft } from "./storage/local";
 import { downloadCharacter, readCharacterFile } from "./storage/transfer";
 import { deleteCharacter, fetchCharacter, listCharacters, saveCharacter } from "./storage/remote";
 import {
@@ -428,6 +428,7 @@ export default function App() {
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
   const accountDropdownRef = useRef<HTMLDivElement | null>(null);
+  const previousUserRef = useRef<AuthUser | null>(null);
 
   const animateDiceRoll = useCallback(
     async (_request: DiceRollRequest, plannedRolls: number[], notation: string) => {
@@ -3166,6 +3167,32 @@ export default function App() {
       setCharacterListError("");
     }
   }, [user]);
+
+  useEffect(() => {
+    const previousUser = previousUserRef.current;
+    const loggedOut = Boolean(previousUser) && !user;
+    previousUserRef.current = user;
+
+    if (!loggedOut || page !== "builder") return;
+
+    const saves = readLocalSaves();
+    const explicitLocal = saves[sheet.id];
+    if (explicitLocal) {
+      setSheet(explicitLocal);
+      setBaselineSheetJson(JSON.stringify(explicitLocal));
+      setStep("origin");
+      saveDraft(explicitLocal);
+      setSaveStatus("signed out; loaded explicit local save");
+      return;
+    }
+
+    const blank = createBlankCharacter();
+    setSheet(blank);
+    setBaselineSheetJson(JSON.stringify(blank));
+    setStep("origin");
+    clearDraft();
+    setSaveStatus("signed out; unsaved cloud draft removed");
+  }, [user, page, sheet.id]);
 
   useEffect(() => {
     // Public pages: builder + character view.

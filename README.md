@@ -160,6 +160,8 @@ npm run dev
 
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
 
+- [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
+
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
 - Character view URL pattern: `https://builder.whisperspace.com/character/:id`
