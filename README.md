@@ -178,6 +178,9 @@ npm run dev
 - [done] Dice UI rollback: removed on-screen dice animation/toast system and returned Origin roll actions (`Starting Money`, `Background`, `Motivation`) to pure random-number resolution while keeping the modular dice service abstraction (`src/ui/dice.ts` + `ModularDiceRoller`) wired for future visual dice module reintroduction.
 - [done] Origin layout tweak: moved the `Credits` field to sit directly above `Generate Starting Money` for clearer flow.
 - [done] Character View buildout started: `/character/:id` now uses a richer structured summary (hero metadata, key metric pills, and carded sections for Attributes, Skills, Equipment, Health, Background, and Notes) instead of a minimal plain list.
+- [done] Character View header now uses the character name as page title with learning focus, updated timestamp, and motivation surfaced directly under it.
+- [done] Character View metrics now use `Cool Under Fire` label and replace `Armours` count with `Protection` (currently equipped armour protection, or `0` when equipped armour durability is depleted).
+- [done] Weapons now support explicit equip/unequip actions in Equipment: maximum 2 equipped at once, two-handed weapons are exclusive, and equip attempts enforce `Req` attribute minimums with clear user-facing failure messages.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
 

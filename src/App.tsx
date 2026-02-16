@@ -2482,6 +2482,78 @@ export default function App() {
     updateWeapon(index, { ammo: Math.max(0, Math.min(max, (current.ammo ?? 0) + delta)) });
   };
 
+  const isWeaponEquipped = (weapon: CharacterSheet["weapons"][number]) =>
+    Boolean(weapon.keywordParams?.equipped);
+
+  const isWeaponTwoHanded = (weapon: CharacterSheet["weapons"][number]) =>
+    (weapon.keywords ?? []).some((keyword) => {
+      const normalized = String(keyword).toLowerCase().replace(/[^a-z0-9]/g, "");
+      return normalized === "twohanded";
+    });
+
+  const missingWeaponRequirements = (weapon: CharacterSheet["weapons"][number]) => {
+    const req = String(weapon.req ?? "").trim();
+    if (!req) return [] as string[];
+    const matches = [...req.matchAll(/\b(PHYS|REF|SOC|MENT)\s*(\d+)\b/gi)];
+    return matches
+      .map((match) => {
+        const key = String(match[1] ?? "").toLowerCase() as AttributeKey;
+        const required = Number(match[2] ?? 0) || 0;
+        const current = Number(sheet.attributes?.[key] ?? 0);
+        if (current >= required) return "";
+        return `${key.toUpperCase()} ${required}`;
+      })
+      .filter(Boolean);
+  };
+
+  const setWeaponEquipped = (index: number, equipped: boolean) => {
+    const current = sheet.weapons?.[index];
+    if (!current) return;
+    const currentParams = { ...(current.keywordParams ?? {}) };
+    if (equipped) currentParams.equipped = true;
+    else delete currentParams.equipped;
+    updateWeapon(index, { keywordParams: Object.keys(currentParams).length ? currentParams : undefined });
+  };
+
+  const toggleWeaponEquip = (index: number) => {
+    const weapon = sheet.weapons?.[index];
+    if (!weapon) return;
+    if (isWeaponEquipped(weapon)) {
+      setGearActionError("");
+      setWeaponEquipped(index, false);
+      return;
+    }
+
+    const missingReq = missingWeaponRequirements(weapon);
+    if (missingReq.length) {
+      setGearActionError(`You do not meet the requirements for this weapon: ${missingReq.join(", ")}.`);
+      return;
+    }
+
+    const weapons = sheet.weapons ?? [];
+    const equippedIndexes = weapons
+      .map((entry, idx) => (isWeaponEquipped(entry) ? idx : -1))
+      .filter((idx) => idx >= 0);
+    const equippedTwoHanded = equippedIndexes.find((idx) => isWeaponTwoHanded(weapons[idx]));
+    const targetTwoHanded = isWeaponTwoHanded(weapon);
+
+    if (targetTwoHanded && equippedIndexes.length > 0) {
+      setGearActionError("This weapon is two-handed and cannot be equipped with another weapon.");
+      return;
+    }
+    if (!targetTwoHanded && equippedTwoHanded !== undefined) {
+      setGearActionError("A two-handed weapon is already equipped. Unequip it before equipping another weapon.");
+      return;
+    }
+    if (equippedIndexes.length >= 2) {
+      setGearActionError("You may only have 2 weapons equipped at one time.");
+      return;
+    }
+
+    setGearActionError("");
+    setWeaponEquipped(index, true);
+  };
+
   const reloadWeaponAmmo = (index: number) => {
     const weapon = sheet.weapons?.[index];
     if (!weapon || !gearData) return;
@@ -3525,9 +3597,28 @@ export default function App() {
   };
 
   if (page === "view" && viewId) {
+    const viewName = viewSheet?.name || "Character View";
+    const viewFocus = viewSheet?.learningFocus
+      ? `${viewSheet.learningFocus.charAt(0).toUpperCase()}${viewSheet.learningFocus.slice(1)}`
+      : "Combat";
+    const viewUpdated = viewSheet?.updatedAt ? new Date(viewSheet.updatedAt).toLocaleString() : "Unknown";
+    const viewSubtitle = viewSheet
+      ? `${viewFocus} Focus • Updated ${viewUpdated} • ${viewSheet.motivation || "Motivation missing"}`
+      : undefined;
+    const viewArmours =
+      ((viewSheet?.armours ?? []).length ? (viewSheet?.armours ?? []) : viewSheet?.armour ? [viewSheet.armour] : []);
+    const viewEquippedArmour =
+      viewArmours.find((entry) => entry.id === viewSheet?.equippedArmourId) ??
+      viewSheet?.armour ??
+      viewArmours[0];
+    const equippedProtection =
+      (viewEquippedArmour?.durability?.current ?? 0) <= 0
+        ? 0
+        : Number(viewEquippedArmour?.protection ?? 0) || 0;
+
     return (
       <div className="app">
-        {renderHeader("Character View")}
+        {renderHeader(viewName, viewSubtitle)}
         {viewError ? <p className="error">{viewError}</p> : null}
         <section className="card cut-corner-padded">
           {viewSheet ? (
@@ -3554,7 +3645,7 @@ export default function App() {
                   <strong>{viewSheet.credits ?? 0}</strong>
                 </div>
                 <div className="review-pill">
-                  <span>CUF</span>
+                  <span>Cool Under Fire</span>
                   <strong>{viewSheet.stress?.cuf ?? 0}</strong>
                 </div>
                 <div className="review-pill">
@@ -3566,8 +3657,8 @@ export default function App() {
                   <strong>{(viewSheet.weapons ?? []).length}</strong>
                 </div>
                 <div className="review-pill">
-                  <span>Armours</span>
-                  <strong>{(viewSheet.armours?.length ?? 0) || (viewSheet.armour ? 1 : 0)}</strong>
+                  <span>Protection</span>
+                  <strong>{equippedProtection}</strong>
                 </div>
                 <div className="review-pill">
                   <span>Items</span>
@@ -3611,16 +3702,16 @@ export default function App() {
                 <section className="review-card">
                   <h3>Equipment</h3>
                   <ul className="review-list">
-                    {(viewSheet.weapons ?? []).map((weapon, idx) => (
-                      <li key={`view-weapon-${weapon.id ?? idx}`}>
-                        <span>{weapon.name || "Unnamed Weapon"}</span>
-                        <strong>Weapon</strong>
-                      </li>
-                    ))}
-                    {((viewSheet.armours ?? []).length ? (viewSheet.armours ?? []) : viewSheet.armour ? [viewSheet.armour] : []).map((armor, idx) => (
+                    {viewArmours.map((armor, idx) => (
                       <li key={`view-armour-${armor.id ?? idx}`}>
                         <span>{armor.name || "Armour"}</span>
-                        <strong>Armour</strong>
+                        <strong>{viewEquippedArmour?.id === armor.id ? "Protection (Equipped)" : "Protection"}</strong>
+                      </li>
+                    ))}
+                    {(viewSheet.weapons ?? []).map((weapon, idx) => (
+                      <li key={`view-weapon-eq-${weapon.id ?? idx}`}>
+                        <span>{weapon.name || "Unnamed Weapon"}</span>
+                        <strong>{isWeaponEquipped(weapon) ? "Weapon (Equipped)" : "Weapon"}</strong>
                       </li>
                     ))}
                     {(viewSheet.inventory ?? []).map((gear, idx) => (
@@ -3629,8 +3720,8 @@ export default function App() {
                         <strong>{gear.type}</strong>
                       </li>
                     ))}
-                    {(viewSheet.weapons ?? []).length === 0 &&
-                    ((viewSheet.armours ?? []).length === 0 && !viewSheet.armour) &&
+                    {viewArmours.length === 0 &&
+                    (viewSheet.weapons ?? []).length === 0 &&
                     (viewSheet.inventory ?? []).length === 0 ? (
                       <li>
                         <span>None</span>
@@ -4454,6 +4545,7 @@ export default function App() {
                           const draft = weaponGameplayDrafts[key] ?? defaultDraft(false);
                           const ammoEditable = isWeaponAmmoEditable(weapon);
                           const ammoCap = getWeaponAmmoCap(weapon);
+                          const equipped = isWeaponEquipped(weapon);
                           return (
                             <div
                               className={`gear-card cut-corner-padded ${expanded ? "expanded" : "collapsed"}${
@@ -4558,22 +4650,29 @@ export default function App() {
                                     <span>-</span>
                                   )}
                                 </div>
-                                <button
-                                  data-no-expand="true"
-                                  className="ghost danger"
-                                  title={
-                                    gearAcquisitionMode === "buy"
+                                <div className="inline row-controls" data-no-expand="true">
+                                  <button
+                                    className={equipped ? "primary" : "ghost"}
+                                    onClick={() => toggleWeaponEquip(weaponIndex)}
+                                  >
+                                    {equipped ? "Unequip" : "Equip"}
+                                  </button>
+                                  <button
+                                    className="ghost danger"
+                                    title={
+                                      gearAcquisitionMode === "buy"
+                                        ? `Sell (${unitCost(weapon.cost)} credits)`
+                                        : "Remove"
+                                    }
+                                    onClick={() =>
+                                      removeWeapon(weaponIndex, { sell: gearAcquisitionMode === "buy" })
+                                    }
+                                  >
+                                    {gearAcquisitionMode === "buy"
                                       ? `Sell (${unitCost(weapon.cost)} credits)`
-                                      : "Remove"
-                                  }
-                                  onClick={() =>
-                                    removeWeapon(weaponIndex, { sell: gearAcquisitionMode === "buy" })
-                                  }
-                                >
-                                  {gearAcquisitionMode === "buy"
-                                    ? `Sell (${unitCost(weapon.cost)} credits)`
-                                    : "Remove"}
-                                </button>
+                                      : "Remove"}
+                                  </button>
+                                </div>
                               </div>
                               {expanded ? (
                                 <div className="gear-expand">
