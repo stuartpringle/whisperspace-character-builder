@@ -3478,35 +3478,6 @@ export default function App() {
         </div>
       ) : null}
 
-      {creditsModalOpen ? (
-        <div className="modal" onClick={() => setCreditsModalOpen(false)}>
-          <div className="modal-card cut-corner-padded credits-modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Adjust Credits</h2>
-              <button className="ghost" onClick={() => setCreditsModalOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="credits-modal-grid">
-              <p><strong>Credits:</strong> {sheet.credits ?? 0}</p>
-              <input
-                type="number"
-                min={0}
-                value={creditsAdjustAmount}
-                onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
-                placeholder="Amount"
-              />
-              <button className="ghost" onClick={() => adjustCredits("add")}>
-                Add
-              </button>
-              <button className="ghost" onClick={() => adjustCredits("remove")}>
-                Remove
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {unsavedPromptOpen ? (
           <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
             <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
@@ -5689,6 +5660,36 @@ export default function App() {
           </div>
         </div>
       ) : null}
+
+      {creditsModalOpen ? (
+        <div className="modal" onClick={() => setCreditsModalOpen(false)}>
+          <div className="modal-card cut-corner-padded credits-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Adjust Credits</h2>
+              <button className="ghost" onClick={() => setCreditsModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="credits-modal-grid">
+              <p><strong>Credits:</strong> {sheet.credits ?? 0}</p>
+              <input
+                type="number"
+                min={0}
+                value={creditsAdjustAmount}
+                onChange={(e) => setCreditsAdjustAmount(Math.max(0, Number(e.target.value) || 0))}
+                placeholder="Amount"
+              />
+              <button className="ghost" onClick={() => adjustCredits("add")}>
+                Add
+              </button>
+              <button className="ghost" onClick={() => adjustCredits("remove")}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
 
       {unsavedPromptOpen ? (
         <div className="modal" onClick={() => setUnsavedPromptOpen(false)}>
