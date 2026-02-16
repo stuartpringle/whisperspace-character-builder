@@ -1724,6 +1724,10 @@ export default function App() {
   const spendCreditsForPurchase = (cost: number) =>
     gearAcquisitionMode === "buy" ? Math.max(0, (sheet.credits ?? 0) - cost) : (sheet.credits ?? 0);
 
+  const creditAfterSale = (saleAmount: number) => Math.max(0, (sheet.credits ?? 0) + Math.max(0, saleAmount));
+
+  const unitCost = (value: number | undefined) => normalizeCost(value);
+
   const addSkillPointTotal = () => {
     const delta = Math.max(0, Number(skillPointAddAmount) || 0);
     if (!delta) return;
@@ -1792,24 +1796,72 @@ export default function App() {
     updateSheet({ ...sheet, inventory: nextInventory });
   };
 
-  const removeInventoryItem = (index: number) => {
+  const removeInventoryItem = (index: number, options?: { sell?: boolean }) => {
     const nextInventory = [...(sheet.inventory ?? [])];
     const removed = nextInventory[index];
-    if (removed) {
-      const key = inventoryRowKey(removed, index);
-      setInventoryExpanded((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      setInventoryGameplayDrafts((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
+    if (!removed) return;
+    const key = inventoryRowKey(removed, index);
+    setInventoryExpanded((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setInventoryGameplayDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
     nextInventory.splice(index, 1);
-    updateSheet({ ...sheet, inventory: nextInventory });
+    const qty = Math.max(1, removed.quantity ?? 1);
+    const sellValue = options?.sell ? unitCost(removed.cost) * qty : 0;
+    updateSheet({ ...sheet, inventory: nextInventory, credits: creditAfterSale(sellValue) });
+  };
+
+  const adjustInventoryQuantity = (index: number, delta: number) => {
+    const current = sheet.inventory?.[index];
+    if (!current || delta === 0) return;
+    const currentQty = Math.max(0, current.quantity ?? 1);
+    if (delta > 0) {
+      if (gearAcquisitionMode === "buy") {
+        const cost = unitCost(current.cost);
+        if (!ensurePurchasable(cost, current.name || "gear")) return;
+        setGearActionError("");
+        updateSheet({
+          ...sheet,
+          inventory: (sheet.inventory ?? []).map((item, i) =>
+            i === index ? ({ ...item, quantity: currentQty + delta } as CharacterSheet["inventory"][number]) : item
+          ),
+          credits: spendCreditsForPurchase(cost * delta),
+        });
+        return;
+      }
+      updateInventoryItem(index, { quantity: currentQty + delta });
+      return;
+    }
+
+    const step = Math.abs(delta);
+    const nextQty = Math.max(0, currentQty - step);
+    if (gearAcquisitionMode === "buy") {
+      const sale = unitCost(current.cost) * Math.min(step, currentQty);
+      if (nextQty <= 0) {
+        removeInventoryItem(index, { sell: true });
+      } else {
+        updateSheet({
+          ...sheet,
+          inventory: (sheet.inventory ?? []).map((item, i) =>
+            i === index ? ({ ...item, quantity: nextQty } as CharacterSheet["inventory"][number]) : item
+          ),
+          credits: creditAfterSale(sale),
+        });
+      }
+      return;
+    }
+
+    if (nextQty <= 0) {
+      removeInventoryItem(index);
+      return;
+    }
+    updateInventoryItem(index, { quantity: nextQty });
   };
 
   const reorder = <T,>(items: T[], from: number, to: number): T[] => {
@@ -2150,7 +2202,7 @@ export default function App() {
     updateSheet({ ...sheet, weapons: nextWeapons });
   };
 
-  const removeWeapon = (index: number) => {
+  const removeWeapon = (index: number, options?: { sell?: boolean }) => {
     const nextWeapons = [...(sheet.weapons ?? [])];
     const removed = nextWeapons[index];
     if (removed) {
@@ -2167,7 +2219,8 @@ export default function App() {
       });
     }
     nextWeapons.splice(index, 1);
-    updateSheet({ ...sheet, weapons: nextWeapons });
+    const sellValue = options?.sell && removed ? unitCost(removed.cost) : 0;
+    updateSheet({ ...sheet, weapons: nextWeapons, credits: creditAfterSale(sellValue) });
   };
 
   const setInventoryGameplayEffects = (index: number, effects: string[]) => {
@@ -2207,16 +2260,19 @@ export default function App() {
     });
   };
 
-  const removeArmourById = (id: string | undefined) => {
+  const removeArmourById = (id: string | undefined, options?: { sell?: boolean }) => {
     if (!id) return;
+    const removed = (armourCollection ?? []).find((entry) => entry.id === id);
     const armours = (armourCollection ?? []).filter((entry) => entry.id !== id);
     const nextEquippedId = sheet.equippedArmourId === id ? armours[0]?.id : sheet.equippedArmourId;
     const equipped = armours.find((entry) => entry.id === nextEquippedId);
+    const sellValue = options?.sell && removed ? unitCost(removed.cost) : 0;
     updateSheet({
       ...sheet,
       armours,
       equippedArmourId: equipped?.id,
       armour: equipped,
+      credits: creditAfterSale(sellValue),
     });
   };
 
@@ -2267,9 +2323,8 @@ export default function App() {
     if (!entry) return;
     const purchaseCost = normalizeCost(entry.cost);
     if (!ensurePurchasable(purchaseCost, entry.name)) return;
-    const id = entry.id ?? crypto.randomUUID();
     const candidate = {
-      id,
+      id: crypto.randomUUID(),
       name: entry.name,
       protection: entry.protection,
       durability: entry.durability
@@ -2282,11 +2337,10 @@ export default function App() {
       keywords: entry.keywords,
     };
     const current = armourCollection ?? [];
-    const exists = current.find((armor) => armor.id === id || (armor.name && armor.name === candidate.name));
-    const armours = exists
-      ? current.map((armor) => (armor.id === exists.id ? { ...armor, ...candidate } : armor))
-      : [...current, candidate];
-    const equipped = armours.find((armor) => armor.id === (exists?.id ?? id)) ?? armours[0];
+    const armours = [...current, candidate];
+    const equipped =
+      (sheet.equippedArmourId ? armours.find((armor) => armor.id === sheet.equippedArmourId) : undefined) ??
+      armours[0];
     setGearActionError("");
     updateSheet({
       ...sheet,
@@ -3959,25 +4013,20 @@ export default function App() {
                 <div className="gear-summary gear-economy">
                   <span>Total Bulk: {gearTotals.bulk}</span>
                   <span>Credits: {sheet.credits ?? 0}</span>
-                  <div className="gear-mode-toggle" role="group" aria-label="Gear mode">
-                    <button
-                      className={gearAcquisitionMode === "buy" ? "primary" : "ghost"}
-                      onClick={() => {
-                        setGearAcquisitionMode("buy");
-                        setGearActionError("");
-                      }}
-                    >
-                      Buy
-                    </button>
-                    <button
-                      className={gearAcquisitionMode === "acquire" ? "primary" : "ghost"}
-                      onClick={() => {
-                        setGearAcquisitionMode("acquire");
-                        setGearActionError("");
-                      }}
-                    >
-                      Acquire
-                    </button>
+                  <div className="gear-mode-toggle switch-wrap" aria-label="Gear mode">
+                    <span className={gearAcquisitionMode === "acquire" ? "mode-active" : "muted"}>Acquire</span>
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={gearAcquisitionMode === "buy"}
+                        onChange={(e) => {
+                          setGearAcquisitionMode(e.target.checked ? "buy" : "acquire");
+                          setGearActionError("");
+                        }}
+                      />
+                      <span className="slider round" />
+                    </label>
+                    <span className={gearAcquisitionMode === "buy" ? "mode-active" : "muted"}>Buy</span>
                   </div>
                   <div className="gear-credit-adjust">
                     <input
@@ -4157,9 +4206,18 @@ export default function App() {
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
-                                  onClick={() => removeWeapon(weaponIndex)}
+                                  title={
+                                    gearAcquisitionMode === "buy"
+                                      ? `Sell Weapon (${unitCost(weapon.cost)} credits)`
+                                      : "Remove"
+                                  }
+                                  onClick={() =>
+                                    removeWeapon(weaponIndex, { sell: gearAcquisitionMode === "buy" })
+                                  }
                                 >
-                                  Remove
+                                  {gearAcquisitionMode === "buy"
+                                    ? `Sell Weapon (${unitCost(weapon.cost)} credits)`
+                                    : "Remove"}
                                 </button>
                               </div>
                               {expanded ? (
@@ -4469,12 +4527,19 @@ export default function App() {
                                   </button>
                                   <button
                                     className="ghost danger armour-action-btn"
+                                    title={
+                                      gearAcquisitionMode === "buy"
+                                        ? `Sell Armour (${unitCost(armor.cost)} credits)`
+                                        : "Remove"
+                                    }
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      removeArmourById(armor.id);
+                                      removeArmourById(armor.id, { sell: gearAcquisitionMode === "buy" });
                                     }}
                                   >
-                                    Remove
+                                    {gearAcquisitionMode === "buy"
+                                      ? `Sell Armour (${unitCost(armor.cost)} credits)`
+                                      : "Remove"}
                                   </button>
                                 </div>
                               </div>
@@ -4850,20 +4915,27 @@ export default function App() {
                                 <div className="inline row-controls" data-no-expand="true">
                                   <button
                                     className="ghost"
-                                    onClick={() =>
-                                      updateInventoryItem(inventoryIndex, {
-                                        quantity: Math.max(0, (gear.quantity ?? 1) - 1),
-                                      })
+                                    title={
+                                      gearAcquisitionMode === "buy"
+                                        ? `Sell ${gear.name || "Item"} (${unitCost(gear.cost)} credits)`
+                                        : "Decrease quantity"
                                     }
+                                    onClick={() => adjustInventoryQuantity(inventoryIndex, -1)}
                                   >
                                     -
                                   </button>
                                   <span>{gear.quantity ?? 1}</span>
                                   <button
                                     className="ghost"
-                                    onClick={() =>
-                                      updateInventoryItem(inventoryIndex, { quantity: (gear.quantity ?? 1) + 1 })
+                                    title={
+                                      gearAcquisitionMode === "buy"
+                                        ? `Buy ${gear.name || "Item"} (${unitCost(gear.cost)} credits)`
+                                        : "Increase quantity"
                                     }
+                                    disabled={
+                                      gearAcquisitionMode === "buy" && !canAffordCost(unitCost(gear.cost))
+                                    }
+                                    onClick={() => adjustInventoryQuantity(inventoryIndex, 1)}
                                   >
                                     +
                                   </button>
@@ -4873,9 +4945,18 @@ export default function App() {
                                 <button
                                   data-no-expand="true"
                                   className="ghost danger"
-                                  onClick={() => removeInventoryItem(inventoryIndex)}
+                                  title={
+                                    gearAcquisitionMode === "buy"
+                                      ? `Sell Gear (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
+                                      : "Remove"
+                                  }
+                                  onClick={() =>
+                                    removeInventoryItem(inventoryIndex, { sell: gearAcquisitionMode === "buy" })
+                                  }
                                 >
-                                  Remove
+                                  {gearAcquisitionMode === "buy"
+                                    ? `Sell Gear (${unitCost(gear.cost) * Math.max(1, gear.quantity ?? 1)} credits)`
+                                    : "Remove"}
                                 </button>
                               </div>
                               {expanded ? (

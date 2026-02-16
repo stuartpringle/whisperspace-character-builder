@@ -1324,3 +1324,66 @@ button:disabled {
 .armour-action-btn {
   padding: 7px 12px;
 }
+
+.switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-active {
+  color: #d8e7ff;
+  font-weight: 600;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: rgba(74, 96, 136, 0.68);
+  transition: 0.2s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #e3efff;
+  transition: 0.2s;
+}
+
+input:checked + .slider {
+  background-color: #4f89e6;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4f89e6;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
