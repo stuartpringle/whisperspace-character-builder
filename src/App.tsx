@@ -1735,6 +1735,12 @@ export default function App() {
         text: "Sign in failed. Check email/password and try again.",
       };
     }
+    if (authError === "invalid_credentials") {
+      return {
+        tone: "error" as const,
+        text: "Username or Password incorrect",
+      };
+    }
     return { tone: "error" as const, text: authError };
   }, [authError]);
 

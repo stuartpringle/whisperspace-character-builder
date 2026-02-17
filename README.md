@@ -187,6 +187,7 @@ npm run dev
 - [done] Removed `CUF Loss` from both Character View and Builder Review Health cards to reduce low-value stat noise.
 
 - [done] On logout/session expiry during builder editing, cloud-only drafts are now cleared from editor view; builder restores only explicitly user-saved local copies (if present), otherwise resets to a blank sheet.
+- [done] Auth dialog login feedback now maps API `invalid_credentials` to user-facing copy: `Username or Password incorrect`.
 
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
