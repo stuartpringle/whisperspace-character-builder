@@ -315,6 +315,7 @@ export default function App() {
   const [skillPointsAdjustError, setSkillPointsAdjustError] = useState<string>("");
   const [creditsAdjustAmount, setCreditsAdjustAmount] = useState<number>(0);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [sessionChecked, setSessionChecked] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>("");
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
@@ -638,7 +639,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    void fetchSession();
+    let active = true;
+    setSessionChecked(false);
+    const run = async () => {
+      await fetchSession();
+      if (active) setSessionChecked(true);
+    };
+    void run();
+    return () => {
+      active = false;
+    };
   }, [apiBase]);
 
   const extractRulesNarrative = (data: any) => {
@@ -3398,11 +3408,12 @@ export default function App() {
   useEffect(() => {
     // Public pages: builder + character view.
     // Protected pages: characters + settings.
+    if (!sessionChecked) return;
     if (user) return;
     if (page === "characters" || page === "settings") {
       navigate("/");
     }
-  }, [page, user]);
+  }, [page, sessionChecked, user]);
 
   const activeMenuPage = page === "view" ? "builder" : page;
   const normalizeHost = (host: string) => host.toLowerCase().replace(/^www\./, "");

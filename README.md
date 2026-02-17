@@ -190,6 +190,7 @@ npm run dev
 - [done] Auth dialog login feedback now maps API `invalid_credentials` to user-facing copy: `Username or Password incorrect`.
 - [done] Logging out from `/character/:id` now redirects to the main builder page (`/`) instead of leaving users on the character-view route.
 - [done] `My Characters` rows now include a direct `Public`/`Private` visibility toggle beside `Copy Link`; `Private` is the default/off state and updates are persisted via the character API.
+- [done] Protected-route refresh behavior fixed: `/characters` and `/settings` no longer bounce to builder during initial session restore; redirects now wait until auth-session check completes.
 
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
