@@ -3979,23 +3979,6 @@ export default function App() {
                   <span>{full?.weapons?.[0]?.name ?? "-"}</span>
                   <span>{full?.armour?.name ?? "-"}</span>
                   <div className="inline character-row-actions">
-                    <span className="copy-link-wrap">
-                      <button
-                        className="ghost"
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard?.writeText(shareUrl);
-                            setCopiedCharacterId(entry.id);
-                            window.setTimeout(() => setCopiedCharacterId((current) => (current === entry.id ? null : current)), 1400);
-                          } catch {
-                            setCharacterListError("Failed to copy link");
-                          }
-                        }}
-                      >
-                        {"Copy\u00A0Link"}
-                      </button>
-                      {copiedCharacterId === entry.id ? <span className="copy-link-tooltip">Copied</span> : null}
-                    </span>
                     <div className="switch-wrap visibility-toggle" aria-label="Character visibility">
                       <label className="switch">
                         <input
@@ -4016,6 +3999,23 @@ export default function App() {
                         {visibilitySaving ? "Saving..." : rowVisibility === "public" ? "Public" : "Private"}
                       </span>
                     </div>
+                    <span className="copy-link-wrap">
+                      <button
+                        className="ghost"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard?.writeText(shareUrl);
+                            setCopiedCharacterId(entry.id);
+                            window.setTimeout(() => setCopiedCharacterId((current) => (current === entry.id ? null : current)), 1400);
+                          } catch {
+                            setCharacterListError("Failed to copy link");
+                          }
+                        }}
+                      >
+                        {"Copy\u00A0Link"}
+                      </button>
+                      {copiedCharacterId === entry.id ? <span className="copy-link-tooltip">Copied</span> : null}
+                    </span>
                     <button
                       className="ghost"
                       onClick={() =>
