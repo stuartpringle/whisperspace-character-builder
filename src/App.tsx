@@ -377,6 +377,7 @@ export default function App() {
   const [viewId, setViewId] = useState<string>("");
   const [viewSheet, setViewSheet] = useState<CharacterSheet | null>(null);
   const [viewError, setViewError] = useState<string>("");
+  const [viewOwnedByUser, setViewOwnedByUser] = useState<boolean>(false);
   const [sharedNavItems, setSharedNavItems] = useState<SharedNavItem[]>(SHARED_NAV_FALLBACK);
   const [gearData, setGearData] = useState<GearData | null>(null);
   const [gearStatus, setGearStatus] = useState<string>("idle");
@@ -3362,6 +3363,28 @@ export default function App() {
   }, [viewId]);
 
   useEffect(() => {
+    if (page !== "view" || !viewId || !user) {
+      setViewOwnedByUser(false);
+      return;
+    }
+    let active = true;
+    const checkOwnership = async () => {
+      try {
+        const summaries = await listCharacters();
+        if (!active) return;
+        setViewOwnedByUser(summaries.some((entry) => entry.id === viewId));
+      } catch {
+        if (!active) return;
+        setViewOwnedByUser(false);
+      }
+    };
+    void checkOwnership();
+    return () => {
+      active = false;
+    };
+  }, [page, user, viewId]);
+
+  useEffect(() => {
     activeSessionUserIdRef.current = user?.id ?? null;
   }, [user]);
 
@@ -3463,13 +3486,25 @@ export default function App() {
   const renderAccountMenu = (builderControls = false) => {
     const builderIsActive = activeMenuPage === "builder";
     const builderLabelClass = builderIsActive ? "primary" : "ghost";
-    const builderLabel = builderControls ? "Character Builder" : "Continue Building";
+    const canEditViewedCharacter = !builderControls && page === "view" && Boolean(viewId) && viewOwnedByUser;
+    const builderLabel = builderControls ? "Character Builder" : canEditViewedCharacter ? "Edit" : "Continue Building";
+    const handleBuilderAction = () => {
+      if (canEditViewedCharacter && viewId) {
+        beginEditorAction({
+          type: "edit",
+          id: viewId,
+          name: viewSheet?.name || "Unnamed Character",
+        });
+        return;
+      }
+      navigate("/");
+    };
 
     if (!user) {
       return (
         <div className="account-block">
           <div className="account-links">
-            <button className={builderLabelClass} onClick={() => navigate("/")}>
+            <button className={builderLabelClass} onClick={handleBuilderAction}>
               {builderLabel}
             </button>
             <button
@@ -3489,7 +3524,7 @@ export default function App() {
     return (
       <div className="account-block">
         <div className="account-links">
-          <button className={builderLabelClass} onClick={() => navigate("/")}>
+          <button className={builderLabelClass} onClick={handleBuilderAction}>
             {builderLabel}
           </button>
           <button

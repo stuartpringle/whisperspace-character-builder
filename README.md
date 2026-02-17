@@ -193,6 +193,7 @@ npm run dev
 - [done] Protected-route refresh behavior fixed: `/characters` and `/settings` no longer bounce to builder during initial session restore; redirects now wait until auth-session check completes.
 - [done] Character visibility control on `My Characters` now uses a real switch toggle (matching Acquire/Buy control language) with state label (`Private`/`Public`), and visibility updates bypass optimistic-lock headers to avoid CORS preflight rejection on `If-Unmodified-Since`.
 - [done] `My Characters` row action order updated so the visibility switch is positioned immediately left of `Copy Link`.
+- [done] On character view pages (`/character/:id`) for owned characters, the header action now switches from `Continue Building` to `Edit` and opens that exact character in builder edit mode.
 
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`
