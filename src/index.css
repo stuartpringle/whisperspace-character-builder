@@ -1385,6 +1385,14 @@ button:disabled {
   gap: 10px;
 }
 
+.visibility-toggle {
+  min-width: 118px;
+}
+
+.visibility-state {
+  min-width: 62px;
+}
+
 .mode-active {
   color: #d8e7ff;
   font-weight: 600;

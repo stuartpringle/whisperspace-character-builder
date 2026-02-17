@@ -191,6 +191,7 @@ npm run dev
 - [done] Logging out from `/character/:id` now redirects to the main builder page (`/`) instead of leaving users on the character-view route.
 - [done] `My Characters` rows now include a direct `Public`/`Private` visibility toggle beside `Copy Link`; `Private` is the default/off state and updates are persisted via the character API.
 - [done] Protected-route refresh behavior fixed: `/characters` and `/settings` no longer bounce to builder during initial session restore; redirects now wait until auth-session check completes.
+- [done] Character visibility control on `My Characters` now uses a real switch toggle (matching Acquire/Buy control language) with state label (`Private`/`Public`), and visibility updates bypass optimistic-lock headers to avoid CORS preflight rejection on `If-Unmodified-Since`.
 
 ## Integration Quick Reference
 - Public app URL: `https://builder.whisperspace.com/`

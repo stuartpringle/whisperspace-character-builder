@@ -3060,7 +3060,10 @@ export default function App() {
     setCharacterListError("");
     setCharacterVisibilitySavingId(entry.id);
     try {
-      const result = await saveCharacter(current, { visibility: nextVisibility });
+      const result = await saveCharacter(current, {
+        visibility: nextVisibility,
+        useOptimisticLock: false,
+      });
       if (!result.ok) {
         if (result.error === "conflict" && result.conflict) {
           const conflict = result.conflict;
@@ -3993,19 +3996,26 @@ export default function App() {
                       </button>
                       {copiedCharacterId === entry.id ? <span className="copy-link-tooltip">Copied</span> : null}
                     </span>
-                    <button
-                      className={rowVisibility === "public" ? "primary" : "ghost"}
-                      onClick={() =>
-                        void toggleCharacterVisibility({
-                          id: entry.id,
-                          visibility: rowVisibility,
-                          name: entry.name || "Unnamed Character",
-                        })
-                      }
-                      disabled={visibilitySaving}
-                    >
-                      {visibilitySaving ? "Saving..." : rowVisibility === "public" ? "Public" : "Private"}
-                    </button>
+                    <div className="switch-wrap visibility-toggle" aria-label="Character visibility">
+                      <label className="switch">
+                        <input
+                          type="checkbox"
+                          checked={rowVisibility === "public"}
+                          onChange={() =>
+                            void toggleCharacterVisibility({
+                              id: entry.id,
+                              visibility: rowVisibility,
+                              name: entry.name || "Unnamed Character",
+                            })
+                          }
+                          disabled={visibilitySaving}
+                        />
+                        <span className="slider round" />
+                      </label>
+                      <span className="mode-active visibility-state">
+                        {visibilitySaving ? "Saving..." : rowVisibility === "public" ? "Public" : "Private"}
+                      </span>
+                    </div>
                     <button
                       className="ghost"
                       onClick={() =>

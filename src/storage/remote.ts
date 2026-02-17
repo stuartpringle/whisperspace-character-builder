@@ -59,7 +59,7 @@ export async function fetchCharacter(id: string): Promise<CharacterSheet> {
 
 export async function saveCharacter(
   sheet: CharacterSheet,
-  opts?: { force?: boolean; visibility?: "private" | "public" }
+  opts?: { force?: boolean; visibility?: "private" | "public"; useOptimisticLock?: boolean }
 ): Promise<SaveResponse> {
   const sanitized: CharacterSheet = {
     ...sheet,
@@ -79,6 +79,7 @@ export async function saveCharacter(
   if (!validation.ok) {
     return { ok: false, error: `validation_failed: ${validation.errors[0]}` };
   }
+  const useOptimisticLock = opts?.useOptimisticLock ?? true;
   const params = new URLSearchParams();
   if (opts?.force) params.set("force", "1");
   if (opts?.visibility) params.set("visibility", opts.visibility);
@@ -87,7 +88,9 @@ export async function saveCharacter(
     method: "PUT",
     headers: {
       ...authHeaders(),
-      "If-Unmodified-Since": sanitized.updatedAt,
+      ...(useOptimisticLock && sanitized.updatedAt
+        ? { "If-Unmodified-Since": sanitized.updatedAt }
+        : {}),
     },
     credentials: "include",
     body: JSON.stringify(sanitized),
