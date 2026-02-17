@@ -57,7 +57,10 @@ export async function fetchCharacter(id: string): Promise<CharacterSheet> {
   return (await res.json()) as CharacterSheet;
 }
 
-export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: boolean }): Promise<SaveResponse> {
+export async function saveCharacter(
+  sheet: CharacterSheet,
+  opts?: { force?: boolean; visibility?: "private" | "public" }
+): Promise<SaveResponse> {
   const sanitized: CharacterSheet = {
     ...sheet,
     weapons: (sheet.weapons ?? []).map(({ gameplayEffects, ...weapon }) => weapon),
@@ -76,7 +79,11 @@ export async function saveCharacter(sheet: CharacterSheet, opts?: { force?: bool
   if (!validation.ok) {
     return { ok: false, error: `validation_failed: ${validation.errors[0]}` };
   }
-  const res = await fetch(`${API_BASE}/characters/${sanitized.id}${opts?.force ? "?force=1" : ""}`, {
+  const params = new URLSearchParams();
+  if (opts?.force) params.set("force", "1");
+  if (opts?.visibility) params.set("visibility", opts.visibility);
+  const query = params.toString();
+  const res = await fetch(`${API_BASE}/characters/${sanitized.id}${query ? `?${query}` : ""}`, {
     method: "PUT",
     headers: {
       ...authHeaders(),

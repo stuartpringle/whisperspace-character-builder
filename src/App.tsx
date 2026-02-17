@@ -351,11 +351,12 @@ export default function App() {
   const [importDragActive, setImportDragActive] = useState<boolean>(false);
   const [characterLimit, setCharacterLimit] = useState<number>(20);
   const [characterSummaries, setCharacterSummaries] = useState<
-    Array<{ id: string; name: string; updatedAt: string }>
+    Array<{ id: string; name: string; updatedAt: string; visibility?: "private" | "public" }>
   >([]);
   const [characterSheetsById, setCharacterSheetsById] = useState<Record<string, CharacterSheet>>({});
   const [characterListLoading, setCharacterListLoading] = useState<boolean>(false);
   const [characterListError, setCharacterListError] = useState<string>("");
+  const [characterVisibilitySavingId, setCharacterVisibilitySavingId] = useState<string | null>(null);
   const [characterSearch, setCharacterSearch] = useState<string>("");
   const [characterSortKey, setCharacterSortKey] = useState<CharacterSortKey>("name");
   const [characterSortDirection, setCharacterSortDirection] = useState<SortDirection>("asc");
@@ -1594,7 +1595,7 @@ export default function App() {
         .toLowerCase()
         .includes(characterSearch.trim().toLowerCase())
     );
-    const getValue = (entry: { id: string; name: string; updatedAt: string }) => {
+    const getValue = (entry: { id: string; name: string; updatedAt: string; visibility?: "private" | "public" }) => {
       const full = characterSheetsById[entry.id];
       if (characterSortKey === "name") return (entry.name || "").toLowerCase();
       if (characterSortKey === "updatedAt") return entry.updatedAt || "";
@@ -3002,7 +3003,7 @@ export default function App() {
         setCharacterListError("");
         localStorage.removeItem("ws_auth_session");
         localStorage.removeItem("ws_auth_session_at");
-        if (page !== "builder" && page !== "view") {
+        if (page !== "builder") {
           navigate("/");
         }
       }
@@ -3031,6 +3032,63 @@ export default function App() {
       setAuthError("reset_request_failed");
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const toggleCharacterVisibility = async (entry: {
+    id: string;
+    visibility?: "private" | "public";
+    name: string;
+  }) => {
+    const currentVisibility = entry.visibility === "public" ? "public" : "private";
+    const nextVisibility = currentVisibility === "public" ? "private" : "public";
+    const current = characterSheetsById[entry.id];
+    if (!current) {
+      setCharacterListError("Unable to update visibility right now. Reload and try again.");
+      return;
+    }
+    setCharacterListError("");
+    setCharacterVisibilitySavingId(entry.id);
+    try {
+      const result = await saveCharacter(current, { visibility: nextVisibility });
+      if (!result.ok) {
+        if (result.error === "conflict" && result.conflict) {
+          const conflict = result.conflict;
+          setCharacterSheetsById((prev) => ({ ...prev, [entry.id]: conflict }));
+          setCharacterSummaries((prev) =>
+            prev.map((row) =>
+              row.id === entry.id
+                ? {
+                    ...row,
+                    updatedAt: conflict.updatedAt || row.updatedAt,
+                    visibility: nextVisibility,
+                  }
+                : row
+            )
+          );
+          setCharacterListError("Character changed elsewhere. Visibility updated using latest version.");
+        } else {
+          setCharacterListError("Failed to update visibility.");
+        }
+        return;
+      }
+      setCharacterSheetsById((prev) => ({ ...prev, [entry.id]: result.sheet }));
+      setCharacterSummaries((prev) =>
+        prev.map((row) =>
+          row.id === entry.id
+            ? {
+                ...row,
+                updatedAt: result.sheet.updatedAt || row.updatedAt,
+                visibility: nextVisibility,
+              }
+            : row
+        )
+      );
+      writeCharacterVisibilityPreference(entry.id, nextVisibility);
+    } catch {
+      setCharacterListError("Failed to update visibility.");
+    } finally {
+      setCharacterVisibilitySavingId((currentId) => (currentId === entry.id ? null : currentId));
     }
   };
 
@@ -3891,6 +3949,8 @@ export default function App() {
             {sortedFilteredCharacters.map((entry) => {
               const full = characterSheetsById[entry.id];
               const shareUrl = `${window.location.origin}/character/${entry.id}`;
+              const rowVisibility = entry.visibility === "public" ? "public" : "private";
+              const visibilitySaving = characterVisibilitySavingId === entry.id;
               return (
                 <div className="character-row" key={entry.id}>
                   <a className="character-name-link" href={shareUrl}>
@@ -3922,6 +3982,19 @@ export default function App() {
                       </button>
                       {copiedCharacterId === entry.id ? <span className="copy-link-tooltip">Copied</span> : null}
                     </span>
+                    <button
+                      className={rowVisibility === "public" ? "primary" : "ghost"}
+                      onClick={() =>
+                        void toggleCharacterVisibility({
+                          id: entry.id,
+                          visibility: rowVisibility,
+                          name: entry.name || "Unnamed Character",
+                        })
+                      }
+                      disabled={visibilitySaving}
+                    >
+                      {visibilitySaving ? "Saving..." : rowVisibility === "public" ? "Public" : "Private"}
+                    </button>
                     <button
                       className="ghost"
                       onClick={() =>
