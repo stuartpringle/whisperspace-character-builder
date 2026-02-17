@@ -157,6 +157,7 @@ npm run dev
 - [done] Gear card hover highlight now applies to both collapsed and expanded cards (weapon/item/armour), and the temporary `.equipped-row` row-only highlight class has been removed.
 - [done] Cloud save visibility now defaults per-character to the last chosen value for that character (when available), instead of always using global default visibility.
 - [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
+- [done] Auth/session isolation hardening: session cache is now always server-validated before trust, character list state is cleared immediately on user-ID changes, and in-flight character-list responses are ignored if account context changes mid-request (prevents cross-account stale character visibility).
 
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
 - [done] `/characters` polish pass: primary CTA label is now `New Character`, the account submenu stays expanded with correct active highlighting on submenu routes (`/characters`, `/settings`), and character rows now use the same hover highlight treatment as other equipment/list rows.

@@ -445,6 +445,8 @@ export default function App() {
   const weaponDragReorderAt = useRef<number>(0);
   const inventoryDragReorderAt = useRef<number>(0);
   const previousUserRef = useRef<AuthUser | null>(null);
+  const activeSessionUserIdRef = useRef<string | null>(null);
+  const previousCharacterListUserIdRef = useRef<string | null>(null);
 
   const diceRoller = useMemo(() => {
     const roller = new ModularDiceRoller();
@@ -594,18 +596,12 @@ export default function App() {
             characterLimit?: number;
             limits?: { characterLimit?: number; maxCharacters?: number; characters?: number };
           };
-          // Trust cache only for positive authenticated session.
-          // If cached user is null, re-check server to avoid stale post-OAuth state.
-          if (payload.user) {
-            setUser(payload.user);
-            const limit =
-              payload.characterLimit ??
-              payload.limits?.characterLimit ??
-              payload.limits?.maxCharacters ??
-              payload.limits?.characters;
-            if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
-            return;
-          }
+          const limit =
+            payload.characterLimit ??
+            payload.limits?.characterLimit ??
+            payload.limits?.maxCharacters ??
+            payload.limits?.characters;
+          if (typeof limit === "number" && limit > 0) setCharacterLimit(limit);
         } catch {
           // ignore cache errors
         }
@@ -613,7 +609,12 @@ export default function App() {
     }
     try {
       const res = await fetch(`${apiBase}/auth/session`, { credentials: "include" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setUser(null);
+        localStorage.removeItem("ws_auth_session");
+        localStorage.removeItem("ws_auth_session_at");
+        return;
+      }
       const payload = (await res.json()) as {
         user: AuthUser | null;
         characterLimit?: number;
@@ -630,6 +631,8 @@ export default function App() {
       localStorage.setItem("ws_auth_session_at", String(Date.now()));
     } catch {
       setUser(null);
+      localStorage.removeItem("ws_auth_session");
+      localStorage.removeItem("ws_auth_session_at");
     }
   };
 
@@ -2851,11 +2854,15 @@ export default function App() {
   };
 
   const refreshCharacterList = async () => {
-    if (!user) return;
+    const ownerUserId = activeSessionUserIdRef.current;
+    if (!ownerUserId) return;
     setCharacterListLoading(true);
     setCharacterListError("");
+    setCharacterSummaries([]);
+    setCharacterSheetsById({});
     try {
       const summaries = await listCharacters();
+      if (activeSessionUserIdRef.current !== ownerUserId) return;
       setCharacterSummaries(summaries);
       const details = await Promise.all(
         summaries.map(async (entry) => {
@@ -2867,6 +2874,7 @@ export default function App() {
           }
         })
       );
+      if (activeSessionUserIdRef.current !== ownerUserId) return;
       const map: Record<string, CharacterSheet> = {};
       details.forEach((pair) => {
         if (!pair) return;
@@ -2878,9 +2886,12 @@ export default function App() {
       });
       setCharacterSheetsById(map);
     } catch (err) {
+      if (activeSessionUserIdRef.current !== ownerUserId) return;
       setCharacterListError(err instanceof Error ? err.message : "Failed to load characters");
     } finally {
-      setCharacterListLoading(false);
+      if (activeSessionUserIdRef.current === ownerUserId) {
+        setCharacterListLoading(false);
+      }
     }
   };
 
@@ -3274,18 +3285,25 @@ export default function App() {
   }, [viewId]);
 
   useEffect(() => {
+    activeSessionUserIdRef.current = user?.id ?? null;
+  }, [user]);
+
+  useEffect(() => {
+    const nextUserId = user?.id ?? null;
+    const previousUserId = previousCharacterListUserIdRef.current;
+    previousCharacterListUserIdRef.current = nextUserId;
+    if (previousUserId === nextUserId) return;
+    setCharacterSummaries([]);
+    setCharacterSheetsById({});
+    setCharacterListError("");
+    setCharacterListLoading(false);
+  }, [user]);
+
+  useEffect(() => {
     if (page === "characters" && user) {
       void refreshCharacterList();
     }
   }, [page, user]);
-
-  useEffect(() => {
-    if (!user) {
-      setCharacterSummaries([]);
-      setCharacterSheetsById({});
-      setCharacterListError("");
-    }
-  }, [user]);
 
   useEffect(() => {
     const previousUser = previousUserRef.current;
