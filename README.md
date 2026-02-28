@@ -159,6 +159,7 @@ npm run dev
 - [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
 - [done] Auth/session isolation hardening: session cache is now always server-validated before trust, character list state is cleared immediately on user-ID changes, and in-flight character-list responses are ignored if account context changes mid-request (prevents cross-account stale character visibility).
 - [done] Added first-class `Nanomancy` builder step (unlocked by `Nanomancy` feat) with primary-field selection, known-effects tracking, preferred ND planning value, and a rules-driven check simulator (DC/range attenuation/stress cost/off-field penalty die/PTSD warning).
+- [done] Feats step now includes a dedicated `Nanomancy` checkbox that adds/removes the `Nanomancy` feat automatically; this directly controls whether the Nanomancy tab is shown.
 - [done] Added canonical character-record `nanomancy` payload support (`primaryField`, `knownEffects[]`, `preferredND`) so cloud saves no longer require metadata hacks.
 
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
