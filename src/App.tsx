@@ -19,9 +19,188 @@ const STEPS: { id: BuilderStep; label: string; hint: string }[] = [
   { id: "origin", label: "Origin", hint: "Concept and start" },
   { id: "archetype", label: "Archetype", hint: "Background and role" },
   { id: "feats", label: "Feats", hint: "Core advantages" },
+  { id: "nanomancy", label: "Nanomancy", hint: "Field and effects" },
   { id: "skills", label: "Skills & Attributes", hint: "Ranks and derived profile" },
   { id: "equipment", label: "Equipment", hint: "Loadout and credits" },
   { id: "review", label: "Review", hint: "Summary" },
+];
+
+type NanomancyField = "burner" | "physic" | "kinetic";
+type RangeBand = "Melee" | "Very Near" | "Near" | "Medium" | "Long" | "Very Long" | "Extreme";
+
+type NanomancyEffect = {
+  id: string;
+  name: string;
+  field: NanomancyField;
+  dc: number | "9-nd" | "counter";
+  range: RangeBand;
+  stressBase: number;
+  stressPerAction: number;
+  actionMin: number;
+  actionMax: number;
+  actionLabel: string;
+  summary: string;
+};
+
+const RANGE_BANDS: RangeBand[] = ["Melee", "Very Near", "Near", "Medium", "Long", "Very Long", "Extreme"];
+const NANOMANCY_FIELDS: NanomancyField[] = ["burner", "physic", "kinetic"];
+const NANOMANCY_EFFECTS: NanomancyEffect[] = [
+  {
+    id: "thermal-bloom",
+    name: "Thermal Bloom",
+    field: "burner",
+    dc: 8,
+    range: "Near",
+    stressBase: 1,
+    stressPerAction: 0,
+    actionMin: 2,
+    actionMax: 2,
+    actionLabel: "2",
+    summary: "Burst of heat; half ND (rounded up) damage within Very Near of target location.",
+  },
+  {
+    id: "absolute-zero",
+    name: "Absolute Zero",
+    field: "burner",
+    dc: 9,
+    range: "Very Near",
+    stressBase: 2,
+    stressPerAction: 0,
+    actionMin: 2,
+    actionMax: 2,
+    actionLabel: "2",
+    summary: "Remove heat; deal 2 * ND damage within melee range of target location.",
+  },
+  {
+    id: "static-burst",
+    name: "Static Burst",
+    field: "burner",
+    dc: 7,
+    range: "Very Near",
+    stressBase: 2,
+    stressPerAction: 1,
+    actionMin: 1,
+    actionMax: 3,
+    actionLabel: "1 to 3",
+    summary: "Chain electricity between targets; ND to first, half ND to others; apply EMP (0 + ND).",
+  },
+  {
+    id: "nullify",
+    name: "Nullify",
+    field: "burner",
+    dc: "counter",
+    range: "Very Near",
+    stressBase: 1,
+    stressPerAction: 0,
+    actionMin: 1,
+    actionMax: 1,
+    actionLabel: "1 reaction",
+    summary: "Counter another Nanomantic Effect. DC equals the incoming Nanomancy roll.",
+  },
+  {
+    id: "regenerative-cloud",
+    name: "Regenerative Cloud",
+    field: "physic",
+    dc: 11,
+    range: "Melee",
+    stressBase: 3,
+    stressPerAction: 1,
+    actionMin: 1,
+    actionMax: 3,
+    actionLabel: "1 to 3",
+    summary: "Area healing over rounds; half ND (rounded up) light wounds each turn in area.",
+  },
+  {
+    id: "knit-together",
+    name: "Knit Together",
+    field: "physic",
+    dc: "9-nd",
+    range: "Melee",
+    stressBase: 2,
+    stressPerAction: 0,
+    actionMin: 2,
+    actionMax: 2,
+    actionLabel: "2",
+    summary: "Heal 1 + half ND (rounded up) light/moderate wounds (heavy on extreme success).",
+  },
+  {
+    id: "exsanguinate",
+    name: "Exsanguinate",
+    field: "physic",
+    dc: 7,
+    range: "Melee",
+    stressBase: 1,
+    stressPerAction: 0,
+    actionMin: 1,
+    actionMax: 1,
+    actionLabel: "1",
+    summary: "Give target Bleeding (0 + ND).",
+  },
+  {
+    id: "horrifying-hallucinations",
+    name: "Horrifying Hallucinations",
+    field: "physic",
+    dc: 9,
+    range: "Melee",
+    stressBase: 2,
+    stressPerAction: 0,
+    actionMin: 2,
+    actionMax: 2,
+    actionLabel: "2",
+    summary: "Impose Blinded for ND rounds; target gains stress each turn while affected.",
+  },
+  {
+    id: "push-pull",
+    name: "Push/Pull",
+    field: "kinetic",
+    dc: 5,
+    range: "Long",
+    stressBase: 1,
+    stressPerAction: 0,
+    actionMin: 2,
+    actionMax: 2,
+    actionLabel: "2",
+    summary: "Move object up to 10 * ND ft; collision deals ND damage.",
+  },
+  {
+    id: "crush",
+    name: "Crush",
+    field: "kinetic",
+    dc: 9,
+    range: "Medium",
+    stressBase: 2,
+    stressPerAction: 0,
+    actionMin: 1,
+    actionMax: 1,
+    actionLabel: "1",
+    summary: "Deal 1 + ND damage (double if target is Immobile).",
+  },
+  {
+    id: "hold",
+    name: "Hold",
+    field: "kinetic",
+    dc: 7,
+    range: "Medium",
+    stressBase: 3,
+    stressPerAction: 0,
+    actionMin: 3,
+    actionMax: 3,
+    actionLabel: "3",
+    summary: "Impose Immobile for ND rounds; target can check to break free.",
+  },
+  {
+    id: "shrapnel",
+    name: "Shrapnel",
+    field: "kinetic",
+    dc: 8,
+    range: "Near",
+    stressBase: 0,
+    stressPerAction: 1,
+    actionMin: 1,
+    actionMax: 3,
+    actionLabel: "1 to 3",
+    summary: "Deal 1 + ND damage in area; extra actions increase the effect range by bands.",
+  },
 ];
 
 const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
@@ -165,6 +344,16 @@ const SCI_FI_CALLSIGNS = [
 const capitalize = (value: string) =>
   value ? `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}` : "";
 const pick = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+const fieldLabel = (field: NanomancyField) => `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
+const hasNanomancyFeat = (sheet: CharacterSheet) =>
+  (sheet.feats ?? []).some((feat) => String(feat.name ?? "").trim().toLowerCase() === "nanomancy");
+const toBandIndex = (band: RangeBand) => RANGE_BANDS.indexOf(band);
+const clampInt = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(value)));
+const resolveNanomancyDC = (dcRule: NanomancyEffect["dc"], nd: number, counterDc: number) => {
+  if (dcRule === "9-nd") return Math.max(0, 9 - nd);
+  if (dcRule === "counter") return Math.max(0, Math.round(counterDc));
+  return dcRule;
+};
 const generateSciFiName = () => {
   const given = capitalize(`${pick(SCI_FI_NAME_PARTS_A)}${pick(SCI_FI_NAME_PARTS_B)}`);
   const surname = capitalize(`${pick(SCI_FI_SURNAME_A)}${pick(SCI_FI_SURNAME_B)}`);
@@ -286,6 +475,12 @@ export default function App() {
   );
   const [sheet, setSheet] = useState<CharacterSheet>(() => loadDraft() ?? createBlankCharacter());
   const [step, setStep] = useState<BuilderStep>("origin");
+  const nanomancyUnlocked = useMemo(() => hasNanomancyFeat(sheet), [sheet]);
+  const [nanomancyEffectId, setNanomancyEffectId] = useState<string>(NANOMANCY_EFFECTS[0]?.id ?? "");
+  const [nanomancyRangeBand, setNanomancyRangeBand] = useState<RangeBand>("Near");
+  const [nanomancyActionsUsed, setNanomancyActionsUsed] = useState<number>(1);
+  const [nanomancyCounterDc, setNanomancyCounterDc] = useState<number>(0);
+  const [nanomancyRollResult, setNanomancyRollResult] = useState<string>("");
   const [importError, setImportError] = useState<string>("");
   const [saveStatus, setSaveStatus] = useState<string>("");
   const [conflictSheet, setConflictSheet] = useState<CharacterSheet | null>(null);
@@ -520,6 +715,7 @@ export default function App() {
       (savedStep === "origin" ||
         savedStep === "archetype" ||
         savedStep === "feats" ||
+        savedStep === "nanomancy" ||
         savedStep === "skills" ||
         savedStep === "equipment" ||
         savedStep === "review")
@@ -531,6 +727,12 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STEP_KEY, step);
   }, [step]);
+
+  useEffect(() => {
+    if (step !== "nanomancy") return;
+    if (nanomancyUnlocked) return;
+    setStep("feats");
+  }, [step, nanomancyUnlocked]);
 
   useEffect(() => {
     const onPop = () => {
@@ -1404,9 +1606,13 @@ export default function App() {
 
  
 
+  const visibleSteps = useMemo(
+    () => STEPS.filter((s) => s.id !== "nanomancy" || nanomancyUnlocked),
+    [nanomancyUnlocked]
+  );
   const currentStepIndex = useMemo(
-    () => STEPS.findIndex((s) => s.id === step),
-    [step]
+    () => Math.max(0, visibleSteps.findIndex((s) => s.id === step)),
+    [visibleSteps, step]
   );
   const gameplaySkillDeltas = useMemo<Record<string, number>>(() => {
     if (!deriveDebug) return {};
@@ -1638,14 +1844,14 @@ export default function App() {
   ]);
 
   const goNext = () => {
-    if (currentStepIndex < STEPS.length - 1) {
-      setStep(STEPS[currentStepIndex + 1].id);
+    if (currentStepIndex < visibleSteps.length - 1) {
+      setStep(visibleSteps[currentStepIndex + 1].id);
     }
   };
 
   const goPrev = () => {
     if (currentStepIndex > 0) {
-      setStep(STEPS[currentStepIndex - 1].id);
+      setStep(visibleSteps[currentStepIndex - 1].id);
     }
   };
 
@@ -2715,6 +2921,82 @@ export default function App() {
     updateSheet({ ...sheet, feats });
   };
 
+  const updateNanomancy = (next: Partial<NonNullable<CharacterSheet["nanomancy"]>>) => {
+    const current = sheet.nanomancy ?? { primaryField: undefined, knownEffects: [], preferredND: 2 };
+    const merged = { ...current, ...next };
+    const sanitized = {
+      primaryField: merged.primaryField,
+      knownEffects: [...new Set((merged.knownEffects ?? []).filter(Boolean))],
+      preferredND: clampInt(Number(merged.preferredND ?? 2), 0, 4),
+    };
+    updateSheet({ ...sheet, nanomancy: sanitized });
+  };
+
+  const toggleNanomancyEffect = (effectId: string, enabled: boolean) => {
+    const current = sheet.nanomancy?.knownEffects ?? [];
+    const next = enabled ? [...current, effectId] : current.filter((id) => id !== effectId);
+    updateNanomancy({ knownEffects: next });
+  };
+
+  const rollNanomancyEffect = () => {
+    if (!nanomancyUnlocked) {
+      setNanomancyRollResult("Nanomancy feat is required before this check can be rolled.");
+      return;
+    }
+    const effect = NANOMANCY_EFFECTS.find((entry) => entry.id === nanomancyEffectId);
+    if (!effect) {
+      setNanomancyRollResult("Select a Nanomantic Effect.");
+      return;
+    }
+    const baseNd = clampInt(Number(sheet.nanomancy?.preferredND ?? 2), 0, 4);
+    const rangeDelta = Math.max(0, toBandIndex(nanomancyRangeBand) - toBandIndex(effect.range));
+    const effectiveNd = Math.max(0, baseNd - rangeDelta);
+    const actions = clampInt(nanomancyActionsUsed, effect.actionMin, effect.actionMax);
+    const stressCost = Math.max(0, effect.stressBase + effect.stressPerAction * actions);
+    const dc = resolveNanomancyDC(effect.dc, effectiveNd, nanomancyCounterDc);
+    const isOffField =
+      !!sheet.nanomancy?.primaryField && sheet.nanomancy?.primaryField !== effect.field;
+    const d1 = Math.floor(Math.random() * 12) + 1;
+    const d2 = Math.floor(Math.random() * 12) + 1;
+    const kept = isOffField ? Math.min(d1, d2) : d1;
+    const modifier = Number(sheet.attributes?.ment ?? 0) + Number(sheet.stress?.current ?? 0);
+    const total = kept + modifier;
+    const delta = total - dc;
+    const currentStress = Number(sheet.stress?.current ?? 0);
+    const projectedStress = currentStress + stressCost;
+    const severeFailureStress = projectedStress + 1;
+    let outcome = "";
+    if (effectiveNd <= 0) {
+      outcome = "Automatic failure (effective ND is 0).";
+    } else if (delta >= 4) {
+      outcome = "Extreme success.";
+    } else if (delta >= 0) {
+      outcome = "Success.";
+    } else if (delta <= -4) {
+      outcome = "Extreme failure.";
+    } else {
+      outcome = "Failure.";
+    }
+
+    const parts = [
+      `${effect.name}: rolled ${kept}${isOffField ? ` (penalty die from off-field use, raw ${d1}/${d2})` : ` (raw ${d1})`}.`,
+      `Total ${total} vs DC ${dc} -> ${outcome}`,
+      `ND ${baseNd} with range attenuation ${rangeDelta} => effective ND ${effectiveNd}.`,
+      `Stress cost: +${stressCost}.`,
+    ];
+    if (outcome === "Extreme failure.") {
+      if (severeFailureStress > 4) {
+        parts.push("Extreme failure rider: take 1 unmitigated damage (instead of the +1 stress).");
+      } else {
+        parts.push("Extreme failure rider: +1 extra stress.");
+      }
+    }
+    if (currentStress >= 6) {
+      parts.push("PTSD rule active: no fine control; effect must resolve at full listed magnitude/area.");
+    }
+    setNanomancyRollResult(parts.join(" "));
+  };
+
   const getCookie = (name: string) => {
     const cookie = document.cookie
       .split(";")
@@ -3149,6 +3431,13 @@ export default function App() {
       wounds: sheet.wounds ?? { light: 0, moderate: 0, heavy: 0 },
       weapons: sheet.weapons ?? [],
       inventory: sheet.inventory ?? [],
+      nanomancy: sheet.nanomancy
+        ? {
+            primaryField: sheet.nanomancy.primaryField,
+            knownEffects: [...new Set(sheet.nanomancy.knownEffects ?? [])],
+            preferredND: clampInt(Number(sheet.nanomancy.preferredND ?? 2), 0, 4),
+          }
+        : undefined,
     };
     const persistedPayload = stripGameplayEffectsForCloud(normalized);
     const validation = validateCharacterRecordV1(persistedPayload);
@@ -3882,6 +4171,32 @@ export default function App() {
                     </li>
                   </ul>
                 </section>
+
+                <section className="review-card">
+                  <h3>Nanomancy</h3>
+                  <ul className="review-list">
+                    <li>
+                      <span>Feat</span>
+                      <strong>{hasNanomancyFeat(viewSheet) ? "Unlocked" : "Not learned"}</strong>
+                    </li>
+                    <li>
+                      <span>Primary Field</span>
+                      <strong>
+                        {viewSheet.nanomancy?.primaryField
+                          ? fieldLabel(viewSheet.nanomancy.primaryField as NanomancyField)
+                          : "-"}
+                      </strong>
+                    </li>
+                    <li>
+                      <span>Preferred ND</span>
+                      <strong>{viewSheet.nanomancy?.preferredND ?? "-"}</strong>
+                    </li>
+                    <li>
+                      <span>Known Effects</span>
+                      <strong>{(viewSheet.nanomancy?.knownEffects ?? []).length}</strong>
+                    </li>
+                  </ul>
+                </section>
               </div>
 
               {viewSheet.background ? (
@@ -4134,7 +4449,7 @@ export default function App() {
       {renderHeader("Character Builder", undefined, true)}
 
       <nav className="steps">
-        {STEPS.map((s, index) => (
+        {visibleSteps.map((s, index) => (
           <button
             key={s.id}
             className={`step ${s.id === step ? "active" : ""}`}
@@ -4310,6 +4625,151 @@ export default function App() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+        )}
+
+        {step === "nanomancy" && (
+          <div className="stack">
+            <h3>Nanomancy Setup</h3>
+            {!nanomancyUnlocked ? (
+              <p className="muted">
+                Add the feat named <strong>Nanomancy</strong> in the Feats tab to unlock this section.
+              </p>
+            ) : (
+              <>
+                <div className="grid two">
+                  <div>
+                    <label>Primary Field</label>
+                    <select
+                      value={sheet.nanomancy?.primaryField ?? ""}
+                      onChange={(e) =>
+                        updateNanomancy({
+                          primaryField: (e.target.value || undefined) as NanomancyField | undefined,
+                        })
+                      }
+                    >
+                      <option value="">Select field...</option>
+                      {NANOMANCY_FIELDS.map((field) => (
+                        <option key={field} value={field}>
+                          {fieldLabel(field)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="muted">
+                      Off-field effects add <strong>+1 penalty die</strong> to the check.
+                    </p>
+                  </div>
+                  <div>
+                    <label>Preferred Local ND (0-4)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={4}
+                      value={sheet.nanomancy?.preferredND ?? 2}
+                      onChange={(e) => updateNanomancy({ preferredND: Number(e.target.value) || 0 })}
+                    />
+                    <p className="muted">
+                      Rules baseline: most locations are ND 2, space is often ND 0.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="stack">
+                  <h3>Known Effects</h3>
+                  {NANOMANCY_FIELDS.map((field) => (
+                    <div key={field} className="reset-block">
+                      <h4>{fieldLabel(field)}</h4>
+                      {NANOMANCY_EFFECTS.filter((effect) => effect.field === field).map((effect) => {
+                        const checked = (sheet.nanomancy?.knownEffects ?? []).includes(effect.id);
+                        return (
+                          <label key={effect.id} className="inline wrap" style={{ alignItems: "flex-start" }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => toggleNanomancyEffect(effect.id, e.target.checked)}
+                            />
+                            <span>
+                              <strong>{effect.name}</strong>{" "}
+                              <span className="muted">
+                                (DC {effect.dc === "9-nd" ? "9 - ND" : effect.dc === "counter" ? "counter roll" : effect.dc},
+                                Range {effect.range}, Stress {effect.stressBase}
+                                {effect.stressPerAction ? ` + ${effect.stressPerAction}/action` : ""}, Actions {effect.actionLabel})
+                              </span>
+                              <br />
+                              <span className="muted">{effect.summary}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="stack">
+                  <h3>Check Simulator</h3>
+                  <div className="grid two">
+                    <div>
+                      <label>Effect</label>
+                      <select
+                        value={nanomancyEffectId}
+                        onChange={(e) => {
+                          const nextId = e.target.value;
+                          setNanomancyEffectId(nextId);
+                          const effect = NANOMANCY_EFFECTS.find((entry) => entry.id === nextId);
+                          if (!effect) return;
+                          setNanomancyActionsUsed(effect.actionMin);
+                          setNanomancyRangeBand(effect.range);
+                        }}
+                      >
+                        {NANOMANCY_EFFECTS.map((effect) => (
+                          <option key={effect.id} value={effect.id}>
+                            {effect.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Target Range Band</label>
+                      <select
+                        value={nanomancyRangeBand}
+                        onChange={(e) => setNanomancyRangeBand(e.target.value as RangeBand)}
+                      >
+                        {RANGE_BANDS.map((band) => (
+                          <option key={band} value={band}>
+                            {band}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Actions Used</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={3}
+                        value={nanomancyActionsUsed}
+                        onChange={(e) => setNanomancyActionsUsed(Number(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div>
+                      <label>Counter DC (Nullify only)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={nanomancyCounterDc}
+                        onChange={(e) => setNanomancyCounterDc(Number(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
+                  <div className="inline wrap">
+                    <button className="ghost" onClick={rollNanomancyEffect}>
+                      Roll Nanomancy Check
+                    </button>
+                  </div>
+                  {nanomancyRollResult ? <p className="muted">{nanomancyRollResult}</p> : null}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -6056,6 +6516,32 @@ export default function App() {
                   </li>
                 </ul>
               </section>
+
+              <section className="review-card">
+                <h3>Nanomancy</h3>
+                <ul className="review-list">
+                  <li>
+                    <span>Feat</span>
+                    <strong>{nanomancyUnlocked ? "Unlocked" : "Not learned"}</strong>
+                  </li>
+                  <li>
+                    <span>Primary Field</span>
+                    <strong>
+                      {sheet.nanomancy?.primaryField
+                        ? fieldLabel(sheet.nanomancy.primaryField as NanomancyField)
+                        : "-"}
+                    </strong>
+                  </li>
+                  <li>
+                    <span>Preferred ND</span>
+                    <strong>{sheet.nanomancy?.preferredND ?? "-"}</strong>
+                  </li>
+                  <li>
+                    <span>Known Effects</span>
+                    <strong>{(sheet.nanomancy?.knownEffects ?? []).length}</strong>
+                  </li>
+                </ul>
+              </section>
             </div>
 
             <div className="review-card">
@@ -6074,14 +6560,14 @@ export default function App() {
           <button
             className="primary"
             onClick={() => {
-              if (currentStepIndex === STEPS.length - 1) {
+              if (currentStepIndex === visibleSteps.length - 1) {
                 void openSaveMenu();
                 return;
               }
               goNext();
             }}
           >
-            {currentStepIndex === STEPS.length - 1 ? "Save" : "Next"}
+            {currentStepIndex === visibleSteps.length - 1 ? "Save" : "Next"}
           </button>
         </div>
       </section>

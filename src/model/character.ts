@@ -111,6 +111,11 @@ export type CharacterSheet = {
   }>;
   indomitable: boolean;
   notes: string;
+  nanomancy?: {
+    primaryField?: "burner" | "physic" | "kinetic";
+    knownEffects?: string[];
+    preferredND?: number;
+  };
   createdAt: string;
   updatedAt: string;
   version: 1;
@@ -120,6 +125,7 @@ export type BuilderStep =
   | "origin"
   | "archetype"
   | "feats"
+  | "nanomancy"
   | "skills"
   | "equipment"
   | "review";
@@ -151,6 +157,11 @@ export function createBlankCharacter(): CharacterSheet {
     feats: [],
     indomitable: false,
     notes: "",
+    nanomancy: {
+      primaryField: undefined,
+      knownEffects: [],
+      preferredND: 2,
+    },
     createdAt: now,
     updatedAt: now,
     version: 1,

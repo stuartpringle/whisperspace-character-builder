@@ -158,6 +158,8 @@ npm run dev
 - [done] Cloud save visibility now defaults per-character to the last chosen value for that character (when available), instead of always using global default visibility.
 - [done] Character list/fetch calls now force cookie-session auth (`credentials: include`) to prevent cross-account list leakage from stale API-key auth contexts.
 - [done] Auth/session isolation hardening: session cache is now always server-validated before trust, character list state is cleared immediately on user-ID changes, and in-flight character-list responses are ignored if account context changes mid-request (prevents cross-account stale character visibility).
+- [done] Added first-class `Nanomancy` builder step (unlocked by `Nanomancy` feat) with primary-field selection, known-effects tracking, preferred ND planning value, and a rules-driven check simulator (DC/range attenuation/stress cost/off-field penalty die/PTSD warning).
+- [done] Added canonical character-record `nanomancy` payload support (`primaryField`, `knownEffects[]`, `preferredND`) so cloud saves no longer require metadata hacks.
 
 - [done] Character list now includes `Delete` actions, `Copy Link` click feedback (`Copied` tooltip), and auth modal Enter-to-login behavior on the password field; auth now returns to Save only when login was initiated from Save flow.
 - [done] `/characters` polish pass: primary CTA label is now `New Character`, the account submenu stays expanded with correct active highlighting on submenu routes (`/characters`, `/settings`), and character rows now use the same hover highlight treatment as other equipment/list rows.
@@ -209,6 +211,7 @@ npm run dev
 
 ## API/Schema Contracts
 - Canonical character schema is from `@whisperspace/sdk` (`CharacterRecordV1`).
+- Nanomancy schema contract (optional): `nanomancy.primaryField` (`burner|physic|kinetic`), `nanomancy.knownEffects` (`string[]`), `nanomancy.preferredND` (`number`).
 - Client-side validation runs before save via `validateCharacterRecordV1`.
 - Save visibility values sent to character API: `private` or `public`.
 
