@@ -2924,20 +2924,6 @@ export default function App() {
     updateSheet({ ...sheet, feats });
   };
 
-  const setNanomancyFeatEnabled = (enabled: boolean) => {
-    const feats = [...(sheet.feats ?? [])];
-    const index = feats.findIndex((feat) => isNanomancyFeat(feat.name));
-    if (enabled) {
-      if (index >= 0) return;
-      feats.push({ name: NANOMANCY_FEAT_NAME, description: "", gameplayEffects: [] });
-      updateSheet({ ...sheet, feats });
-      return;
-    }
-    if (index < 0) return;
-    feats.splice(index, 1);
-    updateSheet({ ...sheet, feats });
-  };
-
   const updateNanomancy = (next: Partial<NonNullable<CharacterSheet["nanomancy"]>>) => {
     const current = sheet.nanomancy ?? { primaryField: undefined, knownEffects: [], preferredND: 2 };
     const merged = { ...current, ...next };
@@ -4611,18 +4597,6 @@ export default function App() {
 
         {step === "feats" && (
           <div className="stack">
-            <label className="inline wrap" style={{ alignItems: "center" }}>
-              <input
-                type="checkbox"
-                checked={nanomancyUnlocked}
-                onChange={(e) => setNanomancyFeatEnabled(e.target.checked)}
-              />
-              <span>
-                <strong>Nanomancy</strong>
-                <br />
-                <span className="muted">Enable the Nanomancy tab and setup flow.</span>
-              </span>
-            </label>
             <div className="inline wrap">
               <button className="ghost" onClick={addFeat}>
                 Add Feat
