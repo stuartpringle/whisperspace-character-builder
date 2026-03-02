@@ -218,6 +218,11 @@ npm run dev
 
 ## Auth Expectations
 - Browser-session auth uses cookies (`credentials: include` on auth/character endpoints).
+- `GET /character-api/auth/session` returns both user session and CSRF material:
+  - unauthenticated: `{ "user": null, "csrfToken": "<token>" }`
+  - authenticated: `{ "user": { "id": "<uuid>", "email": "<email>" }, "csrfToken": "<token>" }`
+- `GET /character-api/auth/csrf` returns `{ "csrfToken": "<token>", "authenticated": <boolean> }` for clients that need an explicit CSRF bootstrap endpoint.
+- State-changing character API calls must send `X-CSRF-Token` that matches the current `ws_csrf` token.
 - CSRF token is read from `ws_csrf` cookie and sent as `X-CSRF-Token` on sensitive requests.
 - Some storage helpers also support bearer token usage from `localStorage.ws_character_api_key` for API-style calls.
 - OAuth entrypoint used by UI: `${VITE_CHARACTER_API_BASE}/auth/oauth/google`.
