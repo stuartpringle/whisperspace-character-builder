@@ -41,6 +41,11 @@ type NanomancyEffect = {
   actionLabel: string;
   summary: string;
 };
+type NanomancyEffectConfig = {
+  rangeBand: RangeBand;
+  actionsUsed: number;
+  counterDc: number;
+};
 
 const RANGE_BANDS: RangeBand[] = ["Melee", "Very Near", "Near", "Medium", "Long", "Very Long", "Extreme"];
 const NANOMANCY_FIELDS: NanomancyField[] = ["burner", "physic", "kinetic"];
@@ -479,10 +484,11 @@ export default function App() {
   const [sheet, setSheet] = useState<CharacterSheet>(() => loadDraft() ?? createBlankCharacter());
   const [step, setStep] = useState<BuilderStep>("origin");
   const nanomancyUnlocked = useMemo(() => hasNanomancyFeat(sheet), [sheet]);
-  const [nanomancyEffectId, setNanomancyEffectId] = useState<string>(NANOMANCY_EFFECTS[0]?.id ?? "");
-  const [nanomancyRangeBand, setNanomancyRangeBand] = useState<RangeBand>("Near");
-  const [nanomancyActionsUsed, setNanomancyActionsUsed] = useState<number>(1);
-  const [nanomancyCounterDc, setNanomancyCounterDc] = useState<number>(0);
+  const [nanomancyNetDice, setNanomancyNetDice] = useState<-2 | -1 | 0 | 1 | 2>(0);
+  const [nanomancyEffectsKnown, setNanomancyEffectsKnown] = useState<number>(2);
+  const [nanomancyConfigs, setNanomancyConfigs] = useState<Record<string, NanomancyEffectConfig>>({});
+  const [nanomancyAddOpen, setNanomancyAddOpen] = useState<boolean>(false);
+  const [nanomancyAddEffectId, setNanomancyAddEffectId] = useState<string>("");
   const [nanomancyRollResult, setNanomancyRollResult] = useState<string>("");
   const [importError, setImportError] = useState<string>("");
   const [saveStatus, setSaveStatus] = useState<string>("");
@@ -2935,33 +2941,96 @@ export default function App() {
     updateSheet({ ...sheet, nanomancy: sanitized });
   };
 
-  const toggleNanomancyEffect = (effectId: string, enabled: boolean) => {
-    const current = sheet.nanomancy?.knownEffects ?? [];
-    const next = enabled ? [...current, effectId] : current.filter((id) => id !== effectId);
+  const nanomancyEffectMeta = (effect: NanomancyEffect) => {
+    return `DC ${effect.dc === "9-nd" ? "9 - ND" : effect.dc === "counter" ? "counter roll" : effect.dc}, Range ${effect.range}, Stress ${effect.stressBase}${effect.stressPerAction ? ` + ${effect.stressPerAction}/action` : ""}, Actions ${effect.actionLabel}`;
+  };
+
+  const knownNanomancyEffects = useMemo(() => {
+    const known = new Set(sheet.nanomancy?.knownEffects ?? []);
+    return NANOMANCY_EFFECTS.filter((effect) => known.has(effect.id));
+  }, [sheet.nanomancy?.knownEffects]);
+
+  const availableNanomancyEffects = useMemo(() => {
+    const known = new Set(sheet.nanomancy?.knownEffects ?? []);
+    return NANOMANCY_EFFECTS.filter((effect) => !known.has(effect.id));
+  }, [sheet.nanomancy?.knownEffects]);
+
+  useEffect(() => {
+    if (!nanomancyUnlocked) return;
+    setNanomancyEffectsKnown((prev) => Math.max(prev, (sheet.nanomancy?.knownEffects ?? []).length || 2));
+  }, [nanomancyUnlocked, sheet.nanomancy?.knownEffects]);
+
+  useEffect(() => {
+    if (!nanomancyAddOpen) return;
+    if (availableNanomancyEffects.length <= 0) {
+      setNanomancyAddEffectId("");
+      return;
+    }
+    if (!availableNanomancyEffects.some((effect) => effect.id === nanomancyAddEffectId)) {
+      setNanomancyAddEffectId(availableNanomancyEffects[0]?.id ?? "");
+    }
+  }, [nanomancyAddOpen, nanomancyAddEffectId, availableNanomancyEffects]);
+
+  const getNanomancyConfig = (effect: NanomancyEffect): NanomancyEffectConfig => {
+    const config = nanomancyConfigs[effect.id];
+    return {
+      rangeBand: (config?.rangeBand ?? effect.range) as RangeBand,
+      actionsUsed: clampInt(Number(config?.actionsUsed ?? effect.actionMin), effect.actionMin, effect.actionMax),
+      counterDc: Math.max(0, Math.trunc(Number(config?.counterDc ?? 0))),
+    };
+  };
+
+  const patchNanomancyConfig = (effect: NanomancyEffect, patch: Partial<NanomancyEffectConfig>) => {
+    const current = getNanomancyConfig(effect);
+    setNanomancyConfigs((prev) => ({
+      ...prev,
+      [effect.id]: {
+        rangeBand: (patch.rangeBand ?? current.rangeBand) as RangeBand,
+        actionsUsed: clampInt(
+          Number(patch.actionsUsed ?? current.actionsUsed),
+          effect.actionMin,
+          effect.actionMax
+        ),
+        counterDc: Math.max(0, Math.trunc(Number(patch.counterDc ?? current.counterDc))),
+      },
+    }));
+  };
+
+  const addKnownNanomancyEffect = (effectId: string) => {
+    if (!effectId) return;
+    const next = [...new Set([...(sheet.nanomancy?.knownEffects ?? []), effectId])];
+    updateNanomancy({ knownEffects: next });
+    setNanomancyAddOpen(false);
+  };
+
+  const removeKnownNanomancyEffect = (effectId: string) => {
+    const next = (sheet.nanomancy?.knownEffects ?? []).filter((id) => id !== effectId);
     updateNanomancy({ knownEffects: next });
   };
 
-  const rollNanomancyEffect = () => {
+  const rollNanomancyEffect = (effectId: string) => {
     if (!nanomancyUnlocked) {
       setNanomancyRollResult("Nanomancy feat is required before this check can be rolled.");
       return;
     }
-    const effect = NANOMANCY_EFFECTS.find((entry) => entry.id === nanomancyEffectId);
+    const effect = NANOMANCY_EFFECTS.find((entry) => entry.id === effectId);
     if (!effect) {
       setNanomancyRollResult("Select a Nanomantic Effect.");
       return;
     }
+    const config = getNanomancyConfig(effect);
     const baseNd = clampInt(Number(sheet.nanomancy?.preferredND ?? 2), 0, 4);
-    const rangeDelta = Math.max(0, toBandIndex(nanomancyRangeBand) - toBandIndex(effect.range));
+    const rangeDelta = Math.max(0, toBandIndex(config.rangeBand) - toBandIndex(effect.range));
     const effectiveNd = Math.max(0, baseNd - rangeDelta);
-    const actions = clampInt(nanomancyActionsUsed, effect.actionMin, effect.actionMax);
+    const actions = clampInt(config.actionsUsed, effect.actionMin, effect.actionMax);
     const stressCost = Math.max(0, effect.stressBase + effect.stressPerAction * actions);
-    const dc = resolveNanomancyDC(effect.dc, effectiveNd, nanomancyCounterDc);
+    const dc = resolveNanomancyDC(effect.dc, effectiveNd, config.counterDc);
     const isOffField =
       !!sheet.nanomancy?.primaryField && sheet.nanomancy?.primaryField !== effect.field;
-    const d1 = Math.floor(Math.random() * 12) + 1;
-    const d2 = Math.floor(Math.random() * 12) + 1;
-    const kept = isOffField ? Math.min(d1, d2) : d1;
+    const netDice = clampInt(nanomancyNetDice + (isOffField ? -1 : 0), -3, 3);
+    const rollCount = 1 + Math.abs(netDice);
+    const rolls = Array.from({ length: rollCount }, () => Math.floor(Math.random() * 12) + 1);
+    const kept = netDice > 0 ? Math.max(...rolls) : netDice < 0 ? Math.min(...rolls) : rolls[0];
     const modifier = Number(sheet.attributes?.ment ?? 0) + Number(sheet.stress?.current ?? 0);
     const total = kept + modifier;
     const delta = total - dc;
@@ -2982,11 +3051,14 @@ export default function App() {
     }
 
     const parts = [
-      `${effect.name}: rolled ${kept}${isOffField ? ` (penalty die from off-field use, raw ${d1}/${d2})` : ` (raw ${d1})`}.`,
+      `${effect.name}: rolled ${kept} (raw ${rolls.join("/")}, net dice ${netDice}).`,
       `Total ${total} vs DC ${dc} -> ${outcome}`,
       `ND ${baseNd} with range attenuation ${rangeDelta} => effective ND ${effectiveNd}.`,
       `Stress cost: +${stressCost}.`,
     ];
+    if (isOffField) {
+      parts.push("Off-field cast: +1 penalty die applied.");
+    }
     if (outcome === "Extreme failure.") {
       if (severeFailureStress > 4) {
         parts.push("Extreme failure rider: take 1 unmitigated damage (instead of the +1 stress).");
@@ -4664,7 +4736,7 @@ export default function App() {
                     </p>
                   </div>
                   <div>
-                    <label>Preferred Local ND (0-4)</label>
+                    <label>Current ND (0-4)</label>
                     <input
                       type="number"
                       min={0}
@@ -4672,106 +4744,157 @@ export default function App() {
                       value={sheet.nanomancy?.preferredND ?? 2}
                       onChange={(e) => updateNanomancy({ preferredND: Number(e.target.value) || 0 })}
                     />
-                    <p className="muted">
-                      Rules baseline: most locations are ND 2, space is often ND 0.
-                    </p>
                   </div>
                 </div>
 
                 <div className="stack">
-                  <h3>Known Effects</h3>
-                  {NANOMANCY_FIELDS.map((field) => (
-                    <div key={field} className="reset-block">
-                      <h4>{fieldLabel(field)}</h4>
-                      {NANOMANCY_EFFECTS.filter((effect) => effect.field === field).map((effect) => {
-                        const checked = (sheet.nanomancy?.knownEffects ?? []).includes(effect.id);
+                  <div className="inline wrap" style={{ alignItems: "flex-end", justifyContent: "space-between" }}>
+                    <div className="inline wrap" style={{ alignItems: "flex-end" }}>
+                      <div>
+                        <label>Nanomantic Effects Known</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={nanomancyEffectsKnown}
+                          onChange={(e) => setNanomancyEffectsKnown(Math.max(0, Math.trunc(Number(e.target.value || 0))))}
+                        />
+                      </div>
+                      <div>
+                        <label>Bonus / Penalty Dice</label>
+                        <select
+                          value={nanomancyNetDice}
+                          onChange={(e) => setNanomancyNetDice(Number(e.target.value) as -2 | -1 | 0 | 1 | 2)}
+                        >
+                          <option value={-2}>-2</option>
+                          <option value={-1}>-1</option>
+                          <option value={0}>0</option>
+                          <option value={1}>+1</option>
+                          <option value={2}>+2</option>
+                        </select>
+                      </div>
+                    </div>
+                    {(sheet.nanomancy?.knownEffects?.length ?? 0) < nanomancyEffectsKnown &&
+                      availableNanomancyEffects.length > 0 ? (
+                        <button className="ghost" onClick={() => setNanomancyAddOpen(true)}>
+                          Add Effect
+                        </button>
+                    ) : null}
+                  </div>
+
+                  {(sheet.nanomancy?.knownEffects?.length ?? 0) <= 0 ? (
+                    <p className="muted">No known effects selected yet.</p>
+                  ) : (
+                    <div className="stack">
+                      {knownNanomancyEffects.map((effect) => {
+                        const cfg = getNanomancyConfig(effect);
                         return (
-                          <label key={effect.id} className="inline wrap" style={{ alignItems: "flex-start" }}>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => toggleNanomancyEffect(effect.id, e.target.checked)}
-                            />
-                            <span>
-                              <strong>{effect.name}</strong>{" "}
-                              <span className="muted">
-                                (DC {effect.dc === "9-nd" ? "9 - ND" : effect.dc === "counter" ? "counter roll" : effect.dc},
-                                Range {effect.range}, Stress {effect.stressBase}
-                                {effect.stressPerAction ? ` + ${effect.stressPerAction}/action` : ""}, Actions {effect.actionLabel})
-                              </span>
-                              <br />
-                              <span className="muted">{effect.summary}</span>
-                            </span>
-                          </label>
+                          <div key={effect.id} className="reset-block">
+                            <div className="inline wrap" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div>
+                                <h4 style={{ marginBottom: 6 }}>{effect.name}</h4>
+                                <p className="muted">{nanomancyEffectMeta(effect)}</p>
+                                <p className="muted">{effect.summary}</p>
+                              </div>
+                            </div>
+                            <div className="grid two">
+                              <div>
+                                <label>Target Range Band</label>
+                                <select
+                                  value={cfg.rangeBand}
+                                  onChange={(e) => patchNanomancyConfig(effect, { rangeBand: e.target.value as RangeBand })}
+                                >
+                                  {RANGE_BANDS.map((band) => (
+                                    <option key={band} value={band}>
+                                      {band}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label>Actions Used</label>
+                                <input
+                                  type="number"
+                                  min={effect.actionMin}
+                                  max={effect.actionMax}
+                                  value={cfg.actionsUsed}
+                                  onChange={(e) => patchNanomancyConfig(effect, { actionsUsed: Number(e.target.value || effect.actionMin) })}
+                                />
+                              </div>
+                              {effect.dc === "counter" ? (
+                                <div>
+                                  <label>Counter DC</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={cfg.counterDc}
+                                    onChange={(e) => patchNanomancyConfig(effect, { counterDc: Number(e.target.value || 0) })}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                            <div className="inline wrap">
+                              <button className="ghost" onClick={() => rollNanomancyEffect(effect.id)}>
+                                Use
+                              </button>
+                              <button className="ghost danger" onClick={() => removeKnownNanomancyEffect(effect.id)}>
+                                Remove
+                              </button>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
-                  ))}
-                </div>
+                  )}
 
-                <div className="stack">
-                  <h3>Check Simulator</h3>
-                  <div className="grid two">
-                    <div>
-                      <label>Effect</label>
-                      <select
-                        value={nanomancyEffectId}
-                        onChange={(e) => {
-                          const nextId = e.target.value;
-                          setNanomancyEffectId(nextId);
-                          const effect = NANOMANCY_EFFECTS.find((entry) => entry.id === nextId);
-                          if (!effect) return;
-                          setNanomancyActionsUsed(effect.actionMin);
-                          setNanomancyRangeBand(effect.range);
-                        }}
-                      >
-                        {NANOMANCY_EFFECTS.map((effect) => (
-                          <option key={effect.id} value={effect.id}>
-                            {effect.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label>Target Range Band</label>
-                      <select
-                        value={nanomancyRangeBand}
-                        onChange={(e) => setNanomancyRangeBand(e.target.value as RangeBand)}
-                      >
-                        {RANGE_BANDS.map((band) => (
-                          <option key={band} value={band}>
-                            {band}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label>Actions Used</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={3}
-                        value={nanomancyActionsUsed}
-                        onChange={(e) => setNanomancyActionsUsed(Number(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div>
-                      <label>Counter DC (Nullify only)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={nanomancyCounterDc}
-                        onChange={(e) => setNanomancyCounterDc(Number(e.target.value) || 0)}
-                      />
-                    </div>
-                  </div>
-                  <div className="inline wrap">
-                    <button className="ghost" onClick={rollNanomancyEffect}>
-                      Roll Nanomancy Check
-                    </button>
-                  </div>
                   {nanomancyRollResult ? <p className="muted">{nanomancyRollResult}</p> : null}
                 </div>
+
+                {nanomancyAddOpen ? (
+                  <div className="modal" onClick={() => setNanomancyAddOpen(false)}>
+                    <div className="modal-card cut-corner-padded" onClick={(event) => event.stopPropagation()}>
+                      <div className="modal-header">
+                        <h3>Add Nanomantic Effect</h3>
+                        <button className="ghost" onClick={() => setNanomancyAddOpen(false)}>Close</button>
+                      </div>
+                      <div className="stack">
+                        <div>
+                          <label>Effect</label>
+                          <select
+                            value={nanomancyAddEffectId}
+                            onChange={(e) => setNanomancyAddEffectId(e.target.value)}
+                          >
+                            {availableNanomancyEffects.map((effect) => (
+                              <option key={effect.id} value={effect.id}>
+                                {effect.name} ({fieldLabel(effect.field)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {nanomancyAddEffectId ? (
+                          (() => {
+                            const selected = NANOMANCY_EFFECTS.find((effect) => effect.id === nanomancyAddEffectId);
+                            if (!selected) return null;
+                            return (
+                              <>
+                                <p className="muted">{nanomancyEffectMeta(selected)}</p>
+                                <p>{selected.summary}</p>
+                              </>
+                            );
+                          })()
+                        ) : null}
+                        <div className="inline wrap">
+                          <button
+                            className="ghost"
+                            onClick={() => addKnownNanomancyEffect(nanomancyAddEffectId)}
+                            disabled={!nanomancyAddEffectId}
+                          >
+                            Add Effect
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
           </div>
